@@ -26,13 +26,15 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Building2, TrendingUp, LifeBuoy, Sparkles,
 };
 
+import { LiquidMobileNavbar } from "@/components/layout/liquid-mobile-navbar";
+
 interface NavItem {
   readonly label: string;
   readonly href: string;
   readonly icon: string;
 }
 
-function SidebarContent({
+export function SidebarContent({
   nav,
   collapsed,
   pathname,
@@ -208,10 +210,16 @@ export default function DashboardLayout({
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
           {children}
         </main>
       </div>
+
+      {/* Floating Liquid Glass Mobile Bottom Navbar */}
+      <LiquidMobileNavbar
+        nav={nav}
+        SidebarContentComponent={SidebarContent}
+      />
     </div>
   );
 }
