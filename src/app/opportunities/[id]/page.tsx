@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
-export default function OpportunityDetailPage({ params }: { params: { id: string } }) {
+function OpportunityDetailContent({ params }: { params: { id: string } }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const autoApply = searchParams.get("apply") === "true";
@@ -238,7 +238,7 @@ This event is eligible for official community service hour verification certific
         </div>
       </div>
 
-      {/* Auth Modal (Triggered when non-logged-in user clicks Apply) */}
+      {/* Auth Modal */}
       <Dialog open={showAuthModal} onOpenChange={setShowAuthModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader className="space-y-3">
@@ -269,7 +269,7 @@ This event is eligible for official community service hour verification certific
         </DialogContent>
       </Dialog>
 
-      {/* Application Submission Modal (Triggered for logged-in user) */}
+      {/* Application Modal */}
       <Dialog open={showApplyModal} onOpenChange={setShowApplyModal}>
         <DialogContent className="sm:max-w-lg">
           <form onSubmit={handleConfirmApplication}>
@@ -327,5 +327,13 @@ This event is eligible for official community service hour verification certific
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function OpportunityDetailPage({ params }: { params: { id: string } }) {
+  return (
+    <React.Suspense fallback={<div className="py-20 text-center text-sm text-muted-foreground">Loading opportunity...</div>}>
+      <OpportunityDetailContent params={params} />
+    </React.Suspense>
   );
 }
