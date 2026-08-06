@@ -31,10 +31,10 @@ export function CTA() {
             </p>
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
-                href="/register"
+                href="/opportunities/signup"
                 className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 text-sm font-semibold text-primary shadow-md hover:bg-white/90 transition-all hover:shadow-lg hover:-translate-y-0.5"
               >
-                Start Volunteering
+                Sign Up for Opportunities
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
