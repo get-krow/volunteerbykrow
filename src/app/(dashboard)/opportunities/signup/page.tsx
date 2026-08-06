@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Sparkles, Heart, CheckCircle2, ArrowRight, User, Mail, Lock, Phone, MapPin, ShieldCheck, Loader2 } from "lucide-react";
+import { Sparkles, Heart, CheckCircle2, ArrowRight, User, Mail, Lock, Phone, MapPin, ShieldCheck, Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -58,6 +58,15 @@ export default function OpportunitySignupPage() {
 
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto space-y-10">
+      {/* Back to Dashboard Button */}
+      <div>
+        <Link href="/volunteer">
+          <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground font-medium">
+            <ArrowLeft className="w-4 h-4" /> Back to Dashboard
+          </Button>
+        </Link>
+      </div>
+
       {/* Header */}
       <div className="text-center max-w-2xl mx-auto space-y-4">
         <div className="flex justify-center mb-2">
