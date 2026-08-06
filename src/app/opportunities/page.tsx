@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Search, MapPin, Calendar, Clock, Filter, Sparkles, Building2 } from "lucide-react";
+import { Search, MapPin, Calendar, Clock, Filter, Sparkles, Building2, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -208,12 +208,29 @@ export default function OpportunitiesPage() {
                   {opp.spots_left} spots left
                 </span>
                 <Link href={`/opportunities/${opp.id}`}>
-                  <Button size="sm">Apply Now</Button>
+                  <Button size="sm" className="gap-1.5 font-semibold">
+                    Apply Now <ArrowRight className="w-4 h-4" />
+                  </Button>
                 </Link>
               </CardFooter>
             </Card>
           </motion.div>
         ))}
+      </div>
+
+      {/* Pagination / Next Page Controls */}
+      <div className="pt-8 border-t border-border flex items-center justify-between">
+        <Button variant="outline" size="sm" disabled className="gap-1 font-semibold">
+          <ChevronLeft className="w-4 h-4" /> Previous
+        </Button>
+        <div className="text-xs text-muted-foreground font-medium">
+          Showing 1 - {filteredOpportunities.length} of {filteredOpportunities.length} opportunities
+        </div>
+        <Link href="/opportunities">
+          <Button variant="default" size="sm" className="gap-1.5 font-semibold">
+            Next Page <ArrowRight className="w-4 h-4" />
+          </Button>
+        </Link>
       </div>
     </div>
   );
