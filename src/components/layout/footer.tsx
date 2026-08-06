@@ -6,8 +6,8 @@ const footerLinks = {
   platform: [
     { label: "Browse Opportunities", href: "/opportunities" },
     { label: "Organizations", href: "/organizations" },
+    { label: "About Us", href: "/about" },
     { label: "How It Works", href: "/#how-it-works" },
-    { label: "Pricing", href: "/pricing" },
   ],
   resources: [
     { label: "Help Center", href: "/help" },

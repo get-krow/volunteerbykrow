@@ -2,15 +2,52 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, MapPin, Calendar, Clock, Building2, Share2, Heart, CheckCircle2, ShieldCheck, Users } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Clock, Building2, Share2, Heart, CheckCircle2, ShieldCheck, LogIn, UserPlus, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
 
 export default function OpportunityDetailPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const autoApply = searchParams.get("apply") === "true";
+
   const [applied, setApplied] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
+  const [user, setUser] = React.useState<any>(null);
+  const [checkingAuth, setCheckingAuth] = React.useState(true);
+
+  // Modals
+  const [showAuthModal, setShowAuthModal] = React.useState(false);
+  const [showApplyModal, setShowApplyModal] = React.useState(false);
+
+  // Application Form
+  const [notes, setNotes] = React.useState("");
+  const [phone, setPhone] = React.useState("");
+  const [submitting, setSubmitting] = React.useState(false);
+
+  const supabase = createClient();
+
+  React.useEffect(() => {
+    async function checkUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      setCheckingAuth(false);
+
+      if (user && autoApply) {
+        setShowApplyModal(true);
+      }
+    }
+    checkUser();
+  }, [autoApply]);
 
   const opp = {
     id: params.id,
@@ -41,6 +78,28 @@ This event is eligible for official community service hour verification certific
       "Able to walk on uneven sandy terrain for up to 3 hours",
       "Bring reusable water bottle and sunscreen",
     ],
+  };
+
+  const handleApplyClick = () => {
+    if (!user) {
+      setShowAuthModal(true);
+    } else {
+      setShowApplyModal(true);
+    }
+  };
+
+  const handleConfirmApplication = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+
+    setTimeout(() => {
+      setSubmitting(false);
+      setShowApplyModal(false);
+      setApplied(true);
+      toast.success("Application Submitted!", {
+        description: "Green Earth Foundation has received your application and will send confirmation details shortly.",
+      });
+    }, 1000);
   };
 
   return (
@@ -139,7 +198,7 @@ This event is eligible for official community service hour verification certific
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Capacity</span>
                 <span className="font-medium text-foreground">
-                  {opp.capacity - opp.spots_filled} spots remaining ({opp.capacity} total)
+                  {opp.capacity - opp.spots_filled} spots remaining
                 </span>
               </div>
             </div>
@@ -149,8 +208,8 @@ This event is eligible for official community service hour verification certific
             <div className="space-y-3">
               <Button
                 className="w-full h-11 text-base font-semibold"
-                disabled={applied}
-                onClick={() => setApplied(true)}
+                disabled={applied || checkingAuth}
+                onClick={handleApplyClick}
               >
                 {applied ? "Application Submitted ✓" : "Apply for Opportunity"}
               </Button>
@@ -158,12 +217,19 @@ This event is eligible for official community service hour verification certific
                 <Button
                   variant="outline"
                   className="flex-1 gap-2"
-                  onClick={() => setSaved(!saved)}
+                  onClick={() => {
+                    if (!user) {
+                      setShowAuthModal(true);
+                    } else {
+                      setSaved(!saved);
+                      toast(saved ? "Removed from Saved" : "Saved to your list");
+                    }
+                  }}
                 >
                   <Heart className={`w-4 h-4 ${saved ? "fill-red-500 text-red-500" : ""}`} />
                   {saved ? "Saved" : "Save"}
                 </Button>
-                <Button variant="outline" size="icon">
+                <Button variant="outline" size="icon" onClick={() => toast("Share link copied to clipboard")}>
                   <Share2 className="w-4 h-4" />
                 </Button>
               </div>
@@ -171,6 +237,95 @@ This event is eligible for official community service hour verification certific
           </div>
         </div>
       </div>
+
+      {/* Auth Modal (Triggered when non-logged-in user clicks Apply) */}
+      <Dialog open={showAuthModal} onOpenChange={setShowAuthModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader className="space-y-3">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+              <LogIn className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-2xl font-bold">Sign in required to apply</DialogTitle>
+            <DialogDescription className="text-muted-foreground text-sm">
+              You must be logged in with a Volunteer account to apply for <strong>{opp.title}</strong> and track your verified hours.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-4">
+            <Button
+              className="w-full h-11 gap-2 font-semibold"
+              onClick={() => router.push(`/login?redirectTo=/opportunities/${opp.id}?apply=true`)}
+            >
+              <LogIn className="w-4 h-4" /> Log In
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full h-11 gap-2 font-semibold"
+              onClick={() => router.push(`/register?redirectTo=/opportunities/${opp.id}?apply=true`)}
+            >
+              <UserPlus className="w-4 h-4" /> Create an Account
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Application Submission Modal (Triggered for logged-in user) */}
+      <Dialog open={showApplyModal} onOpenChange={setShowApplyModal}>
+        <DialogContent className="sm:max-w-lg">
+          <form onSubmit={handleConfirmApplication}>
+            <DialogHeader className="space-y-2">
+              <DialogTitle className="text-xl font-bold">Apply for Opportunity</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Submitting your application for <strong>{opp.title}</strong> with {opp.organization.name}.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="applicant_email">Your Email</Label>
+                <Input
+                  id="applicant_email"
+                  value={user?.email || "volunteer@krow.app"}
+                  disabled
+                  className="bg-muted text-muted-foreground"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="phone">Phone Number (Optional)</Label>
+                <Input
+                  id="phone"
+                  placeholder="(555) 000-0000"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="notes">Why are you interested in this role? (Optional)</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Share a brief note with the organization..."
+                  rows={3}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="resize-none"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button type="button" variant="outline" onClick={() => setShowApplyModal(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={submitting} className="gap-2 font-semibold">
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                Submit Application
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

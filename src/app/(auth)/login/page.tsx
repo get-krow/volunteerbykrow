@@ -7,9 +7,13 @@ import { Loader2, Mail, Eye, EyeOff } from "lucide-react";
 import { login, signInWithGoogle } from "@/actions/auth";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirectTo") || "/volunteer";
+
   const [error, setError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
@@ -17,6 +21,9 @@ export default function LoginPage() {
   async function handleSubmit(formData: FormData) {
     setIsLoading(true);
     setError(null);
+    if (!formData.get("redirectTo")) {
+      formData.append("redirectTo", redirectTo);
+    }
     const result = await login(formData);
     if (result?.error) {
       setError(result.error);

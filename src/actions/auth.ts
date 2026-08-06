@@ -22,7 +22,8 @@ export async function login(formData: FormData) {
     return { error: error.message };
   }
 
-  redirect("/volunteer");
+  const redirectTo = formData.get("redirectTo")?.toString() || "/volunteer";
+  redirect(redirectTo);
 }
 
 export async function register(formData: FormData) {

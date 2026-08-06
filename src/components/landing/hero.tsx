@@ -2,13 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, Sparkles, Users, Clock, Building2 } from "lucide-react";
-
-const stats = [
-  { label: "Volunteers", value: "12,400+", icon: Users },
-  { label: "Hours Logged", value: "84,000+", icon: Clock },
-  { label: "Organizations", value: "350+", icon: Building2 },
-];
+import { ArrowRight, Sparkles, Clock } from "lucide-react";
 
 const floatingCards = [
   {
@@ -122,26 +116,6 @@ export function Hero() {
             >
               Browse Opportunities
             </Link>
-          </motion.div>
-
-          {/* Stats */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-            className="mt-16 grid grid-cols-3 gap-8 border-t border-border pt-8"
-          >
-            {stats.map((stat) => (
-              <div key={stat.label} className="text-center">
-                <div className="flex justify-center mb-2">
-                  <stat.icon className="h-5 w-5 text-primary" />
-                </div>
-                <p className="text-2xl font-bold sm:text-3xl">{stat.value}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {stat.label}
-                </p>
-              </div>
-            ))}
           </motion.div>
         </div>
       </div>
