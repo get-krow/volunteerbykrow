@@ -31,6 +31,7 @@ export const navLinks = [
 
 export const dashboardNavVolunteer = [
   { label: "Overview", href: "/volunteer", icon: "LayoutDashboard" },
+  { label: "Discover Opportunities", href: "/opportunities", icon: "Sparkles" },
   { label: "My Hours", href: "/volunteer/hours", icon: "Clock" },
   { label: "Applications", href: "/volunteer/applications", icon: "FileText" },
   { label: "Saved", href: "/volunteer/saved", icon: "Heart" },
@@ -43,6 +44,7 @@ export const dashboardNavVolunteer = [
 
 export const dashboardNavOrganization = [
   { label: "Overview", href: "/organization", icon: "LayoutDashboard" },
+  { label: "Discover Opportunities", href: "/opportunities", icon: "Sparkles" },
   { label: "Opportunities", href: "/organization/opportunities", icon: "Briefcase" },
   { label: "Applications", href: "/organization/applications", icon: "FileText" },
   { label: "Volunteers", href: "/organization/volunteers", icon: "Users" },
@@ -56,6 +58,7 @@ export const dashboardNavOrganization = [
 
 export const dashboardNavAdmin = [
   { label: "Overview", href: "/admin", icon: "LayoutDashboard" },
+  { label: "Discover Opportunities", href: "/opportunities", icon: "Sparkles" },
   { label: "Users", href: "/admin/users", icon: "Users" },
   { label: "Organizations", href: "/admin/organizations", icon: "Building2" },
   { label: "Opportunities", href: "/admin/opportunities", icon: "Briefcase" },
