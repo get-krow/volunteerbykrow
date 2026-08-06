@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Volunteer by KROW — Production Ready Web Platform
 
-## Getting Started
+Volunteer by KROW is a modern, high-performance platform connecting volunteers with organizations, schools, clubs, charities, and community events. Built with Next.js 15 App Router, Supabase, Tailwind CSS, shadcn/ui, and Framer Motion.
 
-First, run the development server:
+## 🚀 Key Features
 
+- **Modern SaaS Aesthetics**: Styled with KROW Royal Purple identity, sleek dark mode support, glassmorphism, and micro-animations.
+- **Role-Based Workflows**: Tailored dashboards for **Volunteers**, **Organizations**, and **Administrators**.
+- **Opportunity Lifecycle**: Create, browse, filter, and apply for local or remote opportunities.
+- **Hours & Certificates**: Track volunteer hours with verification workflows and exportable certificates.
+- **Real-Time Communication**: Built-in messaging and notifications via Supabase Realtime.
+- **Enterprise Security**: Row Level Security (RLS) on all database tables, input validation with Zod, and middleware route guards.
+
+---
+
+## 🛠 Tech Stack
+
+- **Frontend**: Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, shadcn/ui, Framer Motion, Lucide Icons.
+- **Backend & Database**: Supabase (PostgreSQL, Row Level Security, Storage, Auth, Realtime).
+- **Emails**: Resend & React Email.
+- **Analytics & Errors**: PostHog & Sentry integrations ready.
+
+---
+
+## 🚦 Getting Started Locally
+
+### 1. Clone & Install Dependencies
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd volunteer-by-krow
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Configure Environment Variables
+Copy `.env.local.example` to `.env.local` and add your keys:
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your-maps-api-key
+RESEND_API_KEY=your-resend-key
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Database Migration
+Apply the SQL migrations located in `supabase/migrations/` to your Supabase project instance or local CLI:
+```bash
+supabase db push
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Run Development Server
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) to view the platform.
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 📁 Project Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+volunteer-by-krow/
+├── src/
+│   ├── actions/           # Server actions (Auth, Opportunities, Hours)
+│   ├── app/               # App Router pages (marketing, auth, dashboards)
+│   ├── components/        # UI components (landing, dashboard, shadcn/ui)
+│   ├── config/            # Site metadata & navigation definitions
+│   ├── lib/               # Supabase clients, utilities & Zod validators
+│   ├── types/             # TypeScript definitions & database schemas
+│   └── middleware.ts      # Auth protection middleware
+├── supabase/
+│   └── migrations/        # Production SQL migrations & RLS policies
+└── public/                # Static assets
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## 📦 Deployment
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Deploy seamlessly to Vercel:
+1. Push code to GitHub.
+2. Import project into Vercel.
+3. Configure environment variables.
+4. Deploy!
