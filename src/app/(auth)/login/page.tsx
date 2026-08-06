@@ -8,6 +8,7 @@ import { login, signInWithGoogle } from "@/actions/auth";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSearchParams } from "next/navigation";
+import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
 
 function LoginForm() {
@@ -39,9 +40,7 @@ function LoginForm() {
     <div className="w-full max-w-md">
       {/* Mobile Logo */}
       <div className="flex lg:hidden items-center gap-2 mb-8">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg">
-          K
-        </div>
+        <Logo size={36} />
         <span className="text-lg font-semibold">Volunteer by KROW</span>
       </div>
 
@@ -172,9 +171,7 @@ export default function LoginPage() {
           <div className="absolute bottom-20 right-20 h-48 w-48 rounded-full bg-white/5 blur-2xl" />
         </div>
         <div className="relative z-10 max-w-md">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 text-white font-bold text-xl mb-8">
-            K
-          </div>
+          <Logo size={48} className="mb-8 border-white/20" />
           <h1 className="text-3xl font-bold text-white">Welcome back</h1>
           <p className="mt-4 text-lg text-white/70 leading-relaxed">
             Sign in to access your dashboard, track your volunteer hours, and

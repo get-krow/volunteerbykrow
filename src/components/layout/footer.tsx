@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Heart, Mail } from "lucide-react";
+import { Logo } from "@/components/shared/logo";
 import { siteConfig } from "@/config/site";
 
 const footerLinks = {
@@ -31,9 +32,7 @@ export function Footer() {
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2 group">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg">
-                K
-              </div>
+              <Logo size={36} />
               <span className="text-lg font-semibold tracking-tight">
                 KROW
               </span>
