@@ -108,7 +108,7 @@ export default function OrganizationOpportunitiesPage() {
               </CardContent>
 
               <CardFooter className="p-6 pt-0 border-t border-border mt-auto pt-4 flex gap-2">
-                <Link href={`/opportunities/${opp.id}`} className="flex-1">
+                <Link href={`/organization/opportunities/${opp.id}`} className="flex-1">
                   <Button variant="outline" size="sm" className="w-full gap-1">
                     View
                   </Button>

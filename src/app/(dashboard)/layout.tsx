@@ -145,13 +145,38 @@ export default function DashboardLayout({
   const { theme, setTheme } = useTheme();
   const [collapsed, setCollapsed] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
+  const [userRole, setUserRole] = React.useState<string | null>(null);
 
-  React.useEffect(() => setMounted(true), []);
+  React.useEffect(() => {
+    setMounted(true);
+    async function detectUserRole() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        let r = user.user_metadata?.role;
+        if (!r) {
+          const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+          r = profile?.role;
+        }
+        if (!r) {
+          const { data: org } = await supabase.from("organizations").select("id").eq("created_by", user.id).limit(1).maybeSingle();
+          if (org) r = "organization";
+        }
+        setUserRole(r || "volunteer");
+      }
+    }
+    detectUserRole();
+  }, []);
 
-  // Determine which nav to show based on route
+  // Determine which nav to show based on user role and route
   let nav: readonly NavItem[] = dashboardNavVolunteer;
-  if (pathname.startsWith("/organization")) nav = dashboardNavOrganization;
-  if (pathname.startsWith("/admin")) nav = dashboardNavAdmin;
+  if (userRole === "admin" || pathname.startsWith("/admin")) {
+    nav = dashboardNavAdmin;
+  } else if (userRole === "organization" || pathname.startsWith("/organization")) {
+    nav = dashboardNavOrganization;
+  } else {
+    nav = dashboardNavVolunteer;
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
