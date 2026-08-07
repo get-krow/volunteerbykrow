@@ -15,16 +15,24 @@ export interface CreateOpportunityParams {
   imageUrl?: string;
 }
 
-export async function createOpportunityAction(params: CreateOpportunityParams) {
+export async function createOpportunityAction(params: CreateOpportunityParams, clientUserId?: string) {
   try {
     const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user: serverUser } } = await supabase.auth.getUser();
 
-    if (!user || authError) {
-      return { error: "You must be logged in as an organization to post an opportunity." };
+    let user = serverUser;
+    const admin = createAdminClient();
+
+    if (!user && clientUserId) {
+      const { data: adminUser } = await admin.auth.admin.getUserById(clientUserId);
+      if (adminUser?.user) {
+        user = adminUser.user;
+      }
     }
 
-    const admin = createAdminClient();
+    if (!user) {
+      return { error: "You must be logged in as an organization to post an opportunity. Please sign in again." };
+    }
 
     // 1. Get or create Organization for this user
     let orgId: string | null = null;

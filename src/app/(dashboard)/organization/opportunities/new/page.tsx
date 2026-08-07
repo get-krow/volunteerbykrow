@@ -10,12 +10,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { createClient } from "@/lib/supabase/client";
 import { createOpportunityAction } from "@/actions/opportunities";
 import { toast } from "sonner";
 
 export default function NewOpportunityPage() {
   const router = useRouter();
   const [loading, setLoading] = React.useState(false);
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
   const [title, setTitle] = React.useState("");
   const [category, setCategory] = React.useState("environment");
@@ -54,31 +56,41 @@ export default function NewOpportunityPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg(null);
 
     try {
-      const result = await createOpportunityAction({
-        title,
-        category,
-        location,
-        eventDate,
-        eventTime,
-        hours,
-        capacity,
-        description,
-        imageUrl,
-      });
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const result = await createOpportunityAction(
+        {
+          title: title || "New Volunteer Opportunity",
+          category,
+          location: location || "Coquitlam, BC, Canada",
+          eventDate,
+          eventTime,
+          hours,
+          capacity,
+          description: description || "Join us and make a positive impact in the community!",
+          imageUrl,
+        },
+        user?.id
+      );
 
       if (result?.error) {
+        setErrorMsg(result.error);
         toast.error(result.error);
         setLoading(false);
         return;
       }
 
-      toast.success("Opportunity Published to Supabase Successfully!");
+      toast.success("Opportunity Published Successfully!");
       router.push("/organization/opportunities");
     } catch (err: any) {
       console.error("Unhandled error publishing opportunity:", err);
-      toast.error("Error creating opportunity: " + (err?.message || "Unknown error"));
+      const msg = err?.message || "An unexpected error occurred while publishing.";
+      setErrorMsg(msg);
+      toast.error(msg);
       setLoading(false);
     }
   };
@@ -109,7 +121,6 @@ export default function NewOpportunityPage() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Community Garden Maintenance & Planting"
-                required
               />
             </div>
 
@@ -152,7 +163,7 @@ export default function NewOpportunityPage() {
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="category">Category *</Label>
+                <Label htmlFor="category">Category</Label>
                 <Select value={category} onValueChange={setCategory}>
                   <SelectTrigger id="category">
                     <SelectValue placeholder="Select category" />
@@ -168,44 +179,41 @@ export default function NewOpportunityPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="location">Location *</Label>
+                <Label htmlFor="location">Location</Label>
                 <Input
                   id="location"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  placeholder="e.g. Santa Monica, CA or Remote"
-                  required
+                  placeholder="e.g. Coquitlam, BC or Remote"
                 />
               </div>
             </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="date">Event Date *</Label>
+                <Label htmlFor="date">Event Date</Label>
                 <Input
                   id="date"
                   type="date"
                   value={eventDate}
                   onChange={(e) => setEventDate(e.target.value)}
-                  required
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="time">Event Start & End Time *</Label>
+                <Label htmlFor="time">Event Start & End Time</Label>
                 <Input
                   id="time"
                   type="text"
                   value={eventTime}
                   onChange={(e) => setEventTime(e.target.value)}
                   placeholder="e.g. 9:00 AM - 1:00 PM"
-                  required
                 />
               </div>
             </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="hours">Volunteer Hours *</Label>
+                <Label htmlFor="hours">Volunteer Hours</Label>
                 <Input
                   id="hours"
                   type="number"
@@ -213,37 +221,40 @@ export default function NewOpportunityPage() {
                   value={hours}
                   onChange={(e) => setHours(e.target.value)}
                   placeholder="4"
-                  required
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="capacity">Volunteer Capacity *</Label>
+                <Label htmlFor="capacity">Volunteer Capacity</Label>
                 <Input
                   id="capacity"
                   type="number"
                   value={capacity}
                   onChange={(e) => setCapacity(e.target.value)}
                   placeholder="20"
-                  required
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="description">Full Description *</Label>
+              <Label htmlFor="description">Full Description</Label>
               <Textarea
                 id="description"
                 rows={5}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Describe responsibilities, location instructions, equipment needed, and expected impact..."
-                required
               />
             </div>
           </CardContent>
         </Card>
 
-        <Button type="submit" size="lg" disabled={loading || uploadingImage} className="gap-2 font-semibold">
+        {errorMsg && (
+          <div className="p-4 bg-red-500/10 border border-red-500/30 text-red-600 rounded-xl text-sm font-medium">
+            {errorMsg}
+          </div>
+        )}
+
+        <Button type="submit" size="lg" disabled={loading || uploadingImage} className="gap-2 font-semibold min-w-[200px]">
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           {loading ? "Publishing Opportunity..." : "Publish Opportunity"}
         </Button>
