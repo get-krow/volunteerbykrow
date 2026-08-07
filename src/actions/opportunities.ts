@@ -132,6 +132,9 @@ export async function getOpportunitiesAction(options?: {
 
       if (org?.id) {
         orgIdFilter = org.id;
+      } else {
+        // User has not created an organization or posted any opportunities yet
+        return { success: true, opportunities: [] };
       }
     }
 

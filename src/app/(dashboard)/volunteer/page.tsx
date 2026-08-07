@@ -13,6 +13,7 @@ import { toast } from "sonner";
 
 interface EventItem {
   id: string;
+  opportunityId?: string;
   title: string;
   org: string;
   date: string;
@@ -26,7 +27,7 @@ const container = {
 };
 
 import { createClient } from "@/lib/supabase/client";
-import { getUserApplicationsAction } from "@/actions/applications";
+import { getUserApplicationsAction, cancelApplicationAction } from "@/actions/applications";
 
 export default function VolunteerDashboard() {
   const [events, setEvents] = React.useState<EventItem[]>([]);
@@ -40,11 +41,15 @@ export default function VolunteerDashboard() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
-        // Load profile total hours
-        const { data: profile } = await supabase.from("profiles").select("total_hours").eq("id", user.id).single();
-        if (profile?.total_hours) {
-          setVerifiedHours(parseFloat(profile.total_hours) || 0);
-        }
+        // Calculate total verified hours from approved volunteer_hours records
+        const { data: vhData } = await supabase
+          .from("volunteer_hours")
+          .select("hours")
+          .eq("volunteer_id", user.id)
+          .in("status", ["approved", "verified"]);
+
+        const sumHours = vhData ? vhData.reduce((acc, curr) => acc + (parseFloat(curr.hours) || 0), 0) : 0;
+        setVerifiedHours(sumHours);
       }
 
       // Load applications
@@ -54,6 +59,7 @@ export default function VolunteerDashboard() {
           const opp = app.opportunities;
           return {
             id: app.id,
+            opportunityId: app.opportunity_id || opp?.id,
             title: opp?.title || "Volunteer Opportunity",
             org: opp?.organizations?.name || "Verified Organization",
             date: new Date(opp?.start_date || Date.now()).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
@@ -67,10 +73,16 @@ export default function VolunteerDashboard() {
     loadData();
   }, []);
 
-  const handleLeaveEvent = (eventId: string, title: string) => {
-    setEvents(events.filter(e => e.id !== eventId));
+  const handleLeaveEvent = async (oppId: string, title: string) => {
+    const res = await cancelApplicationAction(oppId);
+    if (res?.error) {
+      toast.error(res.error);
+      return;
+    }
+
+    setEvents(events.filter(e => e.opportunityId !== oppId && e.id !== oppId));
     toast.success(`Left Event`, {
-      description: `You have been removed from "${title}".`,
+      description: `Your registration for "${title}" has been cancelled.`,
     });
   };
 

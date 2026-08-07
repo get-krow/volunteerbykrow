@@ -14,15 +14,26 @@ export default function ContactPage() {
   const [submitted, setSubmitted] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
 
+  const [fullName, setFullName] = React.useState("");
+  const [email, setEmail] = React.useState("");
+  const [role, setRole] = React.useState("volunteer");
+  const [subject, setSubject] = React.useState("");
+  const [message, setMessage] = React.useState("");
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
 
-    // Simulate form submission
+    const emailSubject = subject || `KROW Inquiry from ${fullName}`;
+    const emailBody = `Name: ${fullName}\nEmail: ${email}\nRole: ${role}\n\nMessage:\n${message}`;
+
+    const mailtoUrl = `mailto:getkrow@gmail.com?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+    window.location.href = mailtoUrl;
+
     setTimeout(() => {
       setLoading(false);
       setSubmitted(true);
-    }, 1000);
+    }, 600);
   };
 
   return (
@@ -111,18 +122,18 @@ export default function ContactPage() {
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="full_name">Full Name *</Label>
-                  <Input id="full_name" placeholder="John Doe" required className="h-11" />
+                  <Input id="full_name" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="John Doe" required className="h-11" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address *</Label>
-                  <Input id="email" type="email" placeholder="john@example.com" required className="h-11" />
+                  <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="john@example.com" required className="h-11" />
                 </div>
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="role">I am a...</Label>
-                  <Select defaultValue="volunteer">
+                  <Select value={role} onValueChange={setRole}>
                     <SelectTrigger className="h-11">
                       <SelectValue placeholder="Select your role" />
                     </SelectTrigger>
@@ -137,7 +148,7 @@ export default function ContactPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="subject">Subject *</Label>
-                  <Input id="subject" placeholder="e.g. Org Verification Request" required className="h-11" />
+                  <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. Org Verification Request" required className="h-11" />
                 </div>
               </div>
 
@@ -145,6 +156,8 @@ export default function ContactPage() {
                 <Label htmlFor="message">Your Message *</Label>
                 <Textarea
                   id="message"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
                   placeholder="How can we help you today?"
                   rows={5}
                   required

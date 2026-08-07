@@ -45,10 +45,25 @@ export default function NewOpportunityPage() {
     setUploadingImage(true);
     const reader = new FileReader();
     reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      setImageUrl(dataUrl);
-      setUploadingImage(false);
-      toast.success("Opportunity image attached!");
+      const img = document.createElement("img");
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const MAX_WIDTH = 800;
+        const scale = Math.min(1, MAX_WIDTH / img.width);
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const compressedUrl = canvas.toDataURL("image/jpeg", 0.6);
+        setImageUrl(compressedUrl);
+        setUploadingImage(false);
+        toast.success("Opportunity image attached and optimized!");
+      };
+      img.onerror = () => {
+        setUploadingImage(false);
+        toast.error("Failed to process image file.");
+      };
+      img.src = event.target?.result as string;
     };
     reader.readAsDataURL(file);
   };

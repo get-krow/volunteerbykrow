@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { categories } from "@/config/site";
 import { getOpportunitiesAction } from "@/actions/opportunities";
-import { applyForOpportunityAction, getUserApplicationsAction } from "@/actions/applications";
+import { applyForOpportunityAction, cancelApplicationAction, getUserApplicationsAction } from "@/actions/applications";
 import { toast } from "sonner";
 import { CheckCircle2, UserCheck, Loader2 } from "lucide-react";
 
@@ -56,21 +56,37 @@ export default function OpportunitiesPage() {
   }, []);
 
   const handleInstantSignup = async (oppId: string, title: string) => {
-    if (signedUpIds.includes(oppId)) return;
-
     setSigningUpId(oppId);
-    const res = await applyForOpportunityAction(oppId);
-    setSigningUpId(null);
 
-    if (res?.error) {
-      toast.error(res.error);
-      return;
+    if (signedUpIds.includes(oppId)) {
+      // Cancel application
+      const res = await cancelApplicationAction(oppId);
+      setSigningUpId(null);
+
+      if (res?.error) {
+        toast.error(res.error);
+        return;
+      }
+
+      setSignedUpIds(signedUpIds.filter((id) => id !== oppId));
+      toast.info("Registration Cancelled", {
+        description: `You have unregistered from "${title}". You can sign up again anytime.`,
+      });
+    } else {
+      // Sign up
+      const res = await applyForOpportunityAction(oppId);
+      setSigningUpId(null);
+
+      if (res?.error) {
+        toast.error(res.error);
+        return;
+      }
+
+      setSignedUpIds([...signedUpIds, oppId]);
+      toast.success("1-Click Sign-up Successful! 🎉", {
+        description: `You are registered for "${title}". Event added to your Volunteer Calendar.`,
+      });
     }
-
-    setSignedUpIds([...signedUpIds, oppId]);
-    toast.success("1-Click Sign-up Successful! 🎉", {
-      description: `You are registered for "${title}". Event added to your Volunteer Calendar.`,
-    });
   };
 
   const filteredOpportunities = opportunities.filter((opp) => {
@@ -232,15 +248,16 @@ export default function OpportunitiesPage() {
                     </span>
                     <Button
                       size="sm"
-                      disabled={isSignedUp || signingUpId === opp.id}
+                      disabled={signingUpId === opp.id}
                       onClick={() => handleInstantSignup(opp.id, opp.title)}
-                      className={`gap-1.5 font-semibold ${isSignedUp ? "bg-green-600/90 text-white opacity-100 cursor-default" : ""}`}
+                      variant={isSignedUp ? "outline" : "default"}
+                      className={`gap-1.5 font-semibold ${isSignedUp ? "border-green-600 text-green-600 hover:bg-red-50 hover:text-red-600 hover:border-red-500 transition-colors" : ""}`}
                     >
                       {signingUpId === opp.id ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : isSignedUp ? (
                         <>
-                          <CheckCircle2 className="w-4 h-4 text-white" /> Registered ✓
+                          <CheckCircle2 className="w-4 h-4 text-green-600 group-hover:hidden" /> Registered ✓
                         </>
                       ) : (
                         <>Sign Up</>

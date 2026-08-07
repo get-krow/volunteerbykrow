@@ -259,3 +259,39 @@ export async function updateOpportunityAction(opportunityId: string, params: any
     return { error: err?.message || "Failed to update opportunity" };
   }
 }
+
+export async function cancelApplicationAction(opportunityId: string) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { error: "You must be logged in as a volunteer to cancel a registration." };
+    }
+
+    const admin = createAdminClient();
+
+    // 1. Delete application row
+    const { error: delErr } = await admin
+      .from("applications")
+      .delete()
+      .eq("opportunity_id", opportunityId)
+      .eq("volunteer_id", user.id);
+
+    if (delErr) {
+      console.error("Error cancelling application:", delErr);
+      return { error: delErr.message };
+    }
+
+    // 2. Decrement spots_filled on opportunities
+    const { data: opp } = await admin.from("opportunities").select("spots_filled").eq("id", opportunityId).single();
+    if (opp && (opp.spots_filled || 0) > 0) {
+      await admin.from("opportunities").update({ spots_filled: opp.spots_filled - 1 }).eq("id", opportunityId);
+    }
+
+    return { success: true, message: "Registration cancelled successfully!" };
+  } catch (err: any) {
+    console.error("Unhandled error in cancelApplicationAction:", err);
+    return { error: err?.message || "Failed to cancel registration" };
+  }
+}

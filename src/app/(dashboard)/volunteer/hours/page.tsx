@@ -24,12 +24,6 @@ export default function VolunteerHoursPage() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
-        // Load profile total_hours
-        const { data: profile } = await supabase.from("profiles").select("total_hours").eq("id", user.id).single();
-        if (profile?.total_hours) {
-          setTotalVerifiedHours(parseFloat(profile.total_hours) || 0);
-        }
-
         // Load volunteer_hours list
         const { data: vh } = await supabase
           .from("volunteer_hours")
@@ -38,6 +32,10 @@ export default function VolunteerHoursPage() {
           .order("created_at", { ascending: false });
 
         if (vh) {
+          const approved = vh.filter((h: any) => h.status === "approved" || h.status === "verified");
+          const totalSum = approved.reduce((acc: number, curr: any) => acc + (parseFloat(curr.hours) || 0), 0);
+          setTotalVerifiedHours(totalSum);
+
           setHistoryList(vh.map((h: any) => ({
             id: h.id,
             event: h.opportunities?.title || "Volunteer Opportunity",
@@ -46,6 +44,8 @@ export default function VolunteerHoursPage() {
             hours: h.hours,
             status: h.status || "approved",
           })));
+        } else {
+          setTotalVerifiedHours(0);
         }
       }
       setLoading(false);
