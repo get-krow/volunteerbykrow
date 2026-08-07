@@ -54,7 +54,8 @@ export async function updateSession(request: NextRequest) {
 
   if (isAuthPage && user) {
     const url = request.nextUrl.clone();
-    url.pathname = "/volunteer";
+    const role = user.user_metadata?.role;
+    url.pathname = role === "organization" ? "/organization" : "/volunteer";
     return NextResponse.redirect(url);
   }
 

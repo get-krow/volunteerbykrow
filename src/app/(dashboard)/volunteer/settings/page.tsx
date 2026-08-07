@@ -8,23 +8,65 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-
+import { createClient } from "@/lib/supabase/client";
 import { signOut, deleteAccount } from "@/actions/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 export default function VolunteerSettingsPage() {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  const [fullName, setFullName] = React.useState("");
+  const [email, setEmail] = React.useState("");
+  const [phone, setPhone] = React.useState("");
+  const [bio, setBio] = React.useState("");
+
+  React.useEffect(() => {
+    async function loadProfile() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setEmail(user.email || "");
+        setFullName(user.user_metadata?.full_name || "");
+        setPhone(user.user_metadata?.phone || "");
+        setBio(user.user_metadata?.bio || "");
+      }
+      setLoading(false);
+    }
+    loadProfile();
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Profile Updated Successfully!");
+    setSaving(true);
+    const supabase = createClient();
+    const { error } = await supabase.auth.updateUser({
+      data: { full_name: fullName, phone, bio }
+    });
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Profile Updated Successfully!");
+    }
+    setSaving(false);
   };
 
   const handleDeleteAccount = async () => {
     setDeleting(true);
     await deleteAccount();
   };
+
+  const initials = fullName ? fullName.slice(0, 2).toUpperCase() : "U";
+
+  if (loading) {
+    return (
+      <div className="py-12 text-center text-sm text-muted-foreground">
+        Loading settings...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 max-w-3xl">
@@ -42,7 +84,7 @@ export default function VolunteerSettingsPage() {
             {/* Avatar Placeholder */}
             <div className="flex items-center gap-4">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xl border border-primary/20">
-                AR
+                {initials}
               </div>
               <div>
                 <Button type="button" variant="outline" size="sm" onClick={() => toast("Profile picture upload feature active")}>
@@ -55,29 +97,46 @@ export default function VolunteerSettingsPage() {
             <div className="grid sm:grid-cols-2 gap-4 pt-2">
               <div className="space-y-1.5">
                 <Label htmlFor="full_name">Full Name</Label>
-                <Input id="full_name" defaultValue="Alex Rivera" required />
+                <Input
+                  id="full_name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Enter your full name"
+                  required
+                />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="email">Email Address (Read-Only)</Label>
-                <Input id="email" type="email" defaultValue="alex@example.com" disabled className="bg-muted text-muted-foreground cursor-not-allowed" />
+                <Input id="email" type="email" value={email} disabled className="bg-muted text-muted-foreground cursor-not-allowed" />
               </div>
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="phone">Phone Number</Label>
-              <Input id="phone" defaultValue="(555) 234-5678" />
+              <Input
+                id="phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="(555) 000-0000"
+              />
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="bio">Biography</Label>
-              <Textarea id="bio" rows={3} defaultValue="Passionate student interested in environmental conservation, tutoring, and community relief." />
+              <Textarea
+                id="bio"
+                rows={3}
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="Brief summary of your volunteer interests and background..."
+              />
             </div>
           </CardContent>
         </Card>
 
         <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
-          <Button type="submit" className="gap-2 font-semibold">
-            <Save className="w-4 h-4" /> Save Changes
+          <Button type="submit" disabled={saving} className="gap-2 font-semibold">
+            <Save className="w-4 h-4" /> {saving ? "Saving..." : "Save Changes"}
           </Button>
 
           <div className="flex items-center gap-3">

@@ -34,6 +34,8 @@ interface NavItem {
   readonly icon: string;
 }
 
+import { createClient } from "@/lib/supabase/client";
+
 export function SidebarContent({
   nav,
   collapsed,
@@ -43,6 +45,23 @@ export function SidebarContent({
   collapsed: boolean;
   pathname: string;
 }) {
+  const [user, setUser] = React.useState<{ name: string; email: string } | null>(null);
+
+  React.useEffect(() => {
+    async function loadUser() {
+      const supabase = createClient();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        const name = authUser.user_metadata?.full_name || authUser.email?.split("@")[0] || "User";
+        const email = authUser.email || "";
+        setUser({ name, email });
+      }
+    }
+    loadUser();
+  }, []);
+
+  const initials = user?.name ? user.name.slice(0, 2).toUpperCase() : "U";
+
   return (
     <div className="flex flex-col h-full">
       {/* Logo */}
@@ -94,15 +113,15 @@ export function SidebarContent({
           )}
         >
           <Avatar className="h-8 w-8">
-            <AvatarFallback className="bg-primary/10 text-primary text-xs">
-              U
+            <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+              {initials}
             </AvatarFallback>
           </Avatar>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">User</p>
+              <p className="text-sm font-medium truncate">{user?.name || "Loading..."}</p>
               <p className="text-xs text-sidebar-foreground/50 truncate">
-                user@example.com
+                {user?.email || ""}
               </p>
             </div>
           )}

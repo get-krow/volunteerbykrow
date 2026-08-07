@@ -16,14 +16,19 @@ export async function login(formData: FormData) {
     return { error: parsed.error.issues[0]?.message || "Invalid input" };
   }
 
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
+  const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
 
   if (error) {
     return { error: error.message };
   }
 
-  const redirectTo = formData.get("redirectTo")?.toString() || "/volunteer";
-  redirect(redirectTo);
+  // Redirect based on user role
+  const redirectTo = formData.get("redirectTo")?.toString();
+  if (redirectTo) {
+    redirect(redirectTo);
+  }
+  const role = data.user?.user_metadata?.role;
+  redirect(role === "organization" ? "/organization" : "/volunteer");
 }
 
 export async function register(formData: FormData) {
@@ -33,12 +38,6 @@ export async function register(formData: FormData) {
   const password = formData.get("password")?.toString();
   const full_name = formData.get("full_name")?.toString();
   const role = formData.get("role")?.toString() || "volunteer";
-  const birthdate = formData.get("birthdate")?.toString();
-  const country = formData.get("country")?.toString();
-  const province_state = formData.get("province_state")?.toString();
-  const city = formData.get("city")?.toString();
-  const registering_for = formData.get("registering_for")?.toString() || "myself";
-  const description = formData.get("description")?.toString();
 
   if (!email || !password || !full_name) {
     return { error: "Please fill in all required fields." };
@@ -51,12 +50,6 @@ export async function register(formData: FormData) {
       data: {
         full_name,
         role,
-        birthdate,
-        country,
-        province_state,
-        city,
-        registering_for,
-        description,
       },
     },
   });
