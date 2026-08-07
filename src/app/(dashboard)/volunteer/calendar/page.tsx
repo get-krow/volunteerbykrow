@@ -5,8 +5,42 @@ import { Calendar as CalendarIcon, Clock, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+import { getUserApplicationsAction } from "@/actions/applications";
+import { Loader2 } from "lucide-react";
+
 export default function VolunteerCalendarPage() {
   const [upcomingEvents, setUpcomingEvents] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    async function loadCalendar() {
+      const res = await getUserApplicationsAction();
+      if (res?.applications) {
+        setUpcomingEvents(res.applications.map((app: any) => {
+          const opp = app.opportunities;
+          return {
+            id: app.id,
+            title: opp?.title || "Volunteer Opportunity",
+            org: opp?.organizations?.name || "Verified Organization",
+            date: new Date(opp?.start_date || Date.now()).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }),
+            time: `${opp?.volunteer_hours || 4} Hours Shift`,
+            location: opp?.is_remote ? "Remote / Online" : opp?.address || "Local Community",
+          };
+        }));
+      }
+      setLoading(false);
+    }
+    loadCalendar();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="py-16 text-center space-y-3">
+        <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+        <p className="text-sm text-muted-foreground">Loading your volunteer calendar...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

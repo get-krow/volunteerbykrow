@@ -6,8 +6,45 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 
+import { getOrgApplicationsAction } from "@/actions/applications";
+import { Loader2 } from "lucide-react";
+
 export default function OrganizationVolunteersPage() {
   const [volunteers, setVolunteers] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    async function loadVolunteers() {
+      const res = await getOrgApplicationsAction();
+      if (res?.applications) {
+        // Map unique volunteers from applications
+        const map = new Map();
+        res.applications.forEach((app: any) => {
+          const prof = app.profiles;
+          if (prof?.id && !map.has(prof.id)) {
+            map.set(prof.id, {
+              id: prof.id,
+              name: prof.full_name || "Volunteer",
+              email: prof.email || "volunteer@krow.app",
+              totalHours: parseFloat(prof.total_hours || "0"),
+            });
+          }
+        });
+        setVolunteers(Array.from(map.values()));
+      }
+      setLoading(false);
+    }
+    loadVolunteers();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="py-16 text-center space-y-3">
+        <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+        <p className="text-sm text-muted-foreground">Loading volunteer roster...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

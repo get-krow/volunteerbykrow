@@ -25,9 +25,47 @@ const container = {
   show: { opacity: 1, transition: { staggerChildren: 0.1 } },
 };
 
+import { createClient } from "@/lib/supabase/client";
+import { getUserApplicationsAction } from "@/actions/applications";
+
 export default function VolunteerDashboard() {
   const [events, setEvents] = React.useState<EventItem[]>([]);
+  const [verifiedHours, setVerifiedHours] = React.useState<number>(0);
   const [savedCount, setSavedCount] = React.useState(0);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    async function loadData() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        // Load profile total hours
+        const { data: profile } = await supabase.from("profiles").select("total_hours").eq("id", user.id).single();
+        if (profile?.total_hours) {
+          setVerifiedHours(parseFloat(profile.total_hours) || 0);
+        }
+      }
+
+      // Load applications
+      const res = await getUserApplicationsAction();
+      if (res?.applications) {
+        setEvents(res.applications.map((app: any) => {
+          const opp = app.opportunities;
+          return {
+            id: app.id,
+            title: opp?.title || "Volunteer Opportunity",
+            org: opp?.organizations?.name || "Verified Organization",
+            date: new Date(opp?.start_date || Date.now()).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+            hours: opp?.volunteer_hours || 4,
+            location: opp?.is_remote ? "Remote" : opp?.address || "Local Community",
+          };
+        }));
+      }
+      setLoading(false);
+    }
+    loadData();
+  }, []);
 
   const handleLeaveEvent = (eventId: string, title: string) => {
     setEvents(events.filter(e => e.id !== eventId));
@@ -61,7 +99,7 @@ export default function VolunteerDashboard() {
         />
         <StatCard
           title="Verified Hours"
-          value="0.0"
+          value={verifiedHours.toFixed(1)}
           icon={Clock}
           description="hours approved by organizers"
         />

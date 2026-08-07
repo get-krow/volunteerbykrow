@@ -10,8 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { categories } from "@/config/site";
 import { getOpportunitiesAction } from "@/actions/opportunities";
+import { applyForOpportunityAction, getUserApplicationsAction } from "@/actions/applications";
 import { toast } from "sonner";
-import { CheckCircle2, UserCheck } from "lucide-react";
+import { CheckCircle2, UserCheck, Loader2 } from "lucide-react";
 
 export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = React.useState<any[]>([]);
@@ -20,6 +21,7 @@ export default function OpportunitiesPage() {
   const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null);
   const [remoteOnly, setRemoteOnly] = React.useState(false);
   const [signedUpIds, setSignedUpIds] = React.useState<string[]>([]);
+  const [signingUpId, setSigningUpId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     async function loadOpportunities() {
@@ -40,21 +42,35 @@ export default function OpportunitiesPage() {
           tags: item.tags || ["Volunteering", "Community"]
         })));
       }
+
+      // Fetch user's registered applications
+      const appsRes = await getUserApplicationsAction();
+      if (appsRes?.applications) {
+        const ids = appsRes.applications.map((a: any) => a.opportunity_id);
+        setSignedUpIds(ids);
+      }
+
       setLoading(false);
     }
     loadOpportunities();
   }, []);
 
-  const handleInstantSignup = (oppId: string, title: string) => {
-    if (signedUpIds.includes(oppId)) {
-      setSignedUpIds(signedUpIds.filter(id => id !== oppId));
-      toast("Cancelled registration for event.");
-    } else {
-      setSignedUpIds([...signedUpIds, oppId]);
-      toast.success("1-Click Instant Sign-up Successful! 🎉", {
-        description: `You are registered for "${title}". Event added to your Calendar.`,
-      });
+  const handleInstantSignup = async (oppId: string, title: string) => {
+    if (signedUpIds.includes(oppId)) return;
+
+    setSigningUpId(oppId);
+    const res = await applyForOpportunityAction(oppId);
+    setSigningUpId(null);
+
+    if (res?.error) {
+      toast.error(res.error);
+      return;
     }
+
+    setSignedUpIds([...signedUpIds, oppId]);
+    toast.success("1-Click Sign-up Successful! 🎉", {
+      description: `You are registered for "${title}". Event added to your Volunteer Calendar.`,
+    });
   };
 
   const filteredOpportunities = opportunities.filter((opp) => {
@@ -154,78 +170,80 @@ export default function OpportunitiesPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <Card className="border-border bg-card overflow-hidden h-full flex flex-col hover:border-primary/50 transition-all hover:shadow-md">
-                  <div className="relative h-44 w-full bg-muted">
-                    <img
-                      src={opp.image}
-                      alt={opp.title}
-                      className="h-full w-full object-cover"
-                    />
-                    <div className="absolute top-3 left-3 flex gap-2">
-                      <Badge className="bg-background/90 text-foreground backdrop-blur-md shadow-sm">
-                        {opp.category}
-                      </Badge>
-                      <Badge className="bg-primary/90 text-primary-foreground backdrop-blur-md shadow-sm">
-                        {opp.age_eligibility}
-                      </Badge>
-                    </div>
-                    {isSignedUp && (
-                      <div className="absolute top-3 right-3 bg-green-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Registered
-                      </div>
-                    )}
-                  </div>
-                  <CardHeader className="p-5 pb-2">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mb-1">
-                      <Building2 className="w-3.5 h-3.5 text-primary" />
-                      <span>{opp.organization}</span>
-                    </div>
-                    <CardTitle className="text-lg font-bold leading-snug line-clamp-2">
-                      {opp.title}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-5 pt-2 flex-1 space-y-3">
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-primary" />
-                        <span>{opp.location}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5 text-primary" />
-                        <span>{opp.date}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-primary" />
-                        <span>{opp.hours}h</span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1.5">
-                      {opp.tags.map((tag: string) => (
-                        <Badge key={tag} variant="secondary" className="text-[10px] px-2 py-0.5">
-                          #{tag}
+                <Card className="border-border bg-card overflow-hidden h-full flex flex-col hover:border-primary/50 transition-all hover:shadow-md group">
+                  <Link href={`/opportunities/${opp.id}`} className="block flex-1">
+                    <div className="relative h-44 w-full bg-muted overflow-hidden">
+                      <img
+                        src={opp.image}
+                        alt={opp.title}
+                        className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute top-3 left-3 flex gap-2">
+                        <Badge className="bg-background/90 text-foreground backdrop-blur-md shadow-sm">
+                          {opp.category}
                         </Badge>
-                      ))}
+                        <Badge className="bg-primary/90 text-primary-foreground backdrop-blur-md shadow-sm">
+                          {opp.age_eligibility}
+                        </Badge>
+                      </div>
+                      {isSignedUp && (
+                        <div className="absolute top-3 right-3 bg-green-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Registered
+                        </div>
+                      )}
                     </div>
-                  </CardContent>
+                    <CardHeader className="p-5 pb-2">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mb-1">
+                        <Building2 className="w-3.5 h-3.5 text-primary" />
+                        <span>{opp.organization}</span>
+                      </div>
+                      <CardTitle className="text-lg font-bold leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                        {opp.title}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-5 pt-2 space-y-3">
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5 text-primary" />
+                          <span>{opp.location}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5 text-primary" />
+                          <span>{opp.date}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-primary" />
+                          <span>{opp.hours}h</span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5">
+                        {opp.tags.map((tag: string) => (
+                          <Badge key={tag} variant="secondary" className="text-[10px] px-2 py-0.5">
+                            #{tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Link>
                   <CardFooter className="p-5 pt-0 flex items-center justify-between border-t border-border mt-auto pt-4">
                     <span className="text-xs text-muted-foreground font-medium">
-                      Instant Sign-Up
+                      {isSignedUp ? "Registration Confirmed" : "Instant Sign-Up"}
                     </span>
                     <Button
                       size="sm"
-                      variant={isSignedUp ? "outline" : "default"}
+                      disabled={isSignedUp || signingUpId === opp.id}
                       onClick={() => handleInstantSignup(opp.id, opp.title)}
-                      className={`gap-1.5 font-semibold ${isSignedUp ? "border-green-500 text-green-600 hover:bg-green-50" : ""}`}
+                      className={`gap-1.5 font-semibold ${isSignedUp ? "bg-green-600/90 text-white opacity-100 cursor-default" : ""}`}
                     >
-                      {isSignedUp ? (
+                      {signingUpId === opp.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : isSignedUp ? (
                         <>
-                          <CheckCircle2 className="w-4 h-4 text-green-600" /> Signed Up
+                          <CheckCircle2 className="w-4 h-4 text-white" /> Registered ✓
                         </>
                       ) : (
-                        <>
-                          Sign Up <ArrowRight className="w-4 h-4" />
-                        </>
+                        <>Sign Up</>
                       )}
                     </Button>
                   </CardFooter>

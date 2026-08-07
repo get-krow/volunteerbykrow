@@ -39,12 +39,13 @@ export default function OrganizationOpportunitiesPage() {
   }, [fetchOrgOpps]);
 
   const handleDelete = async (id: string) => {
-    const supabase = createClient();
-    const { error } = await supabase.from("opportunities").delete().eq("id", id);
-    if (error) {
-      toast.error("Failed to delete opportunity: " + error.message);
+    if (!confirm("Are you sure you want to permanently delete this opportunity from Supabase?")) return;
+
+    const res = await deleteOpportunityAction(id);
+    if (res?.error) {
+      toast.error("Failed to delete opportunity: " + res.error);
     } else {
-      toast.success("Opportunity deleted.");
+      toast.success("Opportunity permanently deleted from Supabase.");
       fetchOrgOpps();
     }
   };
@@ -72,21 +73,21 @@ export default function OrganizationOpportunitiesPage() {
         <Card className="border-border bg-card">
           <CardContent className="p-12 text-center space-y-3">
             <Sparkles className="h-12 w-12 mx-auto text-muted-foreground/50" />
-            <h3 className="text-lg font-bold">No Opportunities Published Yet</h3>
+            <h3 className="text-lg font-bold">No Opportunities Published</h3>
             <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-              You haven&apos;t created any volunteer opportunities yet. Click below to publish your first opportunity.
+              Create your first opportunity to start recruiting local volunteers!
             </p>
-            <Link href="/organization/opportunities/new" className="inline-block pt-2">
-              <Button className="gap-1.5 font-semibold">
-                <Plus className="w-4 h-4" /> Create First Opportunity
+            <Link href="/organization/opportunities/new">
+              <Button className="gap-1.5 font-semibold mt-2">
+                <Plus className="w-4 h-4" /> Post Opportunity
               </Button>
             </Link>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {orgOpps.map((opp) => (
-            <Card key={opp.id} className="border-border bg-card flex flex-col justify-between overflow-hidden">
+            <Card key={opp.id} className="border-border bg-card flex flex-col overflow-hidden">
               {opp.image && (
                 <div className="h-40 w-full overflow-hidden bg-muted">
                   <img src={opp.image} alt={opp.title} className="w-full h-full object-cover" />
@@ -109,6 +110,11 @@ export default function OrganizationOpportunitiesPage() {
                 <Link href={`/opportunities/${opp.id}`} className="flex-1">
                   <Button variant="outline" size="sm" className="w-full gap-1">
                     View
+                  </Button>
+                </Link>
+                <Link href={`/organization/opportunities/${opp.id}/edit`}>
+                  <Button variant="outline" size="sm" className="gap-1">
+                    <Edit className="w-3.5 h-3.5" /> Edit
                   </Button>
                 </Link>
                 <Button

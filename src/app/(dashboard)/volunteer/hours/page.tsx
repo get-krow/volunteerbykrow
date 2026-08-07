@@ -11,11 +11,47 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
-export default function VolunteerHoursPage() {
-  const [historyList] = React.useState<any[]>([]);
+import { createClient } from "@/lib/supabase/client";
 
-  const totalVerifiedHours = historyList.filter(h => h.status === "verified").reduce((acc, curr) => acc + curr.hours, 0);
-  const completedOpportunitiesCount = historyList.filter(h => h.status === "verified").length;
+export default function VolunteerHoursPage() {
+  const [historyList, setHistoryList] = React.useState<any[]>([]);
+  const [totalVerifiedHours, setTotalVerifiedHours] = React.useState(0);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    async function loadHours() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        // Load profile total_hours
+        const { data: profile } = await supabase.from("profiles").select("total_hours").eq("id", user.id).single();
+        if (profile?.total_hours) {
+          setTotalVerifiedHours(parseFloat(profile.total_hours) || 0);
+        }
+
+        // Load volunteer_hours list
+        const { data: vh } = await supabase
+          .from("volunteer_hours")
+          .select("*, opportunities(title), organizations(name)")
+          .eq("volunteer_id", user.id)
+          .order("created_at", { ascending: false });
+
+        if (vh) {
+          setHistoryList(vh.map((h: any) => ({
+            id: h.id,
+            event: h.opportunities?.title || "Volunteer Opportunity",
+            org: h.organizations?.name || "Verified Organization",
+            date: h.date || new Date(h.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+            hours: h.hours,
+            status: h.status || "approved",
+          })));
+        }
+      }
+      setLoading(false);
+    }
+    loadHours();
+  }, []);
 
   return (
     <div className="space-y-8">
