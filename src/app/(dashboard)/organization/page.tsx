@@ -28,9 +28,39 @@ interface OpportunityItem {
   volunteers: VolunteerParticipant[];
 }
 
+import { createClient } from "@/lib/supabase/client";
+
 export default function OrganizationDashboard() {
   const [opportunities, setOpportunities] = React.useState<OpportunityItem[]>([]);
   const [selectedOppId, setSelectedOppId] = React.useState<string>("");
+
+  React.useEffect(() => {
+    async function loadOrgData() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("opportunities")
+        .select("*")
+        .eq("created_by", user.id)
+        .order("created_at", { ascending: false });
+
+      if (data && data.length > 0) {
+        const items: OpportunityItem[] = data.map((d) => ({
+          id: d.id,
+          title: d.title,
+          date: new Date(d.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+          location: d.is_remote ? "Remote" : d.address || "Local",
+          hours: d.volunteer_hours || 1,
+          volunteers: [],
+        }));
+        setOpportunities(items);
+        setSelectedOppId(items[0].id);
+      }
+    }
+    loadOrgData();
+  }, []);
 
   const selectedOpp = opportunities.find(o => o.id === selectedOppId);
 

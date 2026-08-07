@@ -17,12 +17,16 @@ export default function OrganizationProfilePage() {
   const [deleting, setDeleting] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
+  const [uploadingLogo, setUploadingLogo] = React.useState(false);
 
   const [orgName, setOrgName] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [phone, setPhone] = React.useState("");
   const [contactEmail, setContactEmail] = React.useState("");
   const [members, setMembers] = React.useState("");
+  const [logoUrl, setLogoUrl] = React.useState("");
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     async function loadOrgProfile() {
@@ -34,11 +38,42 @@ export default function OrganizationProfilePage() {
         setPhone(user.user_metadata?.phone || "");
         setContactEmail(user.user_metadata?.contact_email || user.email || "");
         setMembers(user.user_metadata?.members || "");
+        setLogoUrl(user.user_metadata?.avatar_url || user.user_metadata?.logo_url || "");
       }
       setLoading(false);
     }
     loadOrgProfile();
   }, []);
+
+  const handleLogoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Logo file size exceeds 5MB limit.");
+      return;
+    }
+
+    setUploadingLogo(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const dataUrl = event.target?.result as string;
+      setLogoUrl(dataUrl);
+
+      const supabase = createClient();
+      const { error } = await supabase.auth.updateUser({
+        data: { avatar_url: dataUrl, logo_url: dataUrl }
+      });
+
+      if (error) {
+        toast.error("Failed to save logo: " + error.message);
+      } else {
+        toast.success("Organization logo updated!");
+      }
+      setUploadingLogo(false);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +85,9 @@ export default function OrganizationProfilePage() {
         description,
         phone,
         contact_email: contactEmail,
-        members
+        members,
+        avatar_url: logoUrl,
+        logo_url: logoUrl,
       }
     });
 
@@ -88,16 +125,37 @@ export default function OrganizationProfilePage() {
         <Card className="border-border bg-card">
           <CardHeader><CardTitle className="text-xl font-bold">Organization Details</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            {/* Org Logo Placeholder */}
+            {/* Org Logo Section */}
             <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold text-xl border border-primary/20">
-                {initials}
-              </div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                onChange={handleLogoFileChange}
+                className="hidden"
+              />
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt="Organization Logo"
+                  className="h-16 w-16 rounded-xl object-cover border border-primary/20 shadow-sm shrink-0"
+                />
+              ) : (
+                <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold text-xl border border-primary/20 shrink-0">
+                  {initials}
+                </div>
+              )}
               <div>
-                <Button type="button" variant="outline" size="sm" onClick={() => toast("Organization logo upload feature active")}>
-                  Upload Organization Logo
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={uploadingLogo}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {uploadingLogo ? "Uploading..." : "Upload Organization Logo"}
                 </Button>
-                <p className="text-xs text-muted-foreground mt-1">PNG or JPG. Max 5MB.</p>
+                <p className="text-xs text-muted-foreground mt-1">PNG, JPG or WebP. Max 5MB.</p>
               </div>
             </div>
 
