@@ -45,7 +45,7 @@ export function SidebarContent({
   collapsed: boolean;
   pathname: string;
 }) {
-  const [user, setUser] = React.useState<{ name: string; email: string } | null>(null);
+  const [user, setUser] = React.useState<{ name: string; email: string; avatarUrl?: string } | null>(null);
 
   React.useEffect(() => {
     async function loadUser() {
@@ -54,7 +54,8 @@ export function SidebarContent({
       if (authUser) {
         const name = authUser.user_metadata?.full_name || authUser.email?.split("@")[0] || "User";
         const email = authUser.email || "";
-        setUser({ name, email });
+        const avatarUrl = authUser.user_metadata?.avatar_url || "";
+        setUser({ name, email, avatarUrl });
       }
     }
     loadUser();
@@ -113,9 +114,13 @@ export function SidebarContent({
           )}
         >
           <Avatar className="h-8 w-8">
-            <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
-              {initials}
-            </AvatarFallback>
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt="Avatar" className="h-8 w-8 rounded-full object-cover" />
+            ) : (
+              <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                {initials}
+              </AvatarFallback>
+            )}
           </Avatar>
           {!collapsed && (
             <div className="flex-1 min-w-0">

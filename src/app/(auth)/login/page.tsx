@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 
 function LoginForm() {
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirectTo") || "/volunteer";
+  const redirectTo = searchParams.get("redirectTo") || "";
 
   const [error, setError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
@@ -22,7 +22,7 @@ function LoginForm() {
   async function handleSubmit(formData: FormData) {
     setIsLoading(true);
     setError(null);
-    if (!formData.get("redirectTo")) {
+    if (redirectTo && !formData.get("redirectTo")) {
       formData.append("redirectTo", redirectTo);
     }
     const result = await login(formData);

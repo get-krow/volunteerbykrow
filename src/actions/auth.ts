@@ -22,13 +22,29 @@ export async function login(formData: FormData) {
     return { error: error.message };
   }
 
-  // Redirect based on user role
+  // Check user role from profiles table first, fallback to user_metadata
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", data.user.id)
+    .single();
+
+  const role = profile?.role || data.user?.user_metadata?.role || "volunteer";
   const redirectTo = formData.get("redirectTo")?.toString();
-  if (redirectTo) {
+
+  // If a specific non-dashboard redirect path was provided, use it
+  if (redirectTo && !["/volunteer", "/organization", "/admin", "/login", "/register"].includes(redirectTo)) {
     redirect(redirectTo);
   }
-  const role = data.user?.user_metadata?.role;
-  redirect(role === "organization" ? "/organization" : "/volunteer");
+
+  // Otherwise, route to the correct role dashboard
+  if (role === "organization") {
+    redirect("/organization");
+  } else if (role === "admin") {
+    redirect("/admin");
+  } else {
+    redirect("/volunteer");
+  }
 }
 
 export async function register(formData: FormData) {
@@ -43,7 +59,7 @@ export async function register(formData: FormData) {
     return { error: "Please fill in all required fields." };
   }
 
-  const { error } = await supabase.auth.signUp({
+  const { data: authData, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -56,6 +72,16 @@ export async function register(formData: FormData) {
 
   if (error) {
     return { error: error.message };
+  }
+
+  // Ensure role is explicitly set in profiles table
+  if (authData?.user) {
+    await supabase.from("profiles").upsert({
+      id: authData.user.id,
+      role: role as any,
+      full_name,
+      updated_at: new Date().toISOString(),
+    });
   }
 
   // Auto sign-in user immediately without email verification requirement

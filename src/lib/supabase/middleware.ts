@@ -46,17 +46,40 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from auth pages
-  const authPaths = ["/login", "/register", "/forgot-password"];
-  const isAuthPage = authPaths.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
-  );
+  // Role-based redirects and boundary enforcement for authenticated users
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
 
-  if (isAuthPage && user) {
-    const url = request.nextUrl.clone();
-    const role = user.user_metadata?.role;
-    url.pathname = role === "organization" ? "/organization" : "/volunteer";
-    return NextResponse.redirect(url);
+    const role = profile?.role || user.user_metadata?.role || "volunteer";
+
+    const authPaths = ["/login", "/register", "/forgot-password"];
+    const isAuthPage = authPaths.some((path) =>
+      request.nextUrl.pathname.startsWith(path)
+    );
+
+    if (isAuthPage) {
+      const url = request.nextUrl.clone();
+      url.pathname = role === "organization" ? "/organization" : role === "admin" ? "/admin" : "/volunteer";
+      return NextResponse.redirect(url);
+    }
+
+    // Prevent organization accounts from ending up on volunteer dashboard
+    if (request.nextUrl.pathname.startsWith("/volunteer") && role === "organization") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/organization";
+      return NextResponse.redirect(url);
+    }
+
+    // Prevent volunteer accounts from accessing organization dashboard
+    if (request.nextUrl.pathname.startsWith("/organization") && role !== "organization" && role !== "admin") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/volunteer";
+      return NextResponse.redirect(url);
+    }
   }
 
   return supabaseResponse;
