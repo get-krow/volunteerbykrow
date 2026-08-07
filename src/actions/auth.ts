@@ -58,7 +58,6 @@ export async function register(formData: FormData) {
         registering_for,
         description,
       },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/auth/callback`,
     },
   });
 
@@ -66,7 +65,14 @@ export async function register(formData: FormData) {
     return { error: error.message };
   }
 
-  return { success: "Check your email to verify your account." };
+  // Auto sign-in user immediately without email verification requirement
+  await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  const destination = role === "organization" ? "/organization" : "/volunteer";
+  redirect(destination);
 }
 
 export async function deleteAccount() {

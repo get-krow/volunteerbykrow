@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 
 export default function RegisterPage() {
   const [error, setError] = React.useState<string | null>(null);
-  const [success, setSuccess] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const [selectedRole, setSelectedRole] = React.useState<string>("volunteer");
@@ -25,38 +24,11 @@ export default function RegisterPage() {
     if (result?.error) {
       setError(result.error);
       setIsLoading(false);
-    } else if (result?.success) {
-      setSuccess(result.success);
-      setIsLoading(false);
     }
   }
 
   async function handleGoogleSignIn() {
     await signInWithGoogle();
-  }
-
-  if (success) {
-    return (
-      <div className="flex min-h-screen items-center justify-center p-6">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="max-w-md text-center"
-        >
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-            <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
-          </div>
-          <h2 className="mt-6 text-2xl font-bold">Check your email</h2>
-          <p className="mt-3 text-muted-foreground">{success}</p>
-          <Link
-            href="/login"
-            className="mt-6 inline-block text-sm text-primary hover:underline font-medium"
-          >
-            Back to login
-          </Link>
-        </motion.div>
-      </div>
-    );
   }
 
   return (
