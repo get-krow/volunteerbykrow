@@ -65,19 +65,19 @@ export default function NewOpportunityPage() {
         return;
       }
 
-      // Check or create organization for user
+      // 1. Get or create Organization for user
       let orgId: string | null = null;
 
       const { data: existingOrg } = await supabase
         .from("organizations")
         .select("id")
         .eq("created_by", user.id)
-        .single();
+        .limit(1)
+        .maybeSingle();
 
-      if (existingOrg) {
+      if (existingOrg?.id) {
         orgId = existingOrg.id;
       } else {
-        // Auto-create organization profile if not yet created
         const orgName = user.user_metadata?.full_name || "My Organization";
         const slug = orgName.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Date.now().toString(36);
         const { data: newOrg, error: orgError } = await supabase
@@ -93,34 +93,43 @@ export default function NewOpportunityPage() {
 
         if (orgError) {
           console.error("Org creation error:", orgError);
-        } else if (newOrg) {
+        } else if (newOrg?.id) {
           orgId = newOrg.id;
+          // Also add org_member row so RLS policies pass cleanly
+          await supabase.from("org_members").insert({
+            organization_id: orgId,
+            user_id: user.id,
+            role: "owner",
+          });
         }
       }
 
       const isRemote = location.toLowerCase().includes("remote") || location.toLowerCase().includes("online");
       const defaultImage = imageUrl || "https://images.unsplash.com/photo-1559027615-cd4628902d4a?auto=format&fit=crop&w=1200&q=80";
 
-      // Insert opportunity into Supabase
-      const { error: oppError } = await supabase
+      // 2. Insert opportunity into Supabase
+      const { data: createdOpp, error: oppError } = await supabase
         .from("opportunities")
         .insert({
           organization_id: orgId,
           created_by: user.id,
-          title,
-          description: description + (eventTime ? `\n\nShift Time: ${eventTime}` : ""),
-          address: location,
+          title: title || "New Volunteer Opportunity",
+          description: (description || "Join us and make a positive impact in the community!") + (eventTime ? `\n\nShift Time: ${eventTime}` : ""),
+          address: location || "Local Community",
           is_remote: isRemote,
-          start_date: new Date(eventDate || Date.now()).toISOString(),
+          start_date: eventDate ? new Date(eventDate).toISOString() : new Date().toISOString(),
           capacity: parseInt(capacity) || 20,
           spots_filled: 0,
-          volunteer_hours: parseFloat(hours) || 1,
+          volunteer_hours: parseFloat(hours) || 4,
           status: "published",
           images: [defaultImage],
           skills_required: ["Community Service", "Teamwork"],
-        });
+        })
+        .select("id")
+        .single();
 
       if (oppError) {
+        console.error("Supabase opportunity insert error:", oppError);
         toast.error("Failed to publish opportunity: " + oppError.message);
         setLoading(false);
         return;
@@ -129,6 +138,7 @@ export default function NewOpportunityPage() {
       toast.success("Opportunity Published Successfully!");
       router.push("/organization/opportunities");
     } catch (err: any) {
+      console.error("Unhandled error publishing opportunity:", err);
       toast.error("Error creating opportunity: " + (err?.message || "Unknown error"));
       setLoading(false);
     }
