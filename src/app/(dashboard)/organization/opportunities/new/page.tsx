@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { createClient } from "@/lib/supabase/client";
+import { createOpportunityAction } from "@/actions/opportunities";
 import { toast } from "sonner";
 
 export default function NewOpportunityPage() {
@@ -56,86 +56,25 @@ export default function NewOpportunityPage() {
     setLoading(true);
 
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      const result = await createOpportunityAction({
+        title,
+        category,
+        location,
+        eventDate,
+        eventTime,
+        hours,
+        capacity,
+        description,
+        imageUrl,
+      });
 
-      if (!user) {
-        toast.error("You must be logged in as an organization to create an opportunity.");
+      if (result?.error) {
+        toast.error(result.error);
         setLoading(false);
         return;
       }
 
-      // 1. Get or create Organization for user
-      let orgId: string | null = null;
-
-      const { data: existingOrg } = await supabase
-        .from("organizations")
-        .select("id")
-        .eq("created_by", user.id)
-        .limit(1)
-        .maybeSingle();
-
-      if (existingOrg?.id) {
-        orgId = existingOrg.id;
-      } else {
-        const orgName = user.user_metadata?.full_name || "My Organization";
-        const slug = orgName.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Date.now().toString(36);
-        const { data: newOrg, error: orgError } = await supabase
-          .from("organizations")
-          .insert({
-            name: orgName,
-            slug,
-            email: user.email || "org@krow.app",
-            created_by: user.id,
-          })
-          .select("id")
-          .single();
-
-        if (orgError) {
-          console.error("Org creation error:", orgError);
-        } else if (newOrg?.id) {
-          orgId = newOrg.id;
-          // Also add org_member row so RLS policies pass cleanly
-          await supabase.from("org_members").insert({
-            organization_id: orgId,
-            user_id: user.id,
-            role: "owner",
-          });
-        }
-      }
-
-      const isRemote = location.toLowerCase().includes("remote") || location.toLowerCase().includes("online");
-      const defaultImage = imageUrl || "https://images.unsplash.com/photo-1559027615-cd4628902d4a?auto=format&fit=crop&w=1200&q=80";
-
-      // 2. Insert opportunity into Supabase
-      const { data: createdOpp, error: oppError } = await supabase
-        .from("opportunities")
-        .insert({
-          organization_id: orgId,
-          created_by: user.id,
-          title: title || "New Volunteer Opportunity",
-          description: (description || "Join us and make a positive impact in the community!") + (eventTime ? `\n\nShift Time: ${eventTime}` : ""),
-          address: location || "Local Community",
-          is_remote: isRemote,
-          start_date: eventDate ? new Date(eventDate).toISOString() : new Date().toISOString(),
-          capacity: parseInt(capacity) || 20,
-          spots_filled: 0,
-          volunteer_hours: parseFloat(hours) || 4,
-          status: "published",
-          images: [defaultImage],
-          skills_required: ["Community Service", "Teamwork"],
-        })
-        .select("id")
-        .single();
-
-      if (oppError) {
-        console.error("Supabase opportunity insert error:", oppError);
-        toast.error("Failed to publish opportunity: " + oppError.message);
-        setLoading(false);
-        return;
-      }
-
-      toast.success("Opportunity Published Successfully!");
+      toast.success("Opportunity Published to Supabase Successfully!");
       router.push("/organization/opportunities");
     } catch (err: any) {
       console.error("Unhandled error publishing opportunity:", err);
