@@ -20,32 +20,13 @@ interface EventItem {
   location: string;
 }
 
-const initialUpcomingEvents: EventItem[] = [
-  {
-    id: "1",
-    title: "Park Restoration Day",
-    org: "Green Earth Foundation",
-    date: "Aug 12, 2026",
-    hours: 4,
-    location: "Central Park",
-  },
-  {
-    id: "2",
-    title: "After-School Tutoring",
-    org: "Bright Futures Academy",
-    date: "Aug 14, 2026",
-    hours: 2,
-    location: "Lincoln Elementary",
-  },
-];
-
 const container = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.1 } },
 };
 
 export default function VolunteerDashboard() {
-  const [events, setEvents] = React.useState<EventItem[]>(initialUpcomingEvents);
+  const [events, setEvents] = React.useState<EventItem[]>([]);
   const [savedCount, setSavedCount] = React.useState(0);
 
   const handleLeaveEvent = (eventId: string, title: string) => {

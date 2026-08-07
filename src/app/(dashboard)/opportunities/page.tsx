@@ -9,74 +9,46 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { categories } from "@/config/site";
-
+import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { CheckCircle2, UserCheck } from "lucide-react";
 
-const sampleOpportunities = [
-  {
-    id: "1",
-    title: "Coastal Beach Cleanup & Ecosystem Restoration",
-    organization: "Green Earth Foundation",
-    location: "Santa Monica, CA",
-    is_remote: false,
-    date: "Aug 15, 2026",
-    hours: 4,
-    age_eligibility: "All Ages",
-    category: "Environment",
-    spots_left: 8,
-    image: "https://images.unsplash.com/photo-1618477461853-cf6ed80faba5?auto=format&fit=crop&w=600&q=80",
-    tags: ["Outdoors", "Conservation", "Ocean"],
-  },
-  {
-    id: "2",
-    title: "After-School STEM & Coding Tutor for Youth",
-    organization: "Bright Futures Academy",
-    location: "Remote / Online",
-    is_remote: true,
-    date: "Aug 18, 2026",
-    hours: 2,
-    age_eligibility: "16+ Years",
-    category: "Education",
-    spots_left: 4,
-    image: "https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=600&q=80",
-    tags: ["Mentorship", "STEM", "Youth"],
-  },
-  {
-    id: "3",
-    title: "Community Food Pantry Packing & Distribution",
-    organization: "Community Aid Network",
-    location: "Los Angeles, CA",
-    is_remote: false,
-    date: "Aug 20, 2026",
-    hours: 3,
-    age_eligibility: "13+ Years",
-    category: "Hunger",
-    spots_left: 12,
-    image: "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&w=600&q=80",
-    tags: ["Food Relief", "Community", "Volunteering"],
-  },
-  {
-    id: "4",
-    title: "Animal Shelter Care & Socialization Assistant",
-    organization: "Paws & Claws Rescue",
-    location: "Pasadena, CA",
-    is_remote: false,
-    date: "Aug 22, 2026",
-    hours: 5,
-    age_eligibility: "18+ Years",
-    category: "Animals",
-    spots_left: 3,
-    image: "https://images.unsplash.com/photo-1548767797-d8c844163c4c?auto=format&fit=crop&w=600&q=80",
-    tags: ["Animal Care", "Shelter", "Weekend"],
-  },
-];
-
 export default function OpportunitiesPage() {
+  const [opportunities, setOpportunities] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null);
   const [remoteOnly, setRemoteOnly] = React.useState(false);
   const [signedUpIds, setSignedUpIds] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    async function loadOpportunities() {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("opportunities")
+        .select("*, organizations(name)")
+        .eq("status", "published");
+
+      if (!error && data) {
+        setOpportunities(data.map(item => ({
+          id: item.id,
+          title: item.title,
+          organization: item.organizations?.name || "Verified Organization",
+          location: item.is_remote ? "Remote / Online" : item.address || "Local Community",
+          is_remote: item.is_remote,
+          date: new Date(item.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+          hours: item.volunteer_hours,
+          age_eligibility: item.age_eligibility ? `${item.age_eligibility}+ Years` : "All Ages",
+          category: item.category_id || "General",
+          spots_left: item.capacity ? item.capacity - item.spots_filled : 10,
+          image: item.images?.[0] || "https://images.unsplash.com/photo-1559027615-cd4628902d4a?auto=format&fit=crop&w=600&q=80",
+          tags: item.tags || ["Volunteering", "Community"]
+        })));
+      }
+      setLoading(false);
+    }
+    loadOpportunities();
+  }, []);
 
   const handleInstantSignup = (oppId: string, title: string) => {
     if (signedUpIds.includes(oppId)) {
@@ -90,7 +62,7 @@ export default function OpportunitiesPage() {
     }
   };
 
-  const filteredOpportunities = sampleOpportunities.filter((opp) => {
+  const filteredOpportunities = opportunities.filter((opp) => {
     const matchesSearch =
       opp.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       opp.organization.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -165,103 +137,124 @@ export default function OpportunitiesPage() {
         </div>
       </div>
 
-      {/* Grid */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {filteredOpportunities.map((opp) => {
-          const isSignedUp = signedUpIds.includes(opp.id);
-          return (
-            <motion.div
-              key={opp.id}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Card className="h-full flex flex-col overflow-hidden hover:shadow-lg transition-all duration-300 group border-border">
-                <div className="relative h-48 w-full overflow-hidden bg-muted">
-                  <img
-                    src={opp.image}
-                    alt={opp.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <Badge className="absolute top-3 right-3 bg-background/90 text-foreground backdrop-blur-md">
-                    {opp.category}
-                  </Badge>
-                  <Badge variant="secondary" className="absolute bottom-3 left-3 text-[11px] font-semibold bg-background/90 backdrop-blur-md">
-                    <UserCheck className="w-3 h-3 mr-1 text-primary" /> {opp.age_eligibility}
-                  </Badge>
-                </div>
-                <CardHeader className="p-5 pb-2">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                    <Building2 className="w-3.5 h-3.5" />
-                    <span>{opp.organization}</span>
-                  </div>
-                  <CardTitle className="text-lg font-bold leading-snug line-clamp-2">
-                    {opp.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-5 pt-2 flex-1 space-y-3">
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-primary" />
-                      <span>{opp.location}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-3.5 h-3.5 text-primary" />
-                      <span>{opp.date}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-primary" />
-                      <span>{opp.hours}h</span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1.5">
-                    {opp.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="text-[10px] px-2 py-0.5">
-                        #{tag}
+            {/* Opportunities Grid */}
+      {filteredOpportunities.length === 0 ? (
+        <Card className="border-border bg-card">
+          <CardContent className="p-12 text-center space-y-3">
+            <Sparkles className="h-12 w-12 mx-auto text-muted-foreground/50" />
+            <h3 className="text-lg font-bold">No Opportunities Found</h3>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+              There are currently no published opportunities matching your filter criteria. Check back soon for new organization listings!
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredOpportunities.map((opp) => {
+            const isSignedUp = signedUpIds.includes(opp.id);
+            return (
+              <motion.div
+                key={opp.id}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <Card className="border-border bg-card overflow-hidden h-full flex flex-col hover:border-primary/50 transition-all hover:shadow-md">
+                  <div className="relative h-44 w-full bg-muted">
+                    <img
+                      src={opp.image}
+                      alt={opp.title}
+                      className="h-full w-full object-cover"
+                    />
+                    <div className="absolute top-3 left-3 flex gap-2">
+                      <Badge className="bg-background/90 text-foreground backdrop-blur-md shadow-sm">
+                        {opp.category}
                       </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-                <CardFooter className="p-5 pt-0 flex items-center justify-between border-t border-border mt-auto pt-4">
-                  <span className="text-xs text-muted-foreground font-medium">
-                    Instant Sign-Up
-                  </span>
-                  <Button
-                    size="sm"
-                    variant={isSignedUp ? "outline" : "default"}
-                    onClick={() => handleInstantSignup(opp.id, opp.title)}
-                    className={`gap-1.5 font-semibold ${isSignedUp ? "border-green-500 text-green-600 hover:bg-green-50" : ""}`}
-                  >
-                    {isSignedUp ? (
-                      <>
-                        <CheckCircle2 className="w-4 h-4 text-green-600" /> Signed Up
-                      </>
-                    ) : (
-                      <>
-                        Sign Up <ArrowRight className="w-4 h-4" />
-                      </>
+                      <Badge className="bg-primary/90 text-primary-foreground backdrop-blur-md shadow-sm">
+                        {opp.age_eligibility}
+                      </Badge>
+                    </div>
+                    {isSignedUp && (
+                      <div className="absolute top-3 right-3 bg-green-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Registered
+                      </div>
                     )}
-                  </Button>
-                </CardFooter>
-              </Card>
-            </motion.div>
-          );
-        })}
-      </div>
+                  </div>
+                  <CardHeader className="p-5 pb-2">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mb-1">
+                      <Building2 className="w-3.5 h-3.5 text-primary" />
+                      <span>{opp.organization}</span>
+                    </div>
+                    <CardTitle className="text-lg font-bold leading-snug line-clamp-2">
+                      {opp.title}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-5 pt-2 flex-1 space-y-3">
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-primary" />
+                        <span>{opp.location}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-primary" />
+                        <span>{opp.date}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-primary" />
+                        <span>{opp.hours}h</span>
+                      </div>
+                    </div>
 
-      {/* Pagination / Next Page Controls */}
-      <div className="pt-8 border-t border-border flex items-center justify-between">
-        <Button variant="outline" size="sm" disabled className="gap-1 font-semibold">
-          <ChevronLeft className="w-4 h-4" /> Previous
-        </Button>
-        <div className="text-xs text-muted-foreground font-medium">
-          Showing 1 - {filteredOpportunities.length} of {filteredOpportunities.length} opportunities
+                    <div className="flex flex-wrap gap-1.5">
+                      {opp.tags.map((tag: string) => (
+                        <Badge key={tag} variant="secondary" className="text-[10px] px-2 py-0.5">
+                          #{tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                  <CardFooter className="p-5 pt-0 flex items-center justify-between border-t border-border mt-auto pt-4">
+                    <span className="text-xs text-muted-foreground font-medium">
+                      Instant Sign-Up
+                    </span>
+                    <Button
+                      size="sm"
+                      variant={isSignedUp ? "outline" : "default"}
+                      onClick={() => handleInstantSignup(opp.id, opp.title)}
+                      className={`gap-1.5 font-semibold ${isSignedUp ? "border-green-500 text-green-600 hover:bg-green-50" : ""}`}
+                    >
+                      {isSignedUp ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 text-green-600" /> Signed Up
+                        </>
+                      ) : (
+                        <>
+                          Sign Up <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </motion.div>
+            );
+          })}
         </div>
-        <Button variant="default" size="sm" className="gap-1.5 font-semibold">
-          Next Page <ArrowRight className="w-4 h-4" />
-        </Button>
-      </div>
+      )}
+
+      {/* Pagination Controls */}
+      {filteredOpportunities.length > 0 && (
+        <div className="pt-8 border-t border-border flex items-center justify-between">
+          <Button variant="outline" size="sm" disabled className="gap-1 font-semibold">
+            <ChevronLeft className="w-4 h-4" /> Previous
+          </Button>
+          <div className="text-xs text-muted-foreground font-medium">
+            Showing 1 - {filteredOpportunities.length} of {filteredOpportunities.length} opportunities
+          </div>
+          <Button variant="default" size="sm" className="gap-1.5 font-semibold">
+            Next Page <ArrowRight className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

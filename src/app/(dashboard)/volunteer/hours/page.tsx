@@ -11,17 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
-const initialHours = [
-  { id: 1, org: "Green Earth Foundation", event: "Coastal Beach Cleanup", date: "Aug 2, 2026", hours: 4, status: "approved" },
-  { id: 2, org: "Bright Futures Academy", event: "STEM Coding Tutor", date: "Jul 28, 2026", hours: 2, status: "approved" },
-  { id: 3, org: "Community Aid Network", event: "Food Pantry Packing", date: "Jul 20, 2026", hours: 3, status: "pending" },
-];
-
 export default function VolunteerHoursPage() {
-  const [historyList] = React.useState([
-    { id: 1, org: "Green Earth Foundation", event: "Coastal Beach Cleanup", date: "Aug 2, 2026", hours: 4, status: "verified" },
-    { id: 2, org: "Bright Futures Academy", event: "STEM Coding Tutor", date: "Jul 28, 2026", hours: 2, status: "verified" },
-  ]);
+  const [historyList] = React.useState<any[]>([]);
 
   const totalVerifiedHours = historyList.filter(h => h.status === "verified").reduce((acc, curr) => acc + curr.hours, 0);
   const completedOpportunitiesCount = historyList.filter(h => h.status === "verified").length;

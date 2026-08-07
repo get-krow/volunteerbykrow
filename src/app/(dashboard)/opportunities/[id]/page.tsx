@@ -20,6 +20,8 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
   const searchParams = useSearchParams();
   const autoApply = searchParams.get("apply") === "true";
 
+  const [opp, setOpp] = React.useState<any>(null);
+  const [loadingOpp, setLoadingOpp] = React.useState(true);
   const [applied, setApplied] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
   const [user, setUser] = React.useState<any>(null);
@@ -37,7 +39,7 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
   const supabase = createClient();
 
   React.useEffect(() => {
-    async function checkUser() {
+    async function loadData() {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
       setCheckingAuth(false);
@@ -45,40 +47,45 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
       if (user && autoApply) {
         setShowApplyModal(true);
       }
+
+      // Fetch real opportunity from Supabase
+      const { data, error } = await supabase
+        .from("opportunities")
+        .select("*, organizations(name, logo_url, description)")
+        .eq("id", params.id)
+        .single();
+
+      if (!error && data) {
+        setOpp({
+          id: data.id,
+          title: data.title,
+          organization: {
+            name: data.organizations?.name || "Verified Organization",
+            initials: data.organizations?.name ? data.organizations.name.slice(0, 2).toUpperCase() : "VO",
+            verified: true,
+            description: data.organizations?.description || "Verified Organization on Volunteer by KROW.",
+          },
+          location: data.is_remote ? "Remote / Online" : data.address || "Local Community",
+          is_remote: data.is_remote,
+          date: new Date(data.start_date).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" }),
+          time: `${new Date(data.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+          hours: data.volunteer_hours,
+          capacity: data.capacity || 20,
+          spots_filled: data.spots_filled || 0,
+          category: data.category_id || "General",
+          image: data.images?.[0] || "https://images.unsplash.com/photo-1559027615-cd4628902d4a?auto=format&fit=crop&w=1200&q=80",
+          description: data.description,
+          skills: data.skills_required?.length ? data.skills_required : ["Community Service", "Teamwork"],
+          requirements: [
+            "Must register and confirm attendance prior to start date",
+            "Be prepared to follow community event guidelines",
+          ],
+        });
+      }
+      setLoadingOpp(false);
     }
-    checkUser();
-  }, [autoApply]);
-
-  const opp = {
-    id: params.id,
-    title: "Coastal Beach Cleanup & Ecosystem Restoration",
-    organization: {
-      name: "Green Earth Foundation",
-      initials: "GE",
-      verified: true,
-      description: "Dedicated to protecting marine wildlife and restoring natural coastal environments through community action.",
-    },
-    location: "Santa Monica State Beach, Pier 2, CA",
-    is_remote: false,
-    date: "Saturday, Aug 15, 2026",
-    time: "9:00 AM - 1:00 PM PST",
-    hours: 4,
-    capacity: 20,
-    spots_filled: 12,
-    category: "Environment",
-    image: "https://images.unsplash.com/photo-1618477461853-cf6ed80faba5?auto=format&fit=crop&w=1200&q=80",
-    description: `Join us for our monthly Coastal Beach Cleanup and Ecosystem Restoration event! We will be collecting microplastics, clearing marine debris, and planting native dune vegetation to prevent erosion.
-
-All supplies including gloves, bags, and tools will be provided. Please wear comfortable shoes, sun protection, and bring a reusable water bottle.
-
-This event is eligible for official community service hour verification certificates via KROW.`,
-    skills: ["Teamwork", "Physical Activity", "Environmental Awareness"],
-    requirements: [
-      "Must be at least 14 years old (under 18 requires guardian waiver)",
-      "Able to walk on uneven sandy terrain for up to 3 hours",
-      "Bring reusable water bottle and sunscreen",
-    ],
-  };
+    loadData();
+  }, [params.id, autoApply]);
 
   const handleApplyClick = () => {
     if (!user) {
@@ -97,10 +104,34 @@ This event is eligible for official community service hour verification certific
       setShowApplyModal(false);
       setApplied(true);
       toast.success("Application Submitted!", {
-        description: "Green Earth Foundation has received your application and will send confirmation details shortly.",
+        description: `Your application has been received for "${opp?.title}".`,
       });
     }, 1000);
   };
+
+  if (loadingOpp) {
+    return (
+      <div className="py-20 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+        <Loader2 className="w-4 h-4 animate-spin text-primary" /> Loading opportunity details...
+      </div>
+    );
+  }
+
+  if (!opp) {
+    return (
+      <div className="min-h-screen py-20 px-4 max-w-lg mx-auto text-center space-y-4">
+        <h2 className="text-2xl font-bold">Opportunity Not Found</h2>
+        <p className="text-sm text-muted-foreground">
+          This opportunity may have ended, been archived by the organization, or does not exist.
+        </p>
+        <Link href="/opportunities">
+          <Button className="gap-2 font-semibold">
+            <ArrowLeft className="w-4 h-4" /> Browse Active Opportunities
+          </Button>
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto space-y-8">
@@ -158,7 +189,7 @@ This event is eligible for official community service hour verification certific
           <div className="space-y-3">
             <h3 className="text-base font-semibold">Skills & Tags</h3>
             <div className="flex flex-wrap gap-2">
-              {opp.skills.map((skill) => (
+              {opp.skills.map((skill: string) => (
                 <Badge key={skill} variant="secondary" className="px-3 py-1 text-xs">
                   {skill}
                 </Badge>
@@ -169,7 +200,7 @@ This event is eligible for official community service hour verification certific
           <div className="space-y-3">
             <h3 className="text-base font-semibold">Requirements</h3>
             <ul className="space-y-2">
-              {opp.requirements.map((req, idx) => (
+              {opp.requirements.map((req: string, idx: number) => (
                 <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground">
                   <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                   <span>{req}</span>
