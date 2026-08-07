@@ -40,11 +40,20 @@ export default function OrganizationDashboard() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data } = await supabase
-        .from("opportunities")
-        .select("*")
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("id")
         .eq("created_by", user.id)
-        .order("created_at", { ascending: false });
+        .limit(1)
+        .maybeSingle();
+
+      let query = supabase.from("opportunities").select("*").order("created_at", { ascending: false });
+
+      if (org?.id) {
+        query = query.eq("organization_id", org.id);
+      }
+
+      const { data } = await query;
 
       if (data && data.length > 0) {
         const items: OpportunityItem[] = data.map((d) => ({

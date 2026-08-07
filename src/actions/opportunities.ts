@@ -58,7 +58,7 @@ export async function createOpportunityAction(params: CreateOpportunityParams, c
           slug,
           email: user.email || "org@krow.app",
           created_by: user.id,
-          verified: true,
+          verification_status: "verified",
         })
         .select("id")
         .single();
@@ -86,7 +86,6 @@ export async function createOpportunityAction(params: CreateOpportunityParams, c
       .from("opportunities")
       .insert({
         organization_id: orgId,
-        created_by: user.id,
         title: params.title || "New Volunteer Opportunity",
         description: (params.description || "Join us and make a positive impact in the community!") + (params.eventTime ? `\n\nShift Time: ${params.eventTime}` : ""),
         address: params.location || "Coquitlam, BC, Canada",

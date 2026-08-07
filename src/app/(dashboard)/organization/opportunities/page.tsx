@@ -21,11 +21,20 @@ export default function OrganizationOpportunitiesPage() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("opportunities")
-      .select("*")
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("id")
       .eq("created_by", user.id)
-      .order("created_at", { ascending: false });
+      .limit(1)
+      .maybeSingle();
+
+    let query = supabase.from("opportunities").select("*").order("created_at", { ascending: false });
+
+    if (org?.id) {
+      query = query.eq("organization_id", org.id);
+    }
+
+    const { data, error } = await query;
 
     if (!error && data) {
       setOrgOpps(data.map(item => ({
