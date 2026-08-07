@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { getOpportunityByIdAction } from "@/actions/opportunities";
+import { applyForOpportunityAction, cancelApplicationAction, getUserApplicationsAction } from "@/actions/applications";
 import { toast } from "sonner";
 
 function OpportunityDetailContent({ params }: { params: { id: string } }) {
@@ -41,16 +42,34 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
 
   React.useEffect(() => {
     async function loadData() {
+      // Unwrap Next.js 15/16 params Promise
+      const resolvedParams = typeof (params as any)?.then === "function" ? await (params as any) : params;
+      const oppId = resolvedParams?.id;
+
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
       setCheckingAuth(false);
+
+      if (!oppId) {
+        setLoadingOpp(false);
+        return;
+      }
 
       if (user && autoApply) {
         setShowApplyModal(true);
       }
 
+      // Check if volunteer is already registered
+      if (user) {
+        const appsRes = await getUserApplicationsAction(user.id);
+        if (appsRes?.applications) {
+          const isApplied = appsRes.applications.some((a: any) => a.opportunity_id === oppId);
+          setApplied(isApplied);
+        }
+      }
+
       // Fetch real opportunity using Server Action
-      const res = await getOpportunityByIdAction(params.id);
+      const res = await getOpportunityByIdAction(oppId);
       const data = res?.opportunity;
 
       if (data) {
@@ -83,28 +102,52 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
       setLoadingOpp(false);
     }
     loadData();
-  }, [params.id, autoApply]);
+  }, [params, autoApply]);
 
   const handleApplyClick = () => {
     if (!user) {
       setShowAuthModal(true);
+    } else if (applied) {
+      handleCancelRegistration();
     } else {
       setShowApplyModal(true);
     }
   };
 
-  const handleConfirmApplication = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCancelRegistration = async () => {
+    if (!opp?.id) return;
     setSubmitting(true);
+    const res = await cancelApplicationAction(opp.id);
+    setSubmitting(false);
 
-    setTimeout(() => {
-      setSubmitting(false);
-      setShowApplyModal(false);
-      setApplied(true);
-      toast.success("Application Submitted!", {
-        description: `Your application has been received for "${opp?.title}".`,
+    if (res?.error) {
+      toast.error(res.error);
+    } else {
+      setApplied(false);
+      toast.info("Registration Cancelled", {
+        description: `You have unregistered from "${opp?.title}". You can sign up again anytime.`,
       });
-    }, 1000);
+    }
+  };
+
+  const handleConfirmApplication = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!opp?.id) return;
+
+    setSubmitting(true);
+    const res = await applyForOpportunityAction(opp.id);
+    setSubmitting(false);
+
+    if (res?.error) {
+      toast.error(res.error);
+      return;
+    }
+
+    setShowApplyModal(false);
+    setApplied(true);
+    toast.success("Application Submitted Successfully! 🎉", {
+      description: `Your registration for "${opp?.title}" has been saved. The organizer will see your application on their roster.`,
+    });
   };
 
   if (loadingOpp) {

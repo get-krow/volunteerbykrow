@@ -31,7 +31,15 @@ export default function EditOpportunityPage({ params }: { params: { id: string }
 
   React.useEffect(() => {
     async function loadOpp() {
-      const res = await getOpportunityByIdAction(params.id);
+      const resolvedParams = typeof (params as any)?.then === "function" ? await (params as any) : params;
+      const oppId = resolvedParams?.id;
+
+      if (!oppId) {
+        setLoading(false);
+        return;
+      }
+
+      const res = await getOpportunityByIdAction(oppId);
       if (res?.opportunity) {
         const o = res.opportunity;
         setTitle(o.title || "");
@@ -47,7 +55,7 @@ export default function EditOpportunityPage({ params }: { params: { id: string }
       setLoading(false);
     }
     loadOpp();
-  }, [params.id]);
+  }, [params]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +63,10 @@ export default function EditOpportunityPage({ params }: { params: { id: string }
     setErrorMsg(null);
 
     try {
-      const res = await updateOpportunityAction(params.id, {
+      const resolvedParams = typeof (params as any)?.then === "function" ? await (params as any) : params;
+      const oppId = resolvedParams?.id;
+
+      const res = await updateOpportunityAction(oppId, {
         title,
         location,
         eventDate,
