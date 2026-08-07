@@ -53,6 +53,8 @@ export default function VolunteerHoursPage() {
     loadHours();
   }, []);
 
+  const completedOpportunitiesCount = historyList.length;
+
   return (
     <div className="space-y-8">
       <div>

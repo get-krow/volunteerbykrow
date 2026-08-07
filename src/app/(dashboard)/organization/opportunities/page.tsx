@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { getOpportunitiesAction } from "@/actions/opportunities";
+import { deleteOpportunityAction } from "@/actions/applications";
 import { toast } from "sonner";
 
 export default function OrganizationOpportunitiesPage() {

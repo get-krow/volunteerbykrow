@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getOpportunityByIdAction } from "@/actions/opportunities";
 import { updateOpportunityAction } from "@/actions/applications";
 import { toast } from "sonner";
