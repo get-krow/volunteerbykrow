@@ -65,7 +65,7 @@ export function Footer() {
                 </svg>
               </a>
               <a
-                href="mailto:hello@krow.app"
+                href="mailto:getkrow@gmail.com"
                 className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                 aria-label="Email"
               >

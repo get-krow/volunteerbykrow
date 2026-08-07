@@ -58,7 +58,7 @@ export default function CommunityGuidelinesPage() {
       <div className="border border-border bg-card rounded-2xl p-8 space-y-4">
         <h2 className="text-xl font-bold">Reporting Violations</h2>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          If you encounter any behavior, unsafe event conditions, or unverified hour logging that violates these guidelines, please contact our trust & safety team immediately at <strong>safety@volunteerbykrow.com</strong>.
+          If you encounter any behavior, unsafe event conditions, or unverified hour logging that violates these guidelines, please contact our trust & safety team immediately at <strong>getkrow@gmail.com</strong>.
         </p>
       </div>
     </div>

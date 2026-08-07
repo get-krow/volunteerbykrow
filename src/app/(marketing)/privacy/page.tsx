@@ -15,7 +15,7 @@ export default function PrivacyPolicyPage() {
 
       <div className="prose dark:prose-invert max-w-none space-y-6 text-sm text-muted-foreground leading-relaxed">
         <p>
-          At <strong>Volunteer by KROW</strong>, accessible from volunteerbykrow.com, one of our main priorities is the privacy of our visitors and users. This Privacy Policy document contains types of information that is collected and recorded by KROW and how we use it.
+          At <strong>Volunteer by KROW</strong>, accessible from volunteerybykrow.vercel.app, one of our main priorities is the privacy of our visitors and users. This Privacy Policy document contains types of information that is collected and recorded by KROW and how we use it.
         </p>
 
         <h2 className="text-lg font-bold text-foreground pt-4">1. Information We Collect</h2>
@@ -38,7 +38,7 @@ export default function PrivacyPolicyPage() {
 
         <h2 className="text-lg font-bold text-foreground pt-4">4. Contact Us</h2>
         <p>
-          If you have additional questions or require more information about our Privacy Policy, do not hesitate to contact us at <strong>privacy@volunteerbykrow.com</strong>.
+          If you have additional questions or require more information about our Privacy Policy, do not hesitate to contact us at <strong>getkrow@gmail.com</strong>.
         </p>
       </div>
     </div>

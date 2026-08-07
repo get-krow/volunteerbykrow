@@ -53,7 +53,7 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <p className="font-semibold text-foreground">Support & Inquiries</p>
-                  <p className="text-muted-foreground text-xs">support@volunteerbykrow.com</p>
+                  <p className="text-muted-foreground text-xs">getkrow@gmail.com</p>
                 </div>
               </div>
 
@@ -73,7 +73,7 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <p className="font-semibold text-foreground">Headquarters</p>
-                  <p className="text-muted-foreground text-xs">Los Angeles, CA • San Francisco, CA</p>
+                  <p className="text-muted-foreground text-xs">Coquitlam, BC, Canada</p>
                 </div>
               </div>
             </div>
