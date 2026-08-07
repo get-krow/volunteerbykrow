@@ -54,29 +54,27 @@ export default function OrganizationDashboard() {
       >
         <StatCard
           title="Active Volunteers"
-          value="284"
+          value="0"
           icon={Users}
-          trend={{ value: 18, label: "from last month" }}
-          description="from last month"
+          description="0 active this month"
         />
         <StatCard
           title="Open Opportunities"
-          value="12"
+          value="0"
           icon={Briefcase}
-          description="3 closing soon"
+          description="0 published"
         />
         <StatCard
           title="Total Hours"
-          value="3,450"
+          value="0"
           icon={Clock}
-          trend={{ value: 24, label: "from last month" }}
-          description="from last month"
+          description="0 verified hours"
         />
         <StatCard
           title="Applications"
-          value="47"
+          value="0"
           icon={FileText}
-          description="12 pending review"
+          description="0 pending review"
         />
       </motion.div>
 

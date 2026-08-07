@@ -37,30 +37,27 @@ export default function AdminDashboard() {
       >
         <StatCard
           title="Total Users"
-          value="12,487"
+          value="0"
           icon={Users}
-          trend={{ value: 8.2, label: "from last month" }}
-          description="from last month"
+          description="0 registered users"
         />
         <StatCard
           title="Organizations"
-          value="356"
+          value="0"
           icon={Building2}
-          description="12 pending verification"
+          description="0 verified non-profits"
         />
         <StatCard
           title="Active Opportunities"
-          value="892"
+          value="0"
           icon={Briefcase}
-          trend={{ value: 15, label: "from last month" }}
-          description="from last month"
+          description="0 published listings"
         />
         <StatCard
           title="Hours This Month"
-          value="24,580"
+          value="0"
           icon={Clock}
-          trend={{ value: 22, label: "from last month" }}
-          description="from last month"
+          description="0 verified service hours"
         />
       </motion.div>
 

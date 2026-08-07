@@ -92,28 +92,27 @@ export default function VolunteerDashboard() {
       >
         <StatCard
           title="Total Hours"
-          value="127.5"
+          value="0.0"
           icon={Clock}
-          trend={{ value: 12, label: "from last month" }}
-          description="from last month"
+          description="0 logged this month"
         />
         <StatCard
           title="Applications"
-          value="8"
+          value="0"
           icon={FileText}
-          description="3 pending"
+          description="0 pending"
         />
         <StatCard
           title="Saved"
-          value="12"
+          value="0"
           icon={Heart}
-          description="opportunities"
+          description="0 opportunities saved"
         />
         <StatCard
           title="Achievements"
-          value="5"
+          value="0"
           icon={Award}
-          description="badges earned"
+          description="0 badges earned"
         />
       </motion.div>
 
