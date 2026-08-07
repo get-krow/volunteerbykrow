@@ -165,18 +165,146 @@ export default function RegisterPage() {
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="full_name">Full name</Label>
-              <Input
-                id="full_name"
-                name="full_name"
-                type="text"
-                placeholder="John Doe"
-                required
-                className="h-11"
-                autoComplete="name"
-              />
-            </div>
+            {selectedRole === "volunteer" ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="full_name">Full Name</Label>
+                  <Input
+                    id="full_name"
+                    name="full_name"
+                    type="text"
+                    placeholder="John Doe"
+                    required
+                    className="h-11"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="birthdate">Birthdate (for age eligibility)</Label>
+                  <Input
+                    id="birthdate"
+                    name="birthdate"
+                    type="date"
+                    required
+                    className="h-11"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="country">Country</Label>
+                    <select
+                      id="country"
+                      name="country"
+                      required
+                      className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <option value="United States">United States</option>
+                      <option value="Canada">Canada</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="province_state">State / Province</Label>
+                    <Input
+                      id="province_state"
+                      name="province_state"
+                      type="text"
+                      placeholder="e.g. CA or ON"
+                      required
+                      className="h-11"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="city">City</Label>
+                  <Input
+                    id="city"
+                    name="city"
+                    type="text"
+                    placeholder="e.g. San Francisco"
+                    required
+                    className="h-11"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="registering_for">Registering For</Label>
+                  <select
+                    id="registering_for"
+                    name="registering_for"
+                    className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="myself">Myself</option>
+                    <option value="child_parent">My Child / Parent</option>
+                  </select>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="full_name">Organization Name</Label>
+                  <Input
+                    id="full_name"
+                    name="full_name"
+                    type="text"
+                    placeholder="Green Earth Foundation"
+                    required
+                    className="h-11"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="country">Country</Label>
+                    <select
+                      id="country"
+                      name="country"
+                      required
+                      className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <option value="United States">United States</option>
+                      <option value="Canada">Canada</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="province_state">State / Province</Label>
+                    <Input
+                      id="province_state"
+                      name="province_state"
+                      type="text"
+                      placeholder="e.g. NY or ON"
+                      required
+                      className="h-11"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="city">City</Label>
+                  <Input
+                    id="city"
+                    name="city"
+                    type="text"
+                    placeholder="e.g. New York"
+                    required
+                    className="h-11"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="description">Organization Description</Label>
+                  <Input
+                    id="description"
+                    name="description"
+                    type="text"
+                    placeholder="Brief summary of your mission..."
+                    required
+                    className="h-11"
+                  />
+                </div>
+              </>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -215,13 +343,10 @@ export default function RegisterPage() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Must contain uppercase, lowercase, and a number.
-              </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirm_password">Confirm password</Label>
+              <Label htmlFor="confirm_password">Confirm Password</Label>
               <Input
                 id="confirm_password"
                 name="confirm_password"
@@ -233,9 +358,9 @@ export default function RegisterPage() {
               />
             </div>
 
-            <Button type="submit" className="w-full h-11" disabled={isLoading}>
+            <Button type="submit" className="w-full h-11 font-semibold" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create account
+              Create Account
             </Button>
 
             <p className="text-xs text-center text-muted-foreground">

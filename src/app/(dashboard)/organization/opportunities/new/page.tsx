@@ -74,24 +74,45 @@ export default function NewOpportunityPage() {
               </div>
             </div>
 
-            <div className="grid sm:grid-cols-3 gap-4">
+            <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="date">Event Date *</Label>
                 <Input id="date" type="date" required />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="hours">Hours Served *</Label>
+                <Label htmlFor="time">Event Start & End Time *</Label>
+                <Input id="time" type="text" placeholder="e.g. 9:00 AM - 1:00 PM" required />
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="hours">Volunteer Hours *</Label>
                 <Input id="hours" type="number" step="0.5" placeholder="4" required />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="capacity">Total Capacity *</Label>
-                <Input id="capacity" type="number" placeholder="20" required />
+                <Label htmlFor="age_eligibility">Age Eligibility *</Label>
+                <Select defaultValue="all">
+                  <SelectTrigger id="age_eligibility">
+                    <SelectValue placeholder="Age Requirement" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Ages Welcome</SelectItem>
+                    <SelectItem value="13">13+ Years Old</SelectItem>
+                    <SelectItem value="16">16+ Years Old</SelectItem>
+                    <SelectItem value="18">18+ Years Old</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="contact_email">Organizer Contact Email *</Label>
+                <Input id="contact_email" type="email" placeholder="event@org.org" required />
               </div>
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="description">Full Description *</Label>
-              <Textarea id="description" rows={5} placeholder="Describe responsibilities, location instructions, and expected impact..." required />
+              <Textarea id="description" rows={5} placeholder="Describe responsibilities, location instructions, equipment needed, and expected impact..." required />
             </div>
           </CardContent>
         </Card>

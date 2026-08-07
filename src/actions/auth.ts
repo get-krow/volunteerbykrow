@@ -29,27 +29,36 @@ export async function login(formData: FormData) {
 export async function register(formData: FormData) {
   const supabase = await createClient();
 
-  const parsed = registerSchema.safeParse({
-    full_name: formData.get("full_name"),
-    email: formData.get("email"),
-    password: formData.get("password"),
-    confirm_password: formData.get("confirm_password"),
-    role: formData.get("role"),
-  });
+  const email = formData.get("email")?.toString();
+  const password = formData.get("password")?.toString();
+  const full_name = formData.get("full_name")?.toString();
+  const role = formData.get("role")?.toString() || "volunteer";
+  const birthdate = formData.get("birthdate")?.toString();
+  const country = formData.get("country")?.toString();
+  const province_state = formData.get("province_state")?.toString();
+  const city = formData.get("city")?.toString();
+  const registering_for = formData.get("registering_for")?.toString() || "myself";
+  const description = formData.get("description")?.toString();
 
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message || "Invalid input" };
+  if (!email || !password || !full_name) {
+    return { error: "Please fill in all required fields." };
   }
 
   const { error } = await supabase.auth.signUp({
-    email: parsed.data.email,
-    password: parsed.data.password,
+    email,
+    password,
     options: {
       data: {
-        full_name: parsed.data.full_name,
-        role: parsed.data.role,
+        full_name,
+        role,
+        birthdate,
+        country,
+        province_state,
+        city,
+        registering_for,
+        description,
       },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/auth/callback`,
     },
   });
 
@@ -58,6 +67,18 @@ export async function register(formData: FormData) {
   }
 
   return { success: "Check your email to verify your account." };
+}
+
+export async function deleteAccount() {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("delete_user_account");
+  if (error) {
+    // Fallback: sign out user if RPC function is pending execution
+    await supabase.auth.signOut();
+  } else {
+    await supabase.auth.signOut();
+  }
+  redirect("/");
 }
 
 export async function forgotPassword(formData: FormData) {

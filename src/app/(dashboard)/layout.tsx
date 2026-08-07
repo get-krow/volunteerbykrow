@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Clock, FileText, Heart, Award, MessageSquare,
   Calendar, Bell, Settings, Users, Briefcase, BarChart3, FolderOpen,
   Building2, TrendingUp, LifeBuoy, ChevronLeft, ChevronRight,
-  Moon, Sun, LogOut, Search, Menu, Sparkles,
+  Moon, Sun, LogOut, Search, Menu, Sparkles, User, Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { dashboardNavVolunteer, dashboardNavOrganization, dashboardNavAdmin } from "@/config/site";
@@ -23,7 +23,7 @@ import { Logo } from "@/components/shared/logo";
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard, Clock, FileText, Heart, Award, MessageSquare,
   Calendar, Bell, Settings, Users, Briefcase, BarChart3, FolderOpen,
-  Building2, TrendingUp, LifeBuoy, Sparkles,
+  Building2, TrendingUp, LifeBuoy, Sparkles, User, Plus,
 };
 
 import { LiquidMobileNavbar } from "@/components/layout/liquid-mobile-navbar";

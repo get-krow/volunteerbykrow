@@ -31,29 +31,17 @@ export const navLinks = [
 
 export const dashboardNavVolunteer = [
   { label: "Overview", href: "/volunteer", icon: "LayoutDashboard" },
-  { label: "Discover Opportunities", href: "/opportunities", icon: "Sparkles" },
+  { label: "Discover", href: "/opportunities", icon: "Sparkles" },
   { label: "My Hours", href: "/volunteer/hours", icon: "Clock" },
-  { label: "Applications", href: "/volunteer/applications", icon: "FileText" },
-  { label: "Saved", href: "/volunteer/saved", icon: "Heart" },
-  { label: "Achievements", href: "/volunteer/achievements", icon: "Award" },
-  { label: "Messages", href: "/volunteer/messages", icon: "MessageSquare" },
   { label: "Calendar", href: "/volunteer/calendar", icon: "Calendar" },
-  { label: "Notifications", href: "/volunteer/notifications", icon: "Bell" },
-  { label: "Settings", href: "/volunteer/settings", icon: "Settings" },
+  { label: "Profile", href: "/volunteer/settings", icon: "User" },
 ] as const;
 
 export const dashboardNavOrganization = [
   { label: "Overview", href: "/organization", icon: "LayoutDashboard" },
-  { label: "Discover Opportunities", href: "/opportunities", icon: "Sparkles" },
-  { label: "Opportunities", href: "/organization/opportunities", icon: "Briefcase" },
-  { label: "Applications", href: "/organization/applications", icon: "FileText" },
-  { label: "Volunteers", href: "/organization/volunteers", icon: "Users" },
-  { label: "Hours", href: "/organization/hours", icon: "Clock" },
-  { label: "Messages", href: "/organization/messages", icon: "MessageSquare" },
-  { label: "Analytics", href: "/organization/analytics", icon: "BarChart3" },
-  { label: "Documents", href: "/organization/documents", icon: "FolderOpen" },
+  { label: "Add Opportunity", href: "/organization/opportunities/new", icon: "Plus" },
+  { label: "Calendar", href: "/organization/calendar", icon: "Calendar" },
   { label: "Profile", href: "/organization/profile", icon: "Building2" },
-  { label: "Settings", href: "/organization/settings", icon: "Settings" },
 ] as const;
 
 export const dashboardNavAdmin = [

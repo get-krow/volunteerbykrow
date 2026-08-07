@@ -1,146 +1,254 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  Users, Briefcase, Clock, FileText, ArrowRight,
-  TrendingUp, Plus, CheckCircle2, XCircle, AlertCircle,
+  Users, Briefcase, Clock, Plus, CheckCircle2, XCircle, Calendar, MapPin, Edit
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
-const recentApplications = [
-  { id: 1, name: "Sarah Chen", opportunity: "Beach Cleanup", status: "pending", time: "1h ago" },
-  { id: 2, name: "Marcus Rodriguez", opportunity: "Food Drive", status: "approved", time: "3h ago" },
-  { id: 3, name: "Emily Foster", opportunity: "Tutoring Session", status: "pending", time: "5h ago" },
-  { id: 4, name: "David Park", opportunity: "Park Restoration", status: "rejected", time: "1d ago" },
+interface VolunteerParticipant {
+  id: string;
+  name: string;
+  age: number;
+  hours: number;
+  status: "registered" | "present" | "absent";
+}
+
+interface OpportunityItem {
+  id: string;
+  title: string;
+  date: string;
+  location: string;
+  hours: number;
+  volunteers: VolunteerParticipant[];
+}
+
+const initialOrgOpportunities: OpportunityItem[] = [
+  {
+    id: "1",
+    title: "Beach Cleanup & Coastal Protection",
+    date: "Aug 12, 2026",
+    location: "Ocean Beach, SF",
+    hours: 4,
+    volunteers: [
+      { id: "v1", name: "Sarah Chen", age: 17, hours: 4, status: "registered" },
+      { id: "v2", name: "Marcus Rodriguez", age: 19, hours: 4, status: "registered" },
+      { id: "v3", name: "Emily Foster", age: 16, hours: 4, status: "registered" },
+    ],
+  },
+  {
+    id: "2",
+    title: "Community Food Pantry Prep",
+    date: "Aug 15, 2026",
+    location: "Main St Center, SF",
+    hours: 3,
+    volunteers: [
+      { id: "v4", name: "David Park", age: 18, hours: 3, status: "registered" },
+    ],
+  },
 ];
 
-const statusConfig = {
-  pending: { label: "Pending", variant: "secondary" as const, icon: AlertCircle },
-  approved: { label: "Approved", variant: "default" as const, icon: CheckCircle2 },
-  rejected: { label: "Rejected", variant: "destructive" as const, icon: XCircle },
-};
-
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.1 } },
-};
-
 export default function OrganizationDashboard() {
+  const [opportunities, setOpportunities] = React.useState<OpportunityItem[]>(initialOrgOpportunities);
+  const [selectedOppId, setSelectedOppId] = React.useState<string>(initialOrgOpportunities[0].id);
+
+  const selectedOpp = opportunities.find(o => o.id === selectedOppId) || opportunities[0];
+
+  const handleMarkAttendance = (oppId: string, volunteerId: string, status: "present" | "absent", name: string) => {
+    setOpportunities(opportunities.map(opp => {
+      if (opp.id !== oppId) return opp;
+      return {
+        ...opp,
+        volunteers: opp.volunteers.map(v => v.id === volunteerId ? { ...v, status } : v),
+      };
+    }));
+
+    if (status === "present") {
+      toast.success(`Attendance Verified`, {
+        description: `Marked ${name} as Present. Awarded ${selectedOpp.hours} volunteer hours!`,
+      });
+    } else {
+      toast.error(`Marked Absent`, {
+        description: `${name} marked absent. 0 hours awarded.`,
+      });
+    }
+  };
+
+  const totalVolunteersCount = opportunities.reduce((acc, o) => acc + o.volunteers.length, 0);
+  const totalVerifiedHours = opportunities.reduce((acc, o) => {
+    const presentVolunteers = o.volunteers.filter(v => v.status === "present").length;
+    return acc + (presentVolunteers * o.hours);
+  }, 0);
+
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Organization Dashboard</h1>
+          <h1 className="text-2xl font-bold">Organizer Overview</h1>
           <p className="text-muted-foreground mt-1">
-            Manage your volunteer programs and track impact.
+            Manage volunteer events, review rosters, and verify attendance hours.
           </p>
         </div>
         <Link href="/organization/opportunities/new">
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" />
-            New Opportunity
+          <Button className="gap-2 font-semibold">
+            <Plus className="h-4 w-4" /> Add Opportunity
           </Button>
         </Link>
       </div>
 
-      <motion.div
-        variants={container}
-        initial="hidden"
-        animate="show"
-        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-      >
+      {/* Top Stat Cards */}
+      <div className="grid gap-4 sm:grid-cols-3">
         <StatCard
-          title="Active Volunteers"
-          value="0"
-          icon={Users}
-          description="0 active this month"
-        />
-        <StatCard
-          title="Open Opportunities"
-          value="0"
+          title="Active Opportunities"
+          value={opportunities.length.toString()}
           icon={Briefcase}
-          description="0 published"
+          description="published roles"
         />
         <StatCard
-          title="Total Hours"
-          value="0"
+          title="Registered Volunteers"
+          value={totalVolunteersCount.toString()}
+          icon={Users}
+          description="participants joined"
+        />
+        <StatCard
+          title="Verified Hours Awarded"
+          value={totalVerifiedHours.toString()}
           icon={Clock}
-          description="0 verified hours"
+          description="approved hours"
         />
-        <StatCard
-          title="Applications"
-          value="0"
-          icon={FileText}
-          description="0 pending review"
-        />
-      </motion.div>
+      </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Recent Applications */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="rounded-xl border border-border bg-card"
-        >
-          <div className="flex items-center justify-between p-6 pb-4">
-            <h2 className="text-base font-semibold">Recent Applications</h2>
-            <Link href="/organization/applications">
-              <Button variant="ghost" size="sm" className="gap-1 text-xs">
-                View all <ArrowRight className="h-3 w-3" />
-              </Button>
-            </Link>
-          </div>
-          <div className="px-6 pb-6 space-y-2">
-            {recentApplications.map((app) => {
-              const config = statusConfig[app.status as keyof typeof statusConfig];
+      {/* Main Content: Created Opportunities & Attendance Management */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Left Column: Opportunities List */}
+        <div className="space-y-4 lg:col-span-1">
+          <h2 className="text-base font-semibold">Your Opportunities</h2>
+          <div className="space-y-3">
+            {opportunities.map((opp) => {
+              const isSelected = opp.id === selectedOppId;
               return (
                 <div
-                  key={app.id}
-                  className="flex items-center justify-between rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors"
+                  key={opp.id}
+                  onClick={() => setSelectedOppId(opp.id)}
+                  className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                    isSelected
+                      ? "border-primary bg-primary/5 shadow-sm"
+                      : "border-border bg-card hover:border-primary/40"
+                  }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
-                      {app.name.split(" ").map((n) => n[0]).join("")}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{app.name}</p>
-                      <p className="text-xs text-muted-foreground">{app.opportunity}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={config.variant} className="text-xs">
-                      {config.label}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">{app.time}</span>
+                  <h3 className="text-sm font-bold truncate">{opp.title}</h3>
+                  <div className="mt-2 flex flex-col gap-1 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3" /> {opp.date}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <MapPin className="w-3 h-3" /> {opp.location}
+                    </span>
+                    <span className="flex items-center gap-1 font-medium text-foreground mt-1">
+                      <Users className="w-3 h-3 text-primary" /> {opp.volunteers.length} Volunteers Registered
+                    </span>
                   </div>
                 </div>
               );
             })}
           </div>
-        </motion.div>
+        </div>
 
-        {/* Quick Stats Chart placeholder */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="rounded-xl border border-border bg-card p-6"
-        >
-          <h2 className="text-base font-semibold">Volunteer Growth</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Monthly active volunteers</p>
-          <div className="mt-8 flex items-center justify-center h-48 rounded-lg bg-muted/50">
-            <div className="text-center">
-              <TrendingUp className="h-8 w-8 text-muted-foreground mx-auto" />
-              <p className="mt-2 text-sm text-muted-foreground">
-                Charts will appear when data is available
-              </p>
-            </div>
-          </div>
-        </motion.div>
+        {/* Right Column: Event Details & Attendance Approval */}
+        <div className="lg:col-span-2 space-y-6 bg-card border border-border rounded-xl p-6">
+          {selectedOpp ? (
+            <>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border">
+                <div>
+                  <h2 className="text-xl font-bold">{selectedOpp.title}</h2>
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-3">
+                    <span>📅 {selectedOpp.date}</span>
+                    <span>📍 {selectedOpp.location}</span>
+                    <span>⏱ {selectedOpp.hours} Hours</span>
+                  </p>
+                </div>
+                <Link href="/organization/opportunities/new">
+                  <Button variant="outline" size="sm" className="gap-1 text-xs shrink-0">
+                    <Edit className="w-3.5 h-3.5" /> Edit Event
+                  </Button>
+                </Link>
+              </div>
+
+              {/* Attendance Roster */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">Registered Volunteers ({selectedOpp.volunteers.length})</h3>
+                  <span className="text-xs text-muted-foreground">Mark attendance to award hours</span>
+                </div>
+
+                {selectedOpp.volunteers.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-6 text-center">
+                    No volunteers registered for this event yet.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {selectedOpp.volunteers.map((vol) => (
+                      <div
+                        key={vol.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-lg border border-border bg-muted/20"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs shrink-0">
+                            {vol.name.split(" ").map((n) => n[0]).join("")}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold">{vol.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Age: {vol.age} · Opportunity Value: {vol.hours} hrs
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Attendance Approval Buttons */}
+                        <div className="flex items-center gap-2 self-end sm:self-center">
+                          {vol.status === "present" ? (
+                            <Badge className="bg-green-600 hover:bg-green-700 text-white gap-1 py-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Present ({vol.hours} hrs Verified)
+                            </Badge>
+                          ) : vol.status === "absent" ? (
+                            <Badge variant="destructive" className="gap-1 py-1">
+                              <XCircle className="w-3.5 h-3.5" /> Marked Absent (0 hrs)
+                            </Badge>
+                          ) : (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() => handleMarkAttendance(selectedOpp.id, vol.id, "present", vol.name)}
+                                className="gap-1 bg-green-600 hover:bg-green-700 text-white h-8 text-xs font-semibold"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Present
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleMarkAttendance(selectedOpp.id, vol.id, "absent", vol.name)}
+                                className="gap-1 border-destructive/30 text-destructive hover:bg-destructive/10 h-8 text-xs font-semibold"
+                              >
+                                <XCircle className="w-3.5 h-3.5" /> Absent
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : null}
+        </div>
       </div>
     </div>
   );

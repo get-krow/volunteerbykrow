@@ -1,48 +1,28 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  Clock, FileText, Heart, Award, Calendar, ArrowRight,
-  TrendingUp, MapPin, CheckCircle2,
+  Clock, Heart, Calendar, ArrowRight,
+  MapPin, LogOut, Sparkles, Building2
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/stat-card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
-const recentActivity = [
-  {
-    id: 1,
-    type: "application",
-    title: "Application Approved",
-    description: "Beach Cleanup event at Green Earth",
-    time: "2 hours ago",
-    icon: CheckCircle2,
-    color: "text-green-600",
-  },
-  {
-    id: 2,
-    type: "hours",
-    title: "Hours Verified",
-    description: "3 hours at Community Food Drive",
-    time: "5 hours ago",
-    icon: Clock,
-    color: "text-blue-600",
-  },
-  {
-    id: 3,
-    type: "achievement",
-    title: "New Achievement",
-    description: 'Earned "50 Hours" milestone badge',
-    time: "1 day ago",
-    icon: Award,
-    color: "text-yellow-600",
-  },
-];
+interface EventItem {
+  id: string;
+  title: string;
+  org: string;
+  date: string;
+  hours: number;
+  location: string;
+}
 
-const upcomingEvents = [
+const initialUpcomingEvents: EventItem[] = [
   {
-    id: 1,
+    id: "1",
     title: "Park Restoration Day",
     org: "Green Earth Foundation",
     date: "Aug 12, 2026",
@@ -50,20 +30,12 @@ const upcomingEvents = [
     location: "Central Park",
   },
   {
-    id: 2,
+    id: "2",
     title: "After-School Tutoring",
     org: "Bright Futures Academy",
     date: "Aug 14, 2026",
     hours: 2,
     location: "Lincoln Elementary",
-  },
-  {
-    id: 3,
-    title: "Meal Prep & Distribution",
-    org: "Community Aid Network",
-    date: "Aug 16, 2026",
-    hours: 3,
-    location: "Main Street Kitchen",
   },
 ];
 
@@ -73,173 +45,131 @@ const container = {
 };
 
 export default function VolunteerDashboard() {
+  const [events, setEvents] = React.useState<EventItem[]>(initialUpcomingEvents);
+  const [savedCount, setSavedCount] = React.useState(0);
+
+  const handleLeaveEvent = (eventId: string, title: string) => {
+    setEvents(events.filter(e => e.id !== eventId));
+    toast.success(`Left Event`, {
+      description: `You have been removed from "${title}".`,
+    });
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold">Welcome back, Volunteer 👋</h1>
+        <h1 className="text-2xl font-bold">Volunteer Overview 👋</h1>
         <p className="text-muted-foreground mt-1">
-          Here&apos;s what&apos;s happening with your volunteer journey.
+          Discover opportunities, track verified hours, and manage your upcoming events.
         </p>
       </div>
 
-      {/* Stats */}
+      {/* 3 Top Statistic Cards (V1 Spec) */}
       <motion.div
         variants={container}
         initial="hidden"
         animate="show"
-        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        className="grid gap-4 sm:grid-cols-3"
       >
         <StatCard
-          title="Total Hours"
+          title="Upcoming Events"
+          value={events.length.toString()}
+          icon={Calendar}
+          description="registered commitments"
+        />
+        <StatCard
+          title="Verified Hours"
           value="0.0"
           icon={Clock}
-          description="0 logged this month"
+          description="hours approved by organizers"
         />
         <StatCard
-          title="Applications"
-          value="0"
-          icon={FileText}
-          description="0 pending"
-        />
-        <StatCard
-          title="Saved"
-          value="0"
+          title="Saved Opportunities"
+          value={savedCount.toString()}
           icon={Heart}
-          description="0 opportunities saved"
-        />
-        <StatCard
-          title="Achievements"
-          value="0"
-          icon={Award}
-          description="0 badges earned"
+          description="bookmarked for later"
         />
       </motion.div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Upcoming Events */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="rounded-xl border border-border bg-card"
-        >
-          <div className="flex items-center justify-between p-6 pb-4">
-            <div>
-              <h2 className="text-base font-semibold">Upcoming Events</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Your next volunteer commitments
-              </p>
-            </div>
-            <Link href="/volunteer/calendar">
-              <Button variant="ghost" size="sm" className="gap-1 text-xs">
-                View all <ArrowRight className="h-3 w-3" />
-              </Button>
-            </Link>
-          </div>
-          <div className="px-6 pb-6 space-y-3">
-            {upcomingEvents.map((event) => (
-              <div
-                key={event.id}
-                className="flex items-start gap-4 rounded-lg border border-border p-4 transition-colors hover:bg-muted/50"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
-                  <Calendar className="h-4 w-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{event.title}</p>
-                  <p className="text-xs text-muted-foreground">{event.org}</p>
-                  <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {event.date}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {event.hours}h
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      {event.location}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Recent Activity */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="rounded-xl border border-border bg-card"
-        >
-          <div className="flex items-center justify-between p-6 pb-4">
-            <div>
-              <h2 className="text-base font-semibold">Recent Activity</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Your latest updates
-              </p>
-            </div>
-            <Link href="/volunteer/notifications">
-              <Button variant="ghost" size="sm" className="gap-1 text-xs">
-                View all <ArrowRight className="h-3 w-3" />
-              </Button>
-            </Link>
-          </div>
-          <div className="px-6 pb-6 space-y-3">
-            {recentActivity.map((activity) => (
-              <div
-                key={activity.id}
-                className="flex items-start gap-4 rounded-lg p-3 transition-colors hover:bg-muted/50"
-              >
-                <div
-                  className={`flex h-9 w-9 items-center justify-center rounded-full bg-muted shrink-0 ${activity.color}`}
-                >
-                  <activity.icon className="h-4 w-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{activity.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {activity.description}
-                  </p>
-                </div>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  {activity.time}
-                </span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Quick Actions */}
+      {/* Upcoming Events Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="flex flex-wrap gap-3"
+        transition={{ delay: 0.2 }}
+        className="rounded-xl border border-border bg-card p-6"
       >
-        <Link href="/opportunities">
-          <Button className="gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Browse Opportunities
-          </Button>
-        </Link>
-        <Link href="/volunteer/hours">
-          <Button variant="outline" className="gap-2">
-            <Clock className="h-4 w-4" />
-            Log Hours
-          </Button>
-        </Link>
-        <Link href="/volunteer/achievements">
-          <Button variant="outline" className="gap-2">
-            <Award className="h-4 w-4" />
-            View Certificates
-          </Button>
-        </Link>
+        <div className="flex items-center justify-between pb-4 border-b border-border">
+          <div>
+            <h2 className="text-lg font-semibold">Upcoming Opportunities</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Your registered volunteer events
+            </p>
+          </div>
+          <Link href="/opportunities">
+            <Button size="sm" className="gap-1.5 font-semibold">
+              <Sparkles className="w-4 h-4" /> Discover Roles
+            </Button>
+          </Link>
+        </div>
+
+        <div className="pt-4 space-y-3">
+          {events.length === 0 ? (
+            <div className="text-center py-10 space-y-3">
+              <Calendar className="w-10 h-10 text-muted-foreground mx-auto" />
+              <p className="text-sm text-muted-foreground">
+                No upcoming events. Discover opportunities to join your first event!
+              </p>
+              <Link href="/opportunities">
+                <Button variant="outline" size="sm" className="gap-2">
+                  Browse Opportunities <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            events.map((event) => (
+              <div
+                key={event.id}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-border p-4 transition-colors hover:bg-muted/40"
+              >
+                <div className="flex items-start gap-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
+                    <Calendar className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">{event.title}</p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                      <Building2 className="w-3 h-3" /> {event.org}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {event.date}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {event.hours} hrs
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        {event.location}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleLeaveEvent(event.id, event.title)}
+                  className="gap-1.5 text-xs text-destructive hover:bg-destructive/10 border-destructive/20 shrink-0 self-end sm:self-center"
+                >
+                  <LogOut className="w-3.5 h-3.5" /> Leave Event
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
       </motion.div>
     </div>
   );
