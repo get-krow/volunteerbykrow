@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
+import { getOpportunityByIdAction } from "@/actions/opportunities";
 import { toast } from "sonner";
 
 function OpportunityDetailContent({ params }: { params: { id: string } }) {
@@ -48,14 +49,11 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
         setShowApplyModal(true);
       }
 
-      // Fetch real opportunity from Supabase
-      const { data, error } = await supabase
-        .from("opportunities")
-        .select("*, organizations(name, logo_url, description)")
-        .eq("id", params.id)
-        .single();
+      // Fetch real opportunity using Server Action
+      const res = await getOpportunityByIdAction(params.id);
+      const data = res?.opportunity;
 
-      if (!error && data) {
+      if (data) {
         setOpp({
           id: data.id,
           title: data.title,

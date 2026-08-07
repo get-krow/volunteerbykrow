@@ -29,6 +29,7 @@ interface OpportunityItem {
 }
 
 import { createClient } from "@/lib/supabase/client";
+import { getOpportunitiesAction } from "@/actions/opportunities";
 
 export default function OrganizationDashboard() {
   const [opportunities, setOpportunities] = React.useState<OpportunityItem[]>([]);
@@ -38,22 +39,9 @@ export default function OrganizationDashboard() {
     async function loadOrgData() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
 
-      const { data: org } = await supabase
-        .from("organizations")
-        .select("id")
-        .eq("created_by", user.id)
-        .limit(1)
-        .maybeSingle();
-
-      let query = supabase.from("opportunities").select("*").order("created_at", { ascending: false });
-
-      if (org?.id) {
-        query = query.eq("organization_id", org.id);
-      }
-
-      const { data } = await query;
+      const res = await getOpportunitiesAction({ orgUserId: user?.id });
+      const data = res?.opportunities || [];
 
       if (data && data.length > 0) {
         const items: OpportunityItem[] = data.map((d) => ({

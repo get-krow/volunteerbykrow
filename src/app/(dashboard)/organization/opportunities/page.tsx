@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
+import { getOpportunitiesAction } from "@/actions/opportunities";
 import { toast } from "sonner";
 
 export default function OrganizationOpportunitiesPage() {
@@ -16,28 +17,11 @@ export default function OrganizationOpportunitiesPage() {
   const fetchOrgOpps = React.useCallback(async () => {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setLoading(false);
-      return;
-    }
 
-    const { data: org } = await supabase
-      .from("organizations")
-      .select("id")
-      .eq("created_by", user.id)
-      .limit(1)
-      .maybeSingle();
+    const res = await getOpportunitiesAction({ orgUserId: user?.id });
 
-    let query = supabase.from("opportunities").select("*").order("created_at", { ascending: false });
-
-    if (org?.id) {
-      query = query.eq("organization_id", org.id);
-    }
-
-    const { data, error } = await query;
-
-    if (!error && data) {
-      setOrgOpps(data.map(item => ({
+    if (res?.opportunities) {
+      setOrgOpps(res.opportunities.map(item => ({
         id: item.id,
         title: item.title,
         status: item.status,

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { categories } from "@/config/site";
-import { createClient } from "@/lib/supabase/client";
+import { getOpportunitiesAction } from "@/actions/opportunities";
 import { toast } from "sonner";
 import { CheckCircle2, UserCheck } from "lucide-react";
 
@@ -23,14 +23,9 @@ export default function OpportunitiesPage() {
 
   React.useEffect(() => {
     async function loadOpportunities() {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("opportunities")
-        .select("*, organizations(name)")
-        .eq("status", "published");
-
-      if (!error && data) {
-        setOpportunities(data.map(item => ({
+      const res = await getOpportunitiesAction();
+      if (res?.opportunities) {
+        setOpportunities(res.opportunities.map(item => ({
           id: item.id,
           title: item.title,
           organization: item.organizations?.name || "Verified Organization",

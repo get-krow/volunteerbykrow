@@ -112,3 +112,96 @@ export async function createOpportunityAction(params: CreateOpportunityParams, c
     return { error: err?.message || "An unexpected error occurred while publishing." };
   }
 }
+
+export async function getOpportunitiesAction(options?: {
+  orgUserId?: string;
+  category?: string;
+  limit?: number;
+}) {
+  try {
+    const admin = createAdminClient();
+
+    let orgIdFilter: string | null = null;
+    if (options?.orgUserId) {
+      const { data: org } = await admin
+        .from("organizations")
+        .select("id")
+        .eq("created_by", options.orgUserId)
+        .limit(1)
+        .maybeSingle();
+
+      if (org?.id) {
+        orgIdFilter = org.id;
+      }
+    }
+
+    let query = admin
+      .from("opportunities")
+      .select(`
+        *,
+        organizations (
+          id,
+          name,
+          logo_url,
+          verification_status,
+          city,
+          province_state,
+          country
+        )
+      `)
+      .order("created_at", { ascending: false });
+
+    if (orgIdFilter) {
+      query = query.eq("organization_id", orgIdFilter);
+    }
+
+    if (options?.limit) {
+      query = query.limit(options.limit);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Error fetching opportunities:", error);
+      return { error: error.message, opportunities: [] };
+    }
+
+    return { success: true, opportunities: data || [] };
+  } catch (err: any) {
+    console.error("Unhandled error in getOpportunitiesAction:", err);
+    return { error: err?.message || "Failed to load opportunities", opportunities: [] };
+  }
+}
+
+export async function getOpportunityByIdAction(id: string) {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("opportunities")
+      .select(`
+        *,
+        organizations (
+          id,
+          name,
+          description,
+          logo_url,
+          email,
+          website,
+          verification_status,
+          city,
+          province_state,
+          country
+        )
+      `)
+      .eq("id", id)
+      .single();
+
+    if (error || !data) {
+      return { error: error?.message || "Opportunity not found", opportunity: null };
+    }
+
+    return { success: true, opportunity: data };
+  } catch (err: any) {
+    return { error: err?.message || "Failed to fetch opportunity", opportunity: null };
+  }
+}
