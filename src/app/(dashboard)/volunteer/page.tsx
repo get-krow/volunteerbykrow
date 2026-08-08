@@ -27,6 +27,8 @@ const container = {
 };
 
 import { createClient } from "@/lib/supabase/client";
+import { OnboardingModal } from "@/components/volunteer/onboarding-modal";
+import { Badge } from "@/components/ui/badge";
 import { getUserApplicationsAction, cancelApplicationAction } from "@/actions/applications";
 
 export default function VolunteerDashboard() {
@@ -35,13 +37,37 @@ export default function VolunteerDashboard() {
   const [savedCount, setSavedCount] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
 
+  // Profile metadata
+  const [profileName, setProfileName] = React.useState("Volunteer");
+  const [profileAge, setProfileAge] = React.useState<number | null>(null);
+  const [profileLocation, setProfileLocation] = React.useState<string>("");
+  const [showOnboarding, setShowOnboarding] = React.useState(false);
+
   React.useEffect(() => {
     async function loadData() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
-        // Calculate total verified hours from approved volunteer_hours records
+        setProfileName(user.user_metadata?.full_name || "Volunteer");
+
+        // Fetch profile details
+        const { data: prof } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+
+        if (prof) {
+          if (prof.full_name) setProfileName(prof.full_name);
+          if (prof.age) setProfileAge(prof.age);
+          if (prof.location) setProfileLocation(prof.location);
+
+          // If birthdate or location is missing, open onboarding modal post-signin!
+          if (!prof.birthdate || !prof.city || !prof.province_state) {
+            setShowOnboarding(true);
+          }
+        } else {
+          setShowOnboarding(true);
+        }
+
+        // Calculate total verified hours
         const { data: vhData } = await supabase
           .from("volunteer_hours")
           .select("hours")
@@ -88,12 +114,43 @@ export default function VolunteerDashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">Volunteer Overview 👋</h1>
-        <p className="text-muted-foreground mt-1">
-          Discover opportunities, track verified hours, and manage your upcoming events.
-        </p>
+      {/* Onboarding Modal post-signin */}
+      <OnboardingModal
+        open={showOnboarding}
+        onOpenChange={setShowOnboarding}
+        onComplete={(data) => {
+          setProfileAge(data.age);
+          setProfileLocation(data.location);
+        }}
+      />
+
+      {/* Header & Profile Bio Info */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-2xl border border-border bg-gradient-to-r from-primary/10 via-background to-card shadow-sm">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold">Welcome, {profileName} 👋</h1>
+            {profileAge !== null && (
+              <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary font-bold text-xs">
+                {profileAge} years old
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
+            <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+            <span className="font-semibold text-foreground">{profileLocation || "Location Not Set"}</span>
+            <span>•</span>
+            <span>Verified Volunteer Account</span>
+          </div>
+        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowOnboarding(true)}
+          className="text-xs font-semibold shrink-0 self-start sm:self-center"
+        >
+          Update DOB & Location
+        </Button>
       </div>
 
       {/* 3 Top Statistic Cards (V1 Spec) */}
