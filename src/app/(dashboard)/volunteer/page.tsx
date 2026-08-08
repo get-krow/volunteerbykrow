@@ -29,7 +29,7 @@ const container = {
 import { createClient } from "@/lib/supabase/client";
 import { OnboardingModal } from "@/components/volunteer/onboarding-modal";
 import { Badge } from "@/components/ui/badge";
-import { getUserApplicationsAction, cancelApplicationAction } from "@/actions/applications";
+import { getUserApplicationsAction, cancelApplicationAction, getVolunteerHoursHistoryAction } from "@/actions/applications";
 
 export default function VolunteerDashboard() {
   const [events, setEvents] = React.useState<EventItem[]>([]);
@@ -83,15 +83,13 @@ export default function VolunteerDashboard() {
           setShowOnboarding(true);
         }
 
-        // Calculate total verified hours
-        const { data: vhData } = await supabase
-          .from("volunteer_hours")
-          .select("hours")
-          .eq("volunteer_id", user.id)
-          .in("status", ["approved", "verified"]);
-
-        const sumHours = vhData ? vhData.reduce((acc, curr) => acc + (parseFloat(curr.hours) || 0), 0) : 0;
-        setVerifiedHours(sumHours);
+        // Calculate total verified hours reliably
+        const hoursRes = await getVolunteerHoursHistoryAction();
+        if (hoursRes?.totalHours !== undefined) {
+          setVerifiedHours(hoursRes.totalHours);
+        } else {
+          setVerifiedHours(prof?.total_hours || 0);
+        }
       }
 
       // Load applications
