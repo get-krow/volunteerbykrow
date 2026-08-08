@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { revalidatePath } from "next/cache";
 
 export async function applyForOpportunityAction(opportunityId: string) {
   try {
@@ -49,6 +50,12 @@ export async function applyForOpportunityAction(opportunityId: string) {
       .eq("opportunity_id", opportunityId);
 
     await admin.from("opportunities").update({ spots_filled: count || 0 }).eq("id", opportunityId);
+
+    revalidatePath("/opportunities");
+    revalidatePath(`/opportunities/${opportunityId}`);
+    revalidatePath("/organization/opportunities");
+    revalidatePath("/volunteer");
+    revalidatePath("/volunteer/applications");
 
     return { success: true, applicationId: app.id, message: "Registration successful!" };
   } catch (err: any) {
@@ -378,6 +385,12 @@ export async function cancelApplicationAction(opportunityId: string) {
       .eq("opportunity_id", opportunityId);
 
     await admin.from("opportunities").update({ spots_filled: count || 0 }).eq("id", opportunityId);
+
+    revalidatePath("/opportunities");
+    revalidatePath(`/opportunities/${opportunityId}`);
+    revalidatePath("/organization/opportunities");
+    revalidatePath("/volunteer");
+    revalidatePath("/volunteer/applications");
 
     return { success: true, message: "Registration cancelled successfully!" };
   } catch (err: any) {

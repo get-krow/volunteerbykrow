@@ -53,18 +53,33 @@ export default function VolunteerDashboard() {
 
         // Fetch profile details
         const { data: prof } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
-        const hasCompletedOnboarding = typeof window !== "undefined" && (localStorage.getItem("krow_onboarding_completed") === "true" || localStorage.getItem("krow_onboarding_dismissed") === "true");
 
-        if (prof) {
-          if (prof.full_name) setProfileName(prof.full_name);
-          if (prof.age) setProfileAge(prof.age);
-          if (prof.location) setProfileLocation(prof.location);
+        const metaLocation = user.user_metadata?.location;
+        const metaBirthdate = user.user_metadata?.birthdate;
+        const metaAge = user.user_metadata?.age;
 
-          // ONLY open onboarding modal ONCE if missing details AND not previously completed/dismissed
-          if ((!prof.birthdate || !prof.location) && !hasCompletedOnboarding) {
-            setShowOnboarding(true);
-          }
-        } else if (!hasCompletedOnboarding) {
+        const constructedLoc = [prof?.city || user.user_metadata?.city, prof?.province_state || user.user_metadata?.province_state, prof?.country || user.user_metadata?.country].filter(Boolean).join(", ");
+        const resolvedLocation = prof?.location || metaLocation || constructedLoc || "Local Community";
+        const resolvedBirthdate = prof?.birthdate || metaBirthdate || "";
+
+        let resolvedAge: number | null = prof?.age ?? metaAge ?? null;
+        if (resolvedAge === null && resolvedBirthdate) {
+          const diff = Date.now() - new Date(resolvedBirthdate).getTime();
+          const computed = Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
+          if (computed > 0) resolvedAge = computed;
+        }
+
+        if (prof?.full_name) setProfileName(prof.full_name);
+        setProfileAge(resolvedAge);
+        setProfileLocation(resolvedLocation);
+
+        const hasCompletedOnboarding = typeof window !== "undefined" && (
+          localStorage.getItem("krow_onboarding_completed") === "true" ||
+          localStorage.getItem("krow_onboarding_dismissed") === "true"
+        );
+
+        // ONLY ask ONCE: if missing details and not previously completed or dismissed
+        if ((!resolvedBirthdate || !resolvedLocation || resolvedLocation === "Local Community") && !hasCompletedOnboarding) {
           setShowOnboarding(true);
         }
 
