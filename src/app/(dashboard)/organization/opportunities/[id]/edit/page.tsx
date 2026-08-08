@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getOpportunityByIdAction } from "@/actions/opportunities";
 import { updateOpportunityAction } from "@/actions/applications";
 import { toast } from "sonner";
@@ -22,6 +23,14 @@ export default function EditOpportunityPage({ params }: { params: { id: string }
   const [title, setTitle] = React.useState("");
   const [location, setLocation] = React.useState("");
   const [eventDate, setEventDate] = React.useState("");
+
+  // Dropdown Time Selectors
+  const [startHour, setStartHour] = React.useState("9");
+  const [startMinute, setStartMinute] = React.useState("00");
+  const [startPeriod, setStartPeriod] = React.useState("AM");
+  const [endHour, setEndHour] = React.useState("1");
+  const [endMinute, setEndMinute] = React.useState("00");
+  const [endPeriod, setEndPeriod] = React.useState("PM");
   const [hours, setHours] = React.useState("4");
   const [capacity, setCapacity] = React.useState("20");
   const [description, setDescription] = React.useState("");
@@ -62,6 +71,8 @@ export default function EditOpportunityPage({ params }: { params: { id: string }
     setSaving(true);
     setErrorMsg(null);
 
+    const formattedTime = `${startHour}:${startMinute} ${startPeriod} to ${endHour}:${endMinute} ${endPeriod}`;
+
     try {
       const resolvedParams = typeof (params as any)?.then === "function" ? await (params as any) : params;
       const oppId = resolvedParams?.id;
@@ -70,6 +81,7 @@ export default function EditOpportunityPage({ params }: { params: { id: string }
         title,
         location,
         eventDate,
+        eventTime: formattedTime,
         hours,
         capacity,
         description,
@@ -147,6 +159,81 @@ export default function EditOpportunityPage({ params }: { params: { id: string }
                   value={eventDate}
                   onChange={(e) => setEventDate(e.target.value)}
                 />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Event Start & End Time (Dropdown)</Label>
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                {/* Start Time Selectors */}
+                <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-lg border border-border">
+                  <Select value={startHour} onValueChange={setStartHour}>
+                    <SelectTrigger className="h-8 w-14 text-xs font-semibold px-2">
+                      <SelectValue placeholder="Hour" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["1","2","3","4","5","6","7","8","9","10","11","12"].map(h => (
+                        <SelectItem key={h} value={h}>{h}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-xs font-bold">:</span>
+                  <Select value={startMinute} onValueChange={setStartMinute}>
+                    <SelectTrigger className="h-8 w-14 text-xs font-semibold px-2">
+                      <SelectValue placeholder="Min" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["00","15","30","45"].map(m => (
+                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={startPeriod} onValueChange={setStartPeriod}>
+                    <SelectTrigger className="h-8 w-16 text-xs font-semibold px-2">
+                      <SelectValue placeholder="AM/PM" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="AM">AM</SelectItem>
+                      <SelectItem value="PM">PM</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <span className="text-xs text-muted-foreground font-bold px-1">to</span>
+
+                {/* End Time Selectors */}
+                <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-lg border border-border">
+                  <Select value={endHour} onValueChange={setEndHour}>
+                    <SelectTrigger className="h-8 w-14 text-xs font-semibold px-2">
+                      <SelectValue placeholder="Hour" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["1","2","3","4","5","6","7","8","9","10","11","12"].map(h => (
+                        <SelectItem key={h} value={h}>{h}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-xs font-bold">:</span>
+                  <Select value={endMinute} onValueChange={setEndMinute}>
+                    <SelectTrigger className="h-8 w-14 text-xs font-semibold px-2">
+                      <SelectValue placeholder="Min" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["00","15","30","45"].map(m => (
+                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={endPeriod} onValueChange={setEndPeriod}>
+                    <SelectTrigger className="h-8 w-16 text-xs font-semibold px-2">
+                      <SelectValue placeholder="AM/PM" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="AM">AM</SelectItem>
+                      <SelectItem value="PM">PM</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 

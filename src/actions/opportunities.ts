@@ -90,7 +90,7 @@ export async function createOpportunityAction(params: CreateOpportunityParams, c
         description: (params.description || "Join us and make a positive impact in the community!") + (params.eventTime ? `\n\nShift Time: ${params.eventTime}` : ""),
         address: params.location || "Coquitlam, BC, Canada",
         is_remote: isRemote,
-        start_date: params.eventDate ? new Date(params.eventDate).toISOString() : new Date().toISOString(),
+        start_date: params.eventDate ? `${params.eventDate}T12:00:00.000Z` : new Date().toISOString(),
         capacity: parseInt(params.capacity) || 20,
         spots_filled: 0,
         volunteer_hours: parseFloat(params.hours) || 4,

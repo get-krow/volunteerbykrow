@@ -23,7 +23,15 @@ export default function NewOpportunityPage() {
   const [category, setCategory] = React.useState("environment");
   const [location, setLocation] = React.useState("");
   const [eventDate, setEventDate] = React.useState("");
-  const [eventTime, setEventTime] = React.useState("");
+  
+  // Dropdown Time Selectors
+  const [startHour, setStartHour] = React.useState("9");
+  const [startMinute, setStartMinute] = React.useState("00");
+  const [startPeriod, setStartPeriod] = React.useState("AM");
+  const [endHour, setEndHour] = React.useState("1");
+  const [endMinute, setEndMinute] = React.useState("00");
+  const [endPeriod, setEndPeriod] = React.useState("PM");
+
   const [hours, setHours] = React.useState("4");
   const [capacity, setCapacity] = React.useState("20");
   const [description, setDescription] = React.useState("");
@@ -73,6 +81,8 @@ export default function NewOpportunityPage() {
     setLoading(true);
     setErrorMsg(null);
 
+    const formattedTime = `${startHour}:${startMinute} ${startPeriod} to ${endHour}:${endMinute} ${endPeriod}`;
+
     try {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -83,7 +93,7 @@ export default function NewOpportunityPage() {
           category,
           location: location || "Coquitlam, BC, Canada",
           eventDate,
-          eventTime,
+          eventTime: formattedTime,
           hours,
           capacity,
           description: description || "Join us and make a positive impact in the community!",
@@ -206,7 +216,7 @@ export default function NewOpportunityPage() {
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="date">Event Date</Label>
+                <Label htmlFor="date">Event Date *</Label>
                 <Input
                   id="date"
                   type="date"
@@ -214,15 +224,80 @@ export default function NewOpportunityPage() {
                   onChange={(e) => setEventDate(e.target.value)}
                 />
               </div>
+
               <div className="space-y-1.5">
-                <Label htmlFor="time">Event Start & End Time</Label>
-                <Input
-                  id="time"
-                  type="text"
-                  value={eventTime}
-                  onChange={(e) => setEventTime(e.target.value)}
-                  placeholder="e.g. 9:00 AM - 1:00 PM"
-                />
+                <Label>Event Start & End Time (Dropdown)</Label>
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  {/* Start Time Selectors */}
+                  <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-lg border border-border">
+                    <Select value={startHour} onValueChange={setStartHour}>
+                      <SelectTrigger className="h-8 w-14 text-xs font-semibold px-2">
+                        <SelectValue placeholder="Hour" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {["1","2","3","4","5","6","7","8","9","10","11","12"].map(h => (
+                          <SelectItem key={h} value={h}>{h}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-xs font-bold">:</span>
+                    <Select value={startMinute} onValueChange={setStartMinute}>
+                      <SelectTrigger className="h-8 w-14 text-xs font-semibold px-2">
+                        <SelectValue placeholder="Min" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {["00","15","30","45"].map(m => (
+                          <SelectItem key={m} value={m}>{m}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={startPeriod} onValueChange={setStartPeriod}>
+                      <SelectTrigger className="h-8 w-16 text-xs font-semibold px-2">
+                        <SelectValue placeholder="AM/PM" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="AM">AM</SelectItem>
+                        <SelectItem value="PM">PM</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <span className="text-xs text-muted-foreground font-bold px-1">to</span>
+
+                  {/* End Time Selectors */}
+                  <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-lg border border-border">
+                    <Select value={endHour} onValueChange={setEndHour}>
+                      <SelectTrigger className="h-8 w-14 text-xs font-semibold px-2">
+                        <SelectValue placeholder="Hour" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {["1","2","3","4","5","6","7","8","9","10","11","12"].map(h => (
+                          <SelectItem key={h} value={h}>{h}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-xs font-bold">:</span>
+                    <Select value={endMinute} onValueChange={setEndMinute}>
+                      <SelectTrigger className="h-8 w-14 text-xs font-semibold px-2">
+                        <SelectValue placeholder="Min" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {["00","15","30","45"].map(m => (
+                          <SelectItem key={m} value={m}>{m}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={endPeriod} onValueChange={setEndPeriod}>
+                      <SelectTrigger className="h-8 w-16 text-xs font-semibold px-2">
+                        <SelectValue placeholder="AM/PM" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="AM">AM</SelectItem>
+                        <SelectItem value="PM">PM</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
             </div>
 

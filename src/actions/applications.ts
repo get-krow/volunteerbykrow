@@ -299,7 +299,7 @@ export async function updateOpportunityAction(opportunityId: string, params: any
       description: params.description,
       address: params.location,
       is_remote: isRemote,
-      start_date: params.eventDate ? new Date(params.eventDate).toISOString() : new Date().toISOString(),
+      start_date: params.eventDate ? `${params.eventDate}T12:00:00.000Z` : new Date().toISOString(),
       capacity: parseInt(params.capacity) || 20,
       volunteer_hours: parseFloat(params.hours) || 4,
       images: params.imageUrl ? [params.imageUrl] : undefined,

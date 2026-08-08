@@ -114,7 +114,15 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
           },
           location: data.is_remote ? "Remote / Online" : data.address || "Local Community",
           is_remote: data.is_remote,
-          date: new Date(data.start_date).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" }),
+          date: (() => {
+            const rawDate = data.start_date ? data.start_date.split("T")[0] : "";
+            const parts = rawDate.split("-");
+            if (parts.length === 3) {
+              const [y, m, d] = parts.map(Number);
+              return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" });
+            }
+            return new Date(data.start_date).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" });
+          })(),
           time: `${new Date(data.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
           hours: data.volunteer_hours,
           capacity: data.capacity || 20,
