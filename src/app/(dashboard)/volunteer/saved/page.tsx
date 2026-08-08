@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
-import { getOpportunitiesAction } from "@/actions/opportunities";
+import { getSavedOpportunitiesAction, toggleSaveOpportunityAction } from "@/actions/applications";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function VolunteerSavedPage() {
   const [savedOpps, setSavedOpps] = React.useState<any[]>([]);
@@ -16,41 +17,36 @@ export default function VolunteerSavedPage() {
 
   React.useEffect(() => {
     async function loadSaved() {
-      const res = await getOpportunitiesAction();
+      const res = await getSavedOpportunitiesAction();
       if (res?.opportunities) {
-        // Read saved IDs from localStorage
-        const savedIds: string[] = JSON.parse(localStorage.getItem("krow_saved_opp_ids") || "[]");
+        const items = res.opportunities.map((item: any) => {
+          let shiftTime = "9:00 AM to 1:00 PM";
+          if (item.description && item.description.includes("Shift Time:")) {
+            const match = item.description.match(/Shift Time:\s*([^\n]+)/);
+            if (match?.[1]) shiftTime = match[1].trim();
+          }
 
-        const items = res.opportunities
-          .filter((o: any) => savedIds.includes(o.id))
-          .map((item: any) => {
-            let shiftTime = "9:00 AM to 1:00 PM";
-            if (item.description && item.description.includes("Shift Time:")) {
-              const match = item.description.match(/Shift Time:\s*([^\n]+)/);
-              if (match?.[1]) shiftTime = match[1].trim();
-            }
+          const rawDate = item.start_date ? item.start_date.split("T")[0] : "";
+          const parts = rawDate.split("-");
+          let formattedDate = new Date(item.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+          if (parts.length === 3) {
+            const [y, m, d] = parts.map(Number);
+            formattedDate = new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+          }
 
-            const rawDate = item.start_date ? item.start_date.split("T")[0] : "";
-            const parts = rawDate.split("-");
-            let formattedDate = new Date(item.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-            if (parts.length === 3) {
-              const [y, m, d] = parts.map(Number);
-              formattedDate = new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-            }
-
-            return {
-              id: item.id,
-              title: item.title,
-              organization: item.organizations?.name || "Verified Organization",
-              location: item.is_remote ? "Remote / Online" : item.address || "Local Community",
-              date: formattedDate,
-              hours: item.volunteer_hours,
-              shift_time: shiftTime,
-              spots_left: Math.max(0, (item.capacity || 20) - (item.spots_filled || 0)),
-              category: item.category_id || "General",
-              image: item.images?.[0] || "https://images.unsplash.com/photo-1559027615-cd4628902d4a?auto=format&fit=crop&w=600&q=80",
-            };
-          });
+          return {
+            id: item.id,
+            title: item.title,
+            organization: item.organizations?.name || "Verified Organization",
+            location: item.is_remote ? "Remote / Online" : item.address || "Local Community",
+            date: formattedDate,
+            hours: item.volunteer_hours,
+            shift_time: shiftTime,
+            spots_left: Math.max(0, (item.capacity || 20) - (item.spots_filled || 0)),
+            category: item.category_id || "General",
+            image: item.images?.[0] || "https://images.unsplash.com/photo-1559027615-cd4628902d4a?auto=format&fit=crop&w=600&q=80",
+          };
+        });
 
         setSavedOpps(items);
       }
@@ -58,6 +54,19 @@ export default function VolunteerSavedPage() {
     }
     loadSaved();
   }, []);
+
+  const handleRemoveSaved = async (id: string, title: string) => {
+    const res = await toggleSaveOpportunityAction(id);
+    if (res?.error) {
+      toast.error(res.error);
+      return;
+    }
+
+    setSavedOpps(savedOpps.filter(o => o.id !== id));
+    toast.success("Removed from Saved Opportunities", {
+      description: `"${title}" has been removed from your saved list.`,
+    });
+  };
 
   const handleUnsave = (id: string) => {
     const savedIds: string[] = JSON.parse(localStorage.getItem("krow_saved_opp_ids") || "[]");
@@ -121,7 +130,7 @@ export default function VolunteerSavedPage() {
                 </CardContent>
               </div>
               <CardFooter className="p-5 pt-0 border-t border-border mt-auto pt-4 flex items-center justify-between gap-2">
-                <Button variant="ghost" size="sm" onClick={() => handleUnsave(opp.id)} className="text-xs text-red-500 hover:text-red-600 hover:bg-red-500/10">
+                <Button variant="ghost" size="sm" onClick={() => handleRemoveSaved(opp.id, opp.title)} className="text-xs text-red-500 hover:text-red-600 hover:bg-red-500/10">
                   Remove
                 </Button>
                 <Link href={`/opportunities/${opp.id}`}>

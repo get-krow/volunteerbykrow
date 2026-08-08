@@ -1,17 +1,37 @@
 "use client";
 
+import * as React from "react";
 import { motion } from "framer-motion";
 
-const orgs = [
-  { name: "Green Earth Foundation", initials: "GE" },
-  { name: "Bright Futures Academy", initials: "BF" },
-  { name: "Community Aid Network", initials: "CA" },
-  { name: "Helping Hands Society", initials: "HH" },
-  { name: "Youth Empowerment League", initials: "YE" },
-  { name: "Coastal Conservation", initials: "CC" },
+const defaultOrgs = [
+  "Vancouver Food Bank",
+  "BC Children's Hospital Support",
+  "Coquitlam Habitat Humanity",
+  "Burnaby Green Society",
 ];
 
 export function FeaturedOrgs() {
+  const [partnerNames, setPartnerNames] = React.useState<string[]>(defaultOrgs);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("krow_custom_partners");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setPartnerNames(parsed);
+          }
+        } catch (e) {}
+      }
+    }
+  }, []);
+
+  const items = partnerNames.map(name => ({
+    name,
+    initials: name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
+  }));
+
   return (
     <section className="py-16 border-y border-border bg-muted/20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -19,9 +39,9 @@ export function FeaturedOrgs() {
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
-          className="text-center text-sm text-muted-foreground mb-8"
+          className="text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-8"
         >
-          Trusted by leading organizations
+          Trusted by Community Organizations & Nonprofits
         </motion.p>
         <motion.div
           initial={{ opacity: 0 }}
@@ -30,15 +50,15 @@ export function FeaturedOrgs() {
           transition={{ duration: 0.6 }}
           className="flex flex-wrap items-center justify-center gap-8 md:gap-12"
         >
-          {orgs.map((org) => (
+          {items.map((org) => (
             <div
               key={org.name}
-              className="flex items-center gap-2.5 text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+              className="flex items-center gap-2.5 text-muted-foreground/80 hover:text-foreground transition-colors"
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted text-xs font-bold">
+              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary text-xs font-bold border border-primary/20">
                 {org.initials}
               </div>
-              <span className="text-sm font-medium whitespace-nowrap">
+              <span className="text-sm font-semibold whitespace-nowrap">
                 {org.name}
               </span>
             </div>

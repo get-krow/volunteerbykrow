@@ -7,7 +7,7 @@ import {
   Award,
   Shield,
   BarChart3,
-  MessageSquare,
+  CheckCircle2,
 } from "lucide-react";
 
 const features = [
@@ -33,19 +33,19 @@ const features = [
     icon: Shield,
     title: "Verified Organizations",
     description:
-      "Every organization on our platform is verified, so you can volunteer with confidence and trust.",
+      "Every organization on our platform is verified by Krow Admin so you can volunteer with confidence.",
   },
   {
     icon: BarChart3,
     title: "Analytics & Insights",
     description:
-      "Organizations get powerful analytics to track volunteer impact, manage events, and generate reports.",
+      "Organizations get powerful analytics to track volunteer impact, manage events, and view volunteer rosters.",
   },
   {
-    icon: MessageSquare,
-    title: "Direct Messaging",
+    icon: CheckCircle2,
+    title: "Attendance Verification",
     description:
-      "Communicate directly with organizations and coordinators through our built-in messaging system.",
+      "Event organizers review signups and verify volunteer attendance directly on their roster to award verified hours.",
   },
 ];
 

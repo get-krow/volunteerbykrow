@@ -169,7 +169,21 @@ export async function getOpportunitiesAction(options?: {
       return { error: error.message, opportunities: [] };
     }
 
-    return { success: true, opportunities: data || [] };
+    // Enrich opportunities with live exact application counts
+    const oppsWithLiveCounts = await Promise.all((data || []).map(async (opp) => {
+      const { count } = await admin
+        .from("applications")
+        .select("*", { count: "exact", head: true })
+        .eq("opportunity_id", opp.id);
+
+      const realSpotsFilled = count !== null ? count : (opp.spots_filled || 0);
+      return {
+        ...opp,
+        spots_filled: realSpotsFilled,
+      };
+    }));
+
+    return { success: true, opportunities: oppsWithLiveCounts };
   } catch (err: any) {
     console.error("Unhandled error in getOpportunitiesAction:", err);
     return { error: err?.message || "Failed to load opportunities", opportunities: [] };
@@ -199,12 +213,23 @@ export async function getOpportunityByIdAction(id: string) {
       .eq("id", id)
       .single();
 
-    if (error || !data) {
-      return { error: error?.message || "Opportunity not found", opportunity: null };
+    if (error) {
+      console.error("Error fetching opportunity details:", error);
+      return { error: error.message };
+    }
+
+    if (data) {
+      const { count } = await admin
+        .from("applications")
+        .select("*", { count: "exact", head: true })
+        .eq("opportunity_id", id);
+
+      data.spots_filled = count !== null ? count : (data.spots_filled || 0);
     }
 
     return { success: true, opportunity: data };
   } catch (err: any) {
-    return { error: err?.message || "Failed to fetch opportunity", opportunity: null };
+    console.error("Unhandled error in getOpportunityByIdAction:", err);
+    return { error: err?.message || "Failed to fetch opportunity" };
   }
 }

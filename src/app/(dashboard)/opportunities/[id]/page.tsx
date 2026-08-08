@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { getOpportunityByIdAction } from "@/actions/opportunities";
-import { applyForOpportunityAction, cancelApplicationAction, getUserApplicationsAction, getApplicationsForOpportunityAction, verifyAttendanceAction } from "@/actions/applications";
+import { applyForOpportunityAction, cancelApplicationAction, getUserApplicationsAction, getApplicationsForOpportunityAction, verifyAttendanceAction, toggleSaveOpportunityAction, isOpportunitySavedAction } from "@/actions/applications";
 import { toast } from "sonner";
 
 function OpportunityDetailContent({ params }: { params: { id: string } }) {
@@ -96,6 +96,12 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
           const isApplied = appsRes.applications.some((a: any) => a.opportunity_id === oppId);
           setApplied(isApplied);
         }
+      }
+
+      // Check if saved
+      if (user && oppId) {
+        const saveRes = await isOpportunitySavedAction(oppId);
+        setSaved(saveRes.saved);
       }
 
       // Fetch real opportunity using Server Action
@@ -440,12 +446,19 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
                   <Button
                     variant="outline"
                     className="flex-1 gap-2"
-                    onClick={() => {
+                    onClick={async () => {
                       if (!user) {
                         setShowAuthModal(true);
-                      } else {
-                        setSaved(!saved);
-                        toast(saved ? "Removed from Saved" : "Saved to your list");
+                        return;
+                      }
+                      if (opp?.id) {
+                        const res = await toggleSaveOpportunityAction(opp.id);
+                        if (res?.error) {
+                          toast.error(res.error);
+                          return;
+                        }
+                        setSaved(res.saved || false);
+                        toast.success(res.message || (res.saved ? "Saved to your profile!" : "Removed from saved opportunities"));
                       }
                     }}
                   >

@@ -42,11 +42,13 @@ export async function applyForOpportunityAction(opportunityId: string) {
       return { error: "Failed to submit registration: " + (appErr?.message || "Unknown error") };
     }
 
-    // 3. Increment spots_filled on opportunities table
-    const { data: opp } = await admin.from("opportunities").select("spots_filled").eq("id", opportunityId).single();
-    if (opp) {
-      await admin.from("opportunities").update({ spots_filled: (opp.spots_filled || 0) + 1 }).eq("id", opportunityId);
-    }
+    // 3. Recalculate exact live count of applications for opportunities table
+    const { count } = await admin
+      .from("applications")
+      .select("*", { count: "exact", head: true })
+      .eq("opportunity_id", opportunityId);
+
+    await admin.from("opportunities").update({ spots_filled: count || 0 }).eq("id", opportunityId);
 
     return { success: true, applicationId: app.id, message: "Registration successful!" };
   } catch (err: any) {
@@ -219,6 +221,21 @@ export async function verifyAttendanceAction(applicationId: string, volunteerId?
       orgId = firstOrg?.id || null;
     }
 
+    // Enforce Admin Organization Verification check
+    if (orgId) {
+      const { data: orgData } = await admin
+        .from("organizations")
+        .select("verification_status, name")
+        .eq("id", orgId)
+        .maybeSingle();
+
+      if (orgData && orgData.verification_status !== "verified") {
+        return {
+          error: `Organization "${orgData.name || 'Your Organization'}" must be verified by Krow Admin before approving volunteer hours to prevent unauthorized hour distributions.`
+        };
+      }
+    }
+
     // 4. Upsert into volunteer_hours table
     const { data: existingVh } = await admin
       .from("volunteer_hours")
@@ -354,11 +371,13 @@ export async function cancelApplicationAction(opportunityId: string) {
     const totalHours = (vhRows || []).reduce((acc, curr) => acc + Number(curr.hours || 0), 0);
     await admin.from("profiles").update({ total_hours: totalHours }).eq("id", user.id);
 
-    // 4. Decrement spots_filled on opportunities
-    const { data: opp } = await admin.from("opportunities").select("spots_filled").eq("id", opportunityId).maybeSingle();
-    if (opp && (opp.spots_filled || 0) > 0) {
-      await admin.from("opportunities").update({ spots_filled: Math.max(0, (opp.spots_filled || 0) - 1) }).eq("id", opportunityId);
-    }
+    // 4. Recalculate exact live count of applications for opportunities table
+    const { count } = await admin
+      .from("applications")
+      .select("*", { count: "exact", head: true })
+      .eq("opportunity_id", opportunityId);
+
+    await admin.from("opportunities").update({ spots_filled: count || 0 }).eq("id", opportunityId);
 
     return { success: true, message: "Registration cancelled successfully!" };
   } catch (err: any) {
@@ -497,6 +516,108 @@ export async function getApplicationsForOpportunityAction(opportunityId: string)
     return { success: true, applications: data || [] };
   } catch (err: any) {
     console.error("Unhandled error in getApplicationsForOpportunityAction:", err);
-    return { error: err?.message || "Failed to load applications", applications: [] };
+    return { error: err?.message || "Failed to fetch applications", applications: [] };
+  }
+}
+
+export async function toggleSaveOpportunityAction(opportunityId: string) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { error: "Please log in to save opportunities." };
+    }
+
+    const admin = createAdminClient();
+
+    // Check if already saved
+    const { data: existing } = await admin
+      .from("saved_opportunities")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("opportunity_id", opportunityId)
+      .maybeSingle();
+
+    if (existing) {
+      // Unsave
+      await admin.from("saved_opportunities").delete().eq("id", existing.id);
+      return { success: true, saved: false, message: "Removed from saved opportunities" };
+    } else {
+      // Save
+      await admin.from("saved_opportunities").insert({
+        user_id: user.id,
+        opportunity_id: opportunityId,
+      });
+      return { success: true, saved: true, message: "Saved to your profile!" };
+    }
+  } catch (err: any) {
+    console.error("Error toggling saved opportunity:", err);
+    return { error: err?.message || "Failed to update saved status" };
+  }
+}
+
+export async function getSavedOpportunitiesAction() {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: true, opportunities: [] };
+    }
+
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("saved_opportunities")
+      .select(`
+        id,
+        created_at,
+        opportunity_id,
+        opportunities (
+          *,
+          organizations (
+            id,
+            name,
+            logo_url,
+            verification_status,
+            city,
+            province_state
+          )
+        )
+      `)
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching saved opportunities:", error);
+      return { error: error.message, opportunities: [] };
+    }
+
+    const items = (data || []).map((row: any) => row.opportunities).filter(Boolean);
+    return { success: true, opportunities: items };
+  } catch (err: any) {
+    console.error("Error in getSavedOpportunitiesAction:", err);
+    return { error: err?.message || "Failed to fetch saved opportunities", opportunities: [] };
+  }
+}
+
+export async function isOpportunitySavedAction(opportunityId: string) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { saved: false };
+
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("saved_opportunities")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("opportunity_id", opportunityId)
+      .maybeSingle();
+
+    return { saved: !!data };
+  } catch (err) {
+    return { saved: false };
   }
 }

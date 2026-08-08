@@ -1,60 +1,56 @@
 "use client";
 
+import * as React from "react";
 import { motion } from "framer-motion";
 import { Star, Quote } from "lucide-react";
 
-const testimonials = [
+const defaultTestimonials = [
   {
-    name: "Sarah Chen",
-    role: "High School Senior",
+    name: "Samantha Chen",
+    role: "High School Volunteer",
     avatar: "SC",
-    content:
-      "KROW made tracking my volunteer hours so easy. I used it for my college applications and earned over 200 hours of verified community service!",
+    content: "Volunteer by Krow made it so easy to find real local opportunities and automatically track my high school graduation service hours!",
     rating: 5,
   },
   {
-    name: "Marcus Rodriguez",
-    role: "Nonprofit Director",
-    avatar: "MR",
-    content:
-      "Managing volunteers used to be chaos. With KROW, we can post opportunities, track attendance, and communicate with volunteers all in one place.",
+    name: "Marcus Vance",
+    role: "Community Event Coordinator",
+    avatar: "MV",
+    content: "As an event organizer, verifying attendance and awarding volunteer hours takes just one click. It eliminated all manual paperwork for us.",
     rating: 5,
   },
   {
     name: "Emily Foster",
-    role: "Community Organizer",
+    role: "Local Volunteer",
     avatar: "EF",
-    content:
-      "The search and filter system is incredible. I found local opportunities that perfectly matched my skills and schedule within minutes.",
-    rating: 5,
-  },
-  {
-    name: "David Park",
-    role: "Club President",
-    avatar: "DP",
-    content:
-      "Our school club uses KROW to organize all our community service events. The analytics dashboard helps us report our impact to the school board.",
-    rating: 5,
-  },
-  {
-    name: "Aisha Williams",
-    role: "Volunteer Coordinator",
-    avatar: "AW",
-    content:
-      "The certificate generation feature is a game-changer. Volunteers love getting official recognition for their contributions immediately.",
-    rating: 5,
-  },
-  {
-    name: "James Thompson",
-    role: "College Freshman",
-    avatar: "JT",
-    content:
-      "I started volunteering through KROW in high school and it changed my life. The platform connected me with amazing organizations in my area.",
+    content: "The search and filter system is incredible. I found community events near me that fit my schedule perfectly.",
     rating: 5,
   },
 ];
 
 export function Testimonials() {
+  const [items, setItems] = React.useState(defaultTestimonials);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("krow_custom_reviews");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setItems(parsed.map(r => ({
+              name: r.author,
+              role: r.role || "Volunteer",
+              avatar: r.author ? r.author.slice(0, 2).toUpperCase() : "VK",
+              content: r.text,
+              rating: r.stars || 5,
+            })));
+          }
+        } catch (e) {}
+      }
+    }
+  }, []);
+
   return (
     <section className="py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -68,16 +64,16 @@ export function Testimonials() {
         >
           <p className="text-sm font-semibold text-primary">Testimonials</p>
           <h2 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
-            Loved by volunteers everywhere
+            Authentic Feedback from Our Community
           </h2>
           <p className="mt-4 text-muted-foreground leading-relaxed">
-            See what our community members have to say about their experience.
+            See what real volunteers and verified event organizers have to say.
           </p>
         </motion.div>
 
         {/* Grid */}
         <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {testimonials.map((testimonial, index) => (
+          {items.map((testimonial, index) => (
             <motion.div
               key={testimonial.name}
               initial={{ opacity: 0, y: 20 }}
