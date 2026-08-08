@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, MapPin, Calendar, Clock, Building2, Share2, Heart, CheckCircle2, ShieldCheck, LogIn, UserPlus, Send, Loader2 } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Clock, Building2, Share2, Heart, CheckCircle2, ShieldCheck, LogIn, UserPlus, Send, Loader2, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -27,6 +27,7 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
   const [applied, setApplied] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
   const [user, setUser] = React.useState<any>(null);
+  const [userRole, setUserRole] = React.useState<string | null>(null);
   const [checkingAuth, setCheckingAuth] = React.useState(true);
 
   // Modals
@@ -49,6 +50,19 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
       setCheckingAuth(false);
+
+      if (user) {
+        let r = user.user_metadata?.role;
+        if (!r) {
+          const { data: prof } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+          r = prof?.role;
+        }
+        if (!r) {
+          const { data: org } = await supabase.from("organizations").select("id").eq("created_by", user.id).limit(1).maybeSingle();
+          if (org) r = "organization";
+        }
+        setUserRole(r || "volunteer");
+      }
 
       if (!oppId) {
         setLoadingOpp(false);
@@ -277,35 +291,48 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
 
             <hr className="border-border" />
 
-            <div className="space-y-3">
-              <Button
-                className="w-full h-11 text-base font-semibold"
-                disabled={applied || checkingAuth}
-                onClick={handleApplyClick}
-              >
-                {applied ? "Application Submitted ✓" : "Apply for Opportunity"}
-              </Button>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1 gap-2"
-                  onClick={() => {
-                    if (!user) {
-                      setShowAuthModal(true);
-                    } else {
-                      setSaved(!saved);
-                      toast(saved ? "Removed from Saved" : "Saved to your list");
-                    }
-                  }}
-                >
-                  <Heart className={`w-4 h-4 ${saved ? "fill-red-500 text-red-500" : ""}`} />
-                  {saved ? "Saved" : "Save"}
-                </Button>
-                <Button variant="outline" size="icon" onClick={() => toast("Share link copied to clipboard")}>
-                  <Share2 className="w-4 h-4" />
-                </Button>
+            {userRole === "organization" ? (
+              <div className="space-y-3">
+                <div className="p-3 bg-primary/10 border border-primary/20 rounded-xl text-center text-xs text-primary font-bold">
+                  Organizer Preview — You manage this event
+                </div>
+                <Link href={`/organization/opportunities/${opp.id}/edit`} className="block">
+                  <Button className="w-full h-11 text-base font-semibold gap-2">
+                    <Edit className="w-4 h-4" /> Edit Opportunity
+                  </Button>
+                </Link>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-3">
+                <Button
+                  className="w-full h-11 text-base font-semibold"
+                  disabled={applied || checkingAuth}
+                  onClick={handleApplyClick}
+                >
+                  {applied ? "Application Submitted ✓" : "Apply for Opportunity"}
+                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1 gap-2"
+                    onClick={() => {
+                      if (!user) {
+                        setShowAuthModal(true);
+                      } else {
+                        setSaved(!saved);
+                        toast(saved ? "Removed from Saved" : "Saved to your list");
+                      }
+                    }}
+                  >
+                    <Heart className={`w-4 h-4 ${saved ? "fill-red-500 text-red-500" : ""}`} />
+                    {saved ? "Saved" : "Save"}
+                  </Button>
+                  <Button variant="outline" size="icon" onClick={() => toast("Share link copied to clipboard")}>
+                    <Share2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

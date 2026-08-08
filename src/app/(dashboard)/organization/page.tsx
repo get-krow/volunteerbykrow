@@ -191,7 +191,7 @@ export default function OrganizationDashboard() {
                       <span>⏱ {selectedOpp.hours} Hours</span>
                     </p>
                   </div>
-                  <Link href="/organization/opportunities/new">
+                  <Link href={`/organization/opportunities/${selectedOpp.id}/edit`}>
                     <Button variant="outline" size="sm" className="gap-1 text-xs shrink-0">
                       <Edit className="w-3.5 h-3.5" /> Edit Event
                     </Button>
