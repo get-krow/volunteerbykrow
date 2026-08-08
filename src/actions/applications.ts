@@ -175,23 +175,72 @@ export async function getOrgApplicationsAction(orgUserId?: string) {
   }
 }
 
-export async function verifyAttendanceAction(applicationId: string, volunteerId: string, opportunityId: string, hours: number) {
+export async function verifyAttendanceAction(applicationId: string, volunteerId?: string, opportunityId?: string, hours?: number) {
   try {
     const admin = createAdminClient();
 
-    // 1. Update application status to approved
-    await admin.from("applications").update({ status: "approved", reviewed_at: new Date().toISOString() }).eq("id", applicationId);
+    // 1. Resolve application details if volunteerId or opportunityId is missing
+    let targetVolunteerId = volunteerId;
+    let targetOpportunityId = opportunityId;
 
-    // 2. Get opportunity details
-    const { data: opp } = await admin.from("opportunities").select("organization_id, volunteer_hours").eq("id", opportunityId).single();
+    const { data: app } = await admin
+      .from("applications")
+      .select("id, volunteer_id, opportunity_id, status")
+      .eq("id", applicationId)
+      .maybeSingle();
+
+    if (app) {
+      if (!targetVolunteerId) targetVolunteerId = app.volunteer_id;
+      if (!targetOpportunityId) targetOpportunityId = app.opportunity_id;
+    }
+
+    if (!targetVolunteerId || !targetOpportunityId) {
+      return { error: "Could not identify volunteer or opportunity for attendance verification." };
+    }
+
+    // 2. Update application status to approved in Supabase
+    await admin
+      .from("applications")
+      .update({ status: "approved", reviewed_at: new Date().toISOString() })
+      .eq("id", applicationId);
+
+    // 3. Get opportunity details for volunteer_hours and org ID
+    const { data: opp } = await admin
+      .from("opportunities")
+      .select("organization_id, volunteer_hours")
+      .eq("id", targetOpportunityId)
+      .maybeSingle();
+
     const verifiedHours = hours || opp?.volunteer_hours || 4;
-    const orgId = opp?.organization_id;
+    let orgId = opp?.organization_id;
 
-    // 3. Record in volunteer_hours table
-    if (orgId) {
+    if (!orgId) {
+      const { data: firstOrg } = await admin.from("organizations").select("id").limit(1).maybeSingle();
+      orgId = firstOrg?.id || null;
+    }
+
+    // 4. Upsert into volunteer_hours table
+    const { data: existingVh } = await admin
+      .from("volunteer_hours")
+      .select("id")
+      .eq("volunteer_id", targetVolunteerId)
+      .eq("opportunity_id", targetOpportunityId)
+      .maybeSingle();
+
+    if (existingVh) {
+      await admin
+        .from("volunteer_hours")
+        .update({
+          hours: verifiedHours,
+          status: "approved",
+          notes: "Attendance verified by organization",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingVh.id);
+    } else {
       await admin.from("volunteer_hours").insert({
-        volunteer_id: volunteerId,
-        opportunity_id: opportunityId,
+        volunteer_id: targetVolunteerId,
+        opportunity_id: targetOpportunityId,
         organization_id: orgId,
         hours: verifiedHours,
         date: new Date().toISOString().split("T")[0],
@@ -200,12 +249,21 @@ export async function verifyAttendanceAction(applicationId: string, volunteerId:
       });
     }
 
-    // 4. Update profile total_hours
-    const { data: profile } = await admin.from("profiles").select("total_hours").eq("id", volunteerId).single();
-    const currentHours = parseFloat(profile?.total_hours || "0");
-    const updatedHours = currentHours + verifiedHours;
+    // 5. Recalculate total verified hours for volunteer profile
+    const { data: allVh } = await admin
+      .from("volunteer_hours")
+      .select("hours")
+      .eq("volunteer_id", targetVolunteerId)
+      .in("status", ["approved", "verified"]);
 
-    await admin.from("profiles").update({ total_hours: updatedHours }).eq("id", volunteerId);
+    const sumApproved = allVh && allVh.length > 0
+      ? allVh.reduce((acc, curr) => acc + (parseFloat(curr.hours) || 0), 0)
+      : verifiedHours;
+
+    await admin
+      .from("profiles")
+      .update({ total_hours: sumApproved })
+      .eq("id", targetVolunteerId);
 
     return { success: true, message: `Attendance verified! ${verifiedHours} hours credited to volunteer.` };
   } catch (err: any) {

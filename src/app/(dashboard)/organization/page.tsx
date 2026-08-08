@@ -13,6 +13,7 @@ import { toast } from "sonner";
 
 interface VolunteerParticipant {
   id: string;
+  appId?: string;
   name: string;
   age: number;
   hours: number;
@@ -30,6 +31,7 @@ interface OpportunityItem {
 
 import { createClient } from "@/lib/supabase/client";
 import { getOpportunitiesAction } from "@/actions/opportunities";
+import { getOrgApplicationsAction, verifyAttendanceAction } from "@/actions/applications";
 
 export default function OrganizationDashboard() {
   const [opportunities, setOpportunities] = React.useState<OpportunityItem[]>([]);
@@ -43,15 +45,34 @@ export default function OrganizationDashboard() {
       const res = await getOpportunitiesAction({ orgUserId: user?.id });
       const data = res?.opportunities || [];
 
+      // Fetch org applications roster
+      const appsRes = await getOrgApplicationsAction(user?.id);
+      const apps = appsRes?.applications || [];
+
       if (data && data.length > 0) {
-        const items: OpportunityItem[] = data.map((d) => ({
-          id: d.id,
-          title: d.title,
-          date: new Date(d.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-          location: d.is_remote ? "Remote" : d.address || "Local",
-          hours: d.volunteer_hours || 1,
-          volunteers: [],
-        }));
+        const items: OpportunityItem[] = data.map((d) => {
+          const oppApps = apps.filter((a: any) => a.opportunity_id === d.id);
+          const volunteers: VolunteerParticipant[] = oppApps.map((a: any) => {
+            const p = a.profiles || {};
+            return {
+              id: p.id || a.volunteer_id,
+              appId: a.id,
+              name: p.full_name || "Volunteer",
+              age: 18,
+              hours: d.volunteer_hours || 4,
+              status: a.status === "approved" ? "present" : "registered",
+            };
+          });
+
+          return {
+            id: d.id,
+            title: d.title,
+            date: new Date(d.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+            location: d.is_remote ? "Remote" : d.address || "Local",
+            hours: d.volunteer_hours || 4,
+            volunteers,
+          };
+        });
         setOpportunities(items);
         setSelectedOppId(items[0].id);
       }
@@ -61,7 +82,7 @@ export default function OrganizationDashboard() {
 
   const selectedOpp = opportunities.find(o => o.id === selectedOppId);
 
-  const handleMarkAttendance = (oppId: string, volunteerId: string, status: "present" | "absent", name: string) => {
+  const handleMarkAttendance = async (oppId: string, volunteerId: string, status: "present" | "absent", name: string) => {
     setOpportunities(opportunities.map(opp => {
       if (opp.id !== oppId) return opp;
       return {
@@ -71,9 +92,18 @@ export default function OrganizationDashboard() {
     }));
 
     if (status === "present") {
-      toast.success(`Attendance Verified`, {
-        description: `Marked ${name} as Present. Awarded ${selectedOpp?.hours || 0} volunteer hours!`,
-      });
+      const vol = selectedOpp?.volunteers.find(v => v.id === volunteerId);
+      const appId = (vol as any)?.appId || "";
+      const hrs = selectedOpp?.hours || 4;
+
+      const res = await verifyAttendanceAction(appId, volunteerId, oppId, hrs);
+      if (res?.error) {
+        toast.error(res.error);
+      } else {
+        toast.success(`Attendance Verified`, {
+          description: `Marked ${name} as Present. Awarded ${hrs} volunteer hours to volunteer account!`,
+        });
+      }
     } else {
       toast.error(`Marked Absent`, {
         description: `${name} marked absent. 0 hours awarded.`,
