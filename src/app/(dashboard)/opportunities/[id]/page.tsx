@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { getOpportunityByIdAction } from "@/actions/opportunities";
-import { applyForOpportunityAction, cancelApplicationAction, getUserApplicationsAction } from "@/actions/applications";
+import { applyForOpportunityAction, cancelApplicationAction, getUserApplicationsAction, getApplicationsForOpportunityAction, verifyAttendanceAction } from "@/actions/applications";
 import { toast } from "sonner";
 
 function OpportunityDetailContent({ params }: { params: { id: string } }) {
@@ -29,6 +29,10 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
   const [user, setUser] = React.useState<any>(null);
   const [userRole, setUserRole] = React.useState<string | null>(null);
   const [checkingAuth, setCheckingAuth] = React.useState(true);
+
+  // Organizer Roster State
+  const [orgApps, setOrgApps] = React.useState<any[]>([]);
+  const [loadingApps, setLoadingApps] = React.useState(true);
 
   // Modals
   const [showAuthModal, setShowAuthModal] = React.useState(false);
@@ -51,6 +55,7 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
       setUser(user);
       setCheckingAuth(false);
 
+      let role = "volunteer";
       if (user) {
         let r = user.user_metadata?.role;
         if (!r) {
@@ -61,20 +66,31 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
           const { data: org } = await supabase.from("organizations").select("id").eq("created_by", user.id).limit(1).maybeSingle();
           if (org) r = "organization";
         }
-        setUserRole(r || "volunteer");
+        role = r || "volunteer";
+        setUserRole(role);
       }
 
       if (!oppId) {
         setLoadingOpp(false);
+        setLoadingApps(false);
         return;
       }
 
-      if (user && autoApply) {
+      // If organizer, load roster for this opportunity
+      if (role === "organization") {
+        const appsRes = await getApplicationsForOpportunityAction(oppId);
+        if (appsRes?.applications) {
+          setOrgApps(appsRes.applications);
+        }
+        setLoadingApps(false);
+      }
+
+      if (user && autoApply && role !== "organization") {
         setShowApplyModal(true);
       }
 
       // Check if volunteer is already registered
-      if (user) {
+      if (user && role !== "organization") {
         const appsRes = await getUserApplicationsAction(user.id);
         if (appsRes?.applications) {
           const isApplied = appsRes.applications.some((a: any) => a.opportunity_id === oppId);
@@ -191,9 +207,9 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
   return (
     <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto space-y-8">
       {/* Back button */}
-      <Link href="/opportunities">
+      <Link href={userRole === "organization" ? "/organization/opportunities" : "/opportunities"}>
         <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="w-4 h-4" /> Back to opportunities
+          <ArrowLeft className="w-4 h-4" /> {userRole === "organization" ? "Back to Our Opportunities" : "Back to Opportunities"}
         </Button>
       </Link>
 
@@ -263,6 +279,79 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
               ))}
             </ul>
           </div>
+
+          {/* Registered Volunteers Roster (Organizer View Only) */}
+          {userRole === "organization" && (
+            <div className="space-y-4 pt-6 border-t border-border">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold">Registered Volunteers ({orgApps.length})</h2>
+                <span className="text-xs text-muted-foreground">Verify attendance to award hours</span>
+              </div>
+
+              {loadingApps ? (
+                <div className="py-6 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" /> Loading registered roster...
+                </div>
+              ) : orgApps.length === 0 ? (
+                <div className="rounded-xl border border-border bg-muted/20 p-6 text-center space-y-1">
+                  <p className="text-sm font-semibold">No volunteers registered yet</p>
+                  <p className="text-xs text-muted-foreground">When volunteers sign up for this event, their names will appear here for attendance verification.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {orgApps.map((app: any) => {
+                    const prof = app.profiles || {};
+                    const volName = prof.full_name || "Volunteer";
+                    const volEmail = prof.email || "No email";
+                    const isApproved = app.status === "approved";
+
+                    return (
+                      <div
+                        key={app.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-border bg-card shadow-sm"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10 border border-primary/20">
+                            <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
+                              {volName.split(" ").map((n: string) => n[0]).join("").toUpperCase() || "V"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-sm font-bold">{volName}</p>
+                            <p className="text-xs text-muted-foreground">{volEmail} • Signed up {new Date(app.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
+                          </div>
+                        </div>
+
+                        {isApproved ? (
+                          <Badge className="bg-green-600 hover:bg-green-700 text-white gap-1 py-1.5 px-3 self-end sm:self-center">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Attendance Verified ({opp.hours} hrs awarded)
+                          </Badge>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 text-white gap-1.5 text-xs font-semibold h-9 self-end sm:self-center shrink-0"
+                            onClick={async () => {
+                              const res = await verifyAttendanceAction(app.id, app.volunteer_id, opp.id, opp.hours);
+                              if (res?.error) {
+                                toast.error(res.error);
+                              } else {
+                                toast.success(`Attendance Verified!`, {
+                                  description: `Awarded ${opp.hours} volunteer hours to ${volName}.`,
+                                });
+                                setOrgApps(orgApps.map(a => a.id === app.id ? { ...a, status: "approved" } : a));
+                              }
+                            }}
+                          >
+                            <CheckCircle2 className="w-4 h-4" /> Verify Attendance & Award {opp.hours} Hrs
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Right 1 Col: Sidebar Card */}
@@ -305,11 +394,19 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
             ) : (
               <div className="space-y-3">
                 <Button
-                  className="w-full h-11 text-base font-semibold"
-                  disabled={applied || checkingAuth}
+                  className={`w-full h-11 text-base font-semibold ${applied ? "bg-muted text-foreground hover:bg-destructive hover:text-white border border-border" : ""}`}
+                  disabled={checkingAuth || submitting}
                   onClick={handleApplyClick}
                 >
-                  {applied ? "Application Submitted ✓" : "Apply for Opportunity"}
+                  {submitting ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Processing...
+                    </span>
+                  ) : applied ? (
+                    "Registered ✓ (Click to Leave Event)"
+                  ) : (
+                    "Apply for Opportunity"
+                  )}
                 </Button>
                 <div className="flex gap-2">
                   <Button

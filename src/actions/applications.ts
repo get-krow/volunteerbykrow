@@ -295,3 +295,37 @@ export async function cancelApplicationAction(opportunityId: string) {
     return { error: err?.message || "Failed to cancel registration" };
   }
 }
+
+export async function getApplicationsForOpportunityAction(opportunityId: string) {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("applications")
+      .select(`
+        id,
+        status,
+        created_at,
+        volunteer_id,
+        opportunity_id,
+        profiles (
+          id,
+          full_name,
+          email,
+          avatar_url,
+          total_hours
+        )
+      `)
+      .eq("opportunity_id", opportunityId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching opportunity applications:", error);
+      return { error: error.message, applications: [] };
+    }
+
+    return { success: true, applications: data || [] };
+  } catch (err: any) {
+    console.error("Unhandled error in getApplicationsForOpportunityAction:", err);
+    return { error: err?.message || "Failed to load applications", applications: [] };
+  }
+}
