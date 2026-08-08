@@ -53,17 +53,18 @@ export default function VolunteerDashboard() {
 
         // Fetch profile details
         const { data: prof } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+        const hasCompletedOnboarding = typeof window !== "undefined" && (localStorage.getItem("krow_onboarding_completed") === "true" || localStorage.getItem("krow_onboarding_dismissed") === "true");
 
         if (prof) {
           if (prof.full_name) setProfileName(prof.full_name);
           if (prof.age) setProfileAge(prof.age);
           if (prof.location) setProfileLocation(prof.location);
 
-          // If birthdate or location is missing, open onboarding modal post-signin!
-          if (!prof.birthdate || !prof.city || !prof.province_state) {
+          // ONLY open onboarding modal ONCE if missing details AND not previously completed/dismissed
+          if ((!prof.birthdate || !prof.location) && !hasCompletedOnboarding) {
             setShowOnboarding(true);
           }
-        } else {
+        } else if (!hasCompletedOnboarding) {
           setShowOnboarding(true);
         }
 
@@ -117,10 +118,18 @@ export default function VolunteerDashboard() {
       {/* Onboarding Modal post-signin */}
       <OnboardingModal
         open={showOnboarding}
-        onOpenChange={setShowOnboarding}
+        onOpenChange={(val) => {
+          setShowOnboarding(val);
+          if (!val && typeof window !== "undefined") {
+            localStorage.setItem("krow_onboarding_dismissed", "true");
+          }
+        }}
         onComplete={(data) => {
           setProfileAge(data.age);
           setProfileLocation(data.location);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("krow_onboarding_completed", "true");
+          }
         }}
       />
 

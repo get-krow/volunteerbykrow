@@ -77,6 +77,10 @@ export function OnboardingModal({ open, onOpenChange, onComplete }: OnboardingMo
       });
     }
 
+    if (typeof window !== "undefined") {
+      localStorage.setItem("krow_onboarding_completed", "true");
+    }
+
     setSaving(false);
     toast.success("Profile Setup Complete! 🎉", {
       description: `Your age (${ageVal}) and location (${locationStr}) have been saved to your profile.`,

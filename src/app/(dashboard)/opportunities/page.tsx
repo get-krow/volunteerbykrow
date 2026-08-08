@@ -275,14 +275,20 @@ export default function OpportunitiesPage() {
                   </Link>
                   <CardFooter className="p-5 pt-0 flex items-center justify-between border-t border-border mt-auto pt-4">
                     <span className="text-xs text-muted-foreground font-medium">
-                      {isSignedUp ? "Registration Confirmed" : "Instant Sign-Up"}
+                      {isSignedUp ? "Registration Confirmed" : opp.spots_left <= 0 ? "Capacity Reached" : "Instant Sign-Up"}
                     </span>
                     <Button
                       size="sm"
-                      disabled={signingUpId === opp.id}
+                      disabled={signingUpId === opp.id || (opp.spots_left <= 0 && !isSignedUp)}
                       onClick={() => handleInstantSignup(opp.id, opp.title)}
-                      variant={isSignedUp ? "outline" : "default"}
-                      className={`gap-1.5 font-semibold ${isSignedUp ? "border-green-600 text-green-600 hover:bg-red-50 hover:text-red-600 hover:border-red-500 transition-colors" : ""}`}
+                      variant={isSignedUp ? "outline" : opp.spots_left <= 0 ? "secondary" : "default"}
+                      className={`gap-1.5 font-semibold ${
+                        isSignedUp
+                          ? "border-green-600 text-green-600 hover:bg-red-50 hover:text-red-600 hover:border-red-500 transition-colors"
+                          : opp.spots_left <= 0
+                          ? "bg-muted text-muted-foreground cursor-not-allowed border border-border"
+                          : ""
+                      }`}
                     >
                       {signingUpId === opp.id ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -290,6 +296,8 @@ export default function OpportunitiesPage() {
                         <>
                           <CheckCircle2 className="w-4 h-4 text-green-600 group-hover:hidden" /> Registered ✓
                         </>
+                      ) : opp.spots_left <= 0 ? (
+                        <>Full</>
                       ) : (
                         <>Sign Up</>
                       )}

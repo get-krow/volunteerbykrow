@@ -408,21 +408,34 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
               </div>
             ) : (
               <div className="space-y-3">
-                <Button
-                  className={`w-full h-11 text-base font-semibold ${applied ? "bg-muted text-foreground hover:bg-destructive hover:text-white border border-border" : ""}`}
-                  disabled={checkingAuth || submitting}
-                  onClick={handleApplyClick}
-                >
-                  {submitting ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" /> Processing...
-                    </span>
-                  ) : applied ? (
-                    "Registered ✓ (Click to Leave Event)"
-                  ) : (
-                    "Apply for Opportunity"
-                  )}
-                </Button>
+                {(() => {
+                  const isFull = (opp.capacity - opp.spots_filled) <= 0;
+                  return (
+                    <Button
+                      className={`w-full h-11 text-base font-semibold ${
+                        applied
+                          ? "bg-muted text-foreground hover:bg-destructive hover:text-white border border-border"
+                          : isFull
+                          ? "bg-muted text-muted-foreground cursor-not-allowed border border-border"
+                          : ""
+                      }`}
+                      disabled={checkingAuth || submitting || (isFull && !applied)}
+                      onClick={handleApplyClick}
+                    >
+                      {submitting ? (
+                        <span className="flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" /> Processing...
+                        </span>
+                      ) : applied ? (
+                        "Registered ✓ (Click to Leave Event)"
+                      ) : isFull ? (
+                        "Event Full (Capacity Reached)"
+                      ) : (
+                        "Apply for Opportunity"
+                      )}
+                    </Button>
+                  );
+                })()}
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
