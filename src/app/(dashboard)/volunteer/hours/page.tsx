@@ -75,10 +75,18 @@ export default function VolunteerHoursPage() {
                   <p className="text-xs text-muted-foreground">{entry.org} • {entry.date}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-extrabold text-sm text-primary">+{entry.hours} hrs</span>
-                  <Badge variant="outline" className="border-green-500/30 bg-green-500/10 text-green-600 gap-1 text-xs font-semibold">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Verified
-                  </Badge>
+                  <span className={`font-extrabold text-sm ${entry.status === "approved" ? "text-primary" : "text-muted-foreground"}`}>
+                    +{entry.hours} hrs
+                  </span>
+                  {entry.status === "approved" ? (
+                    <Badge variant="outline" className="border-green-500/30 bg-green-500/10 text-green-600 gap-1 text-xs font-semibold">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Verified
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-600 gap-1 text-xs font-semibold">
+                      <Clock className="w-3.5 h-3.5" /> Pending Admin Verification
+                    </Badge>
+                  )}
                 </div>
               </div>
             ))

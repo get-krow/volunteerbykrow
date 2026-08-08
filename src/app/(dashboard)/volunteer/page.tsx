@@ -99,13 +99,15 @@ export default function VolunteerDashboard() {
       if (res?.applications) {
         setEvents(res.applications.map((app: any) => {
           const opp = app.opportunities;
+          const isVerifiedOrg = opp?.organizations?.verification_status === "verified";
           return {
             id: app.id,
             opportunityId: app.opportunity_id || opp?.id,
             title: opp?.title || "Volunteer Opportunity",
-            org: opp?.organizations?.name || "Verified Organization",
+            org: opp?.organizations?.name || "Community Organization",
+            isVerifiedOrg,
             date: new Date(opp?.start_date || Date.now()).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-            hours: opp?.volunteer_hours || 4,
+            hours: isVerifiedOrg ? (opp?.volunteer_hours || 4) : 0,
             location: opp?.is_remote ? "Remote" : opp?.address || "Local Community",
           };
         }));
@@ -122,9 +124,9 @@ export default function VolunteerDashboard() {
       return;
     }
 
-    setEvents(events.filter(e => e.opportunityId !== oppId && e.id !== oppId));
+    setEvents(prev => prev.filter(e => e.opportunityId !== oppId && e.id !== oppId));
     toast.success(`Left Event`, {
-      description: `Your registration for "${title}" has been cancelled.`,
+      description: `Your registration for "${title}" has been cancelled. You can sign up again anytime.`,
     });
   };
 

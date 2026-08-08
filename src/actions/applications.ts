@@ -370,12 +370,18 @@ export async function cancelApplicationAction(opportunityId: string) {
 
     const admin = createAdminClient();
 
-    // 1. Delete application row
+    let targetOppId = opportunityId;
+    const { data: appRow } = await admin.from("applications").select("opportunity_id").eq("id", opportunityId).maybeSingle();
+    if (appRow?.opportunity_id) {
+      targetOppId = appRow.opportunity_id;
+    }
+
+    // 1. Delete application row from Supabase
     const { error: delErr } = await admin
       .from("applications")
       .delete()
-      .eq("opportunity_id", opportunityId)
-      .eq("volunteer_id", user.id);
+      .eq("volunteer_id", user.id)
+      .or(`opportunity_id.eq.${targetOppId},id.eq.${opportunityId}`);
 
     if (delErr) {
       console.error("Error cancelling application:", delErr);
@@ -383,7 +389,7 @@ export async function cancelApplicationAction(opportunityId: string) {
     }
 
     // 2. Delete any volunteer_hours entry for this opportunity & volunteer
-    await admin.from("volunteer_hours").delete().eq("opportunity_id", opportunityId).eq("volunteer_id", user.id);
+    await admin.from("volunteer_hours").delete().eq("opportunity_id", targetOppId).eq("volunteer_id", user.id);
 
     // 3. Recalculate total hours for volunteer
     const { data: vhRows } = await admin
@@ -399,12 +405,12 @@ export async function cancelApplicationAction(opportunityId: string) {
     const { count } = await admin
       .from("applications")
       .select("*", { count: "exact", head: true })
-      .eq("opportunity_id", opportunityId);
+      .eq("opportunity_id", targetOppId);
 
-    await admin.from("opportunities").update({ spots_filled: count || 0 }).eq("id", opportunityId);
+    await admin.from("opportunities").update({ spots_filled: count || 0 }).eq("id", targetOppId);
 
     revalidatePath("/opportunities");
-    revalidatePath(`/opportunities/${opportunityId}`);
+    revalidatePath(`/opportunities/${targetOppId}`);
     revalidatePath("/organization/opportunities");
     revalidatePath("/volunteer");
     revalidatePath("/volunteer/applications");
@@ -442,12 +448,13 @@ export async function getVolunteerHoursHistoryAction() {
           volunteer_hours,
           organizations (
             id,
-            name
+            name,
+            verification_status
           )
         )
       `)
       .eq("volunteer_id", user.id)
-      .eq("status", "approved");
+      .in("status", ["approved", "attended"]);
 
     // 2. Fetch volunteer_hours rows
     const { data: vh } = await admin
@@ -466,7 +473,8 @@ export async function getVolunteerHoursHistoryAction() {
           volunteer_hours,
           organizations (
             id,
-            name
+            name,
+            verification_status
           )
         )
       `)
@@ -478,33 +486,39 @@ export async function getVolunteerHoursHistoryAction() {
     (apps || []).forEach((a: any) => {
       const opp = a.opportunities || {};
       const org = opp.organizations || {};
-      const hrs = Number(opp.volunteer_hours || 4);
+      const isOrgVerified = org.verification_status === "verified";
+      const isApproved = a.status === "approved" && isOrgVerified;
+      const hrs = isApproved ? Number(opp.volunteer_hours || 4) : 0;
+
       historyMap.set(opp.id || a.id, {
         id: a.id,
         event: opp.title || "Volunteer Event",
-        org: org.name || "Verified Organization",
+        org: org.name || "Community Organization",
         date: opp.start_date ? new Date(opp.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : new Date(a.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
         hours: hrs,
-        status: "approved",
+        status: isApproved ? "approved" : "pending_verification",
       });
     });
 
     (vh || []).forEach((h: any) => {
       const opp = h.opportunities || {};
       const org = opp.organizations || {};
-      const hrs = Number(h.hours || opp.volunteer_hours || 4);
+      const isOrgVerified = org.verification_status === "verified";
+      const isApproved = (h.status === "approved" || h.status === "verified") && isOrgVerified;
+      const hrs = isApproved ? Number(h.hours || opp.volunteer_hours || 0) : 0;
+
       historyMap.set(h.opportunity_id || h.id, {
         id: h.id,
         event: opp.title || "Volunteer Event",
-        org: org.name || "Verified Organization",
+        org: org.name || "Community Organization",
         date: h.date ? new Date(h.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : new Date(h.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
         hours: hrs,
-        status: h.status || "approved",
+        status: isApproved ? "approved" : "pending_verification",
       });
     });
 
     const combinedHistory = Array.from(historyMap.values());
-    const totalSum = combinedHistory.reduce((acc, item) => acc + item.hours, 0);
+    const totalSum = combinedHistory.reduce((acc, item) => acc + (item.hours || 0), 0);
 
     // Update profiles total_hours
     await admin.from("profiles").update({ total_hours: totalSum }).eq("id", user.id);

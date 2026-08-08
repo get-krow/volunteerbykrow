@@ -155,50 +155,45 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
     loadData();
   }, [params, autoApply]);
 
-  const handleApplyClick = () => {
+  const handleApplyClick = async () => {
     if (!user) {
       setShowAuthModal(true);
-    } else if (applied) {
-      handleCancelRegistration();
-    } else {
-      setShowApplyModal(true);
-    }
-  };
-
-  const handleCancelRegistration = async () => {
-    if (!opp?.id) return;
-    setSubmitting(true);
-    const res = await cancelApplicationAction(opp.id);
-    setSubmitting(false);
-
-    if (res?.error) {
-      toast.error(res.error);
-    } else {
-      setApplied(false);
-      toast.info("Registration Cancelled", {
-        description: `You have unregistered from "${opp?.title}". You can sign up again anytime.`,
-      });
-    }
-  };
-
-  const handleConfirmApplication = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!opp?.id) return;
-
-    setSubmitting(true);
-    const res = await applyForOpportunityAction(opp.id);
-    setSubmitting(false);
-
-    if (res?.error) {
-      toast.error(res.error);
       return;
     }
 
-    setShowApplyModal(false);
-    setApplied(true);
-    toast.success("Application Submitted Successfully! 🎉", {
-      description: `Your registration for "${opp?.title}" has been saved. The organizer will see your application on their roster.`,
-    });
+    if (!opp?.id) return;
+    setSubmitting(true);
+
+    if (applied) {
+      // 1-Click Leave / Unregister
+      const res = await cancelApplicationAction(opp.id);
+      setSubmitting(false);
+
+      if (res?.error) {
+        toast.error(res.error);
+      } else {
+        setApplied(false);
+        setOpp((prev: any) => prev ? { ...prev, spots_filled: Math.max(0, prev.spots_filled - 1) } : prev);
+        toast.info("Registration Cancelled", {
+          description: `You have unregistered from "${opp?.title}". You can sign up again anytime.`,
+        });
+      }
+    } else {
+      // Instant 1-Click Sign Up
+      const res = await applyForOpportunityAction(opp.id);
+      setSubmitting(false);
+
+      if (res?.error) {
+        toast.error(res.error);
+        return;
+      }
+
+      setApplied(true);
+      setOpp((prev: any) => prev ? { ...prev, spots_filled: prev.spots_filled + 1 } : prev);
+      toast.success("Sign-up Successful! 🎉", {
+        description: `You are registered for "${opp?.title}". Event added to your Volunteer Calendar.`,
+      });
+    }
   };
 
   if (loadingOpp) {
@@ -447,7 +442,7 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
                       ) : isFull ? (
                         "Event Full (Capacity Reached)"
                       ) : (
-                        "Apply for Opportunity"
+                        "Sign Up"
                       )}
                     </Button>
                   );
@@ -522,64 +517,6 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
               <UserPlus className="w-4 h-4" /> Create an Account
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Application Modal */}
-      <Dialog open={showApplyModal} onOpenChange={setShowApplyModal}>
-        <DialogContent className="sm:max-w-lg">
-          <form onSubmit={handleConfirmApplication}>
-            <DialogHeader className="space-y-2">
-              <DialogTitle className="text-xl font-bold">Apply for Opportunity</DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
-                Submitting your application for <strong>{opp.title}</strong> with {opp.organization.name}.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4 py-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="applicant_email">Your Email</Label>
-                <Input
-                  id="applicant_email"
-                  value={user?.email || "volunteer@krow.app"}
-                  disabled
-                  className="bg-muted text-muted-foreground"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="phone">Phone Number (Optional)</Label>
-                <Input
-                  id="phone"
-                  placeholder="(555) 000-0000"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="notes">Why are you interested in this role? (Optional)</Label>
-                <Textarea
-                  id="notes"
-                  placeholder="Share a brief note with the organization..."
-                  rows={3}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="resize-none"
-                />
-              </div>
-            </div>
-
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button type="button" variant="outline" onClick={() => setShowApplyModal(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={submitting} className="gap-2 font-semibold">
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                Submit Application
-              </Button>
-            </DialogFooter>
-          </form>
         </DialogContent>
       </Dialog>
     </div>
