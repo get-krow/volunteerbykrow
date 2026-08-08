@@ -5,8 +5,9 @@ export const siteConfig = {
   url: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
   ogImage: "/og.png",
   links: {
-    twitter: "https://twitter.com/krow",
-    github: "https://github.com/krow",
+    instagram: "https://www.instagram.com/volunteerbykrow/",
+    contact: "/contact",
+    email: "https://mail.google.com/mail/?view=cm&fs=1&to=getkrow@gmail.com",
   },
   creator: "KROW",
   keywords: [
