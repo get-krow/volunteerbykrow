@@ -12,9 +12,6 @@ import { createClient } from "@/lib/supabase/client";
 import { signOut, deleteAccount } from "@/actions/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { COUNTRIES, PROVINCES_CANADA, STATES_US, CITIES_BY_REGION } from "@/lib/location-data";
-
 export default function VolunteerSettingsPage() {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
@@ -29,9 +26,7 @@ export default function VolunteerSettingsPage() {
   const [avatarUrl, setAvatarUrl] = React.useState("");
 
   const [birthdate, setBirthdate] = React.useState("");
-  const [country, setCountry] = React.useState("CA");
-  const [provinceState, setProvinceState] = React.useState("BC");
-  const [city, setCity] = React.useState("Coquitlam");
+  const [location, setLocation] = React.useState("");
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -41,9 +36,6 @@ export default function VolunteerSettingsPage() {
     const ageYears = Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
     return ageYears > 0 ? ageYears : 0;
   }, [birthdate]);
-
-  const regionOptions = country === "CA" ? PROVINCES_CANADA : STATES_US;
-  const cityOptions = CITIES_BY_REGION[provinceState] || CITIES_BY_REGION["BC"] || ["Vancouver", "Coquitlam"];
 
   React.useEffect(() => {
     async function loadProfile() {
@@ -56,17 +48,13 @@ export default function VolunteerSettingsPage() {
         setBio(user.user_metadata?.bio || "");
         setAvatarUrl(user.user_metadata?.avatar_url || "");
         setBirthdate(user.user_metadata?.birthdate || "");
-        if (user.user_metadata?.country === "United States") setCountry("US");
-        if (user.user_metadata?.province_state) setProvinceState(user.user_metadata.province_state);
-        if (user.user_metadata?.city) setCity(user.user_metadata.city);
+        setLocation(user.user_metadata?.location || "");
 
         // Fetch from profiles table
         const { data: prof } = await supabase.from("profiles").select("*").eq("id", user.id).single();
         if (prof) {
           if (prof.birthdate) setBirthdate(prof.birthdate);
-          if (prof.country === "United States" || prof.country === "US") setCountry("US");
-          if (prof.province_state) setProvinceState(prof.province_state);
-          if (prof.city) setCity(prof.city);
+          if (prof.location) setLocation(prof.location);
         }
       }
       setLoading(false);
@@ -111,9 +99,6 @@ export default function VolunteerSettingsPage() {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    const countryName = country === "CA" ? "Canada" : "United States";
-    const locationStr = [city, provinceState, countryName].filter(Boolean).join(", ");
-
     const { error } = await supabase.auth.updateUser({
       data: {
         full_name: fullName,
@@ -121,11 +106,8 @@ export default function VolunteerSettingsPage() {
         bio,
         avatar_url: avatarUrl,
         birthdate,
-        country: countryName,
-        province_state: provinceState,
-        city,
         age: calculatedAge,
-        location: locationStr,
+        location,
       }
     });
 
@@ -135,11 +117,8 @@ export default function VolunteerSettingsPage() {
         full_name: fullName,
         bio,
         birthdate: birthdate || null,
-        country: countryName,
-        province_state: provinceState,
-        city,
         age: calculatedAge,
-        location: locationStr,
+        location: location || null,
         updated_at: new Date().toISOString(),
       });
     }
@@ -260,57 +239,15 @@ export default function VolunteerSettingsPage() {
               </div>
             </div>
 
-            {/* Location (Country, Province/State, City) */}
-            <div className="grid sm:grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <Label>Country</Label>
-                <Select value={country} onValueChange={(val) => {
-                  setCountry(val);
-                  const defaultRegion = val === "CA" ? "BC" : "CA";
-                  setProvinceState(defaultRegion);
-                  setCity(CITIES_BY_REGION[defaultRegion]?.[0] || "");
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Country" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COUNTRIES.map(c => (
-                      <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>{country === "CA" ? "Province" : "State"}</Label>
-                <Select value={provinceState} onValueChange={(val) => {
-                  setProvinceState(val);
-                  setCity(CITIES_BY_REGION[val]?.[0] || "");
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Region" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {regionOptions.map(r => (
-                      <SelectItem key={r.code} value={r.code}>{r.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>City</Label>
-                <Select value={city} onValueChange={setCity}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="City" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cityOptions.map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Where You Live (Location) */}
+            <div className="space-y-1.5">
+              <Label htmlFor="location">Where You Live (Location)</Label>
+              <Input
+                id="location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="e.g. Coquitlam, BC, Canada"
+              />
             </div>
 
             <div className="space-y-1.5">
