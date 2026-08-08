@@ -31,13 +31,16 @@ export async function getAllOrganizationsAdminAction() {
   }
 }
 
-export async function toggleOrganizationVerificationAction(orgId: string, status: "verified" | "unverified" | "pending") {
+export async function toggleOrganizationVerificationAction(orgId: string, status: "verified" | "pending" | "rejected" | "unverified") {
   try {
     const admin = createAdminClient();
+    // Valid Supabase Enum values: 'pending' | 'verified' | 'rejected'
+    const targetStatus = status === "unverified" ? "pending" : status;
+
     const { error } = await admin
       .from("organizations")
       .update({
-        verification_status: status,
+        verification_status: targetStatus,
         updated_at: new Date().toISOString(),
       })
       .eq("id", orgId);
@@ -52,7 +55,8 @@ export async function toggleOrganizationVerificationAction(orgId: string, status
     revalidatePath("/organization");
     revalidatePath("/opportunities");
 
-    return { success: true, message: `Organization status updated to ${status.toUpperCase()}!` };
+    const displayStatus = targetStatus === "verified" ? "VERIFIED" : "UNVERIFIED (PENDING)";
+    return { success: true, message: `Organization status updated to ${displayStatus}!` };
   } catch (err: any) {
     return { error: err?.message || "Failed to update status" };
   }

@@ -108,7 +108,7 @@ export default function SecretKrowAdminPage() {
 
   const handleToggleVerification = async (orgId: string, currentStatus: string) => {
     setUpdatingOrgId(orgId);
-    const nextStatus = currentStatus === "verified" ? "unverified" : "verified";
+    const nextStatus = currentStatus === "verified" ? "pending" : "verified";
     const res = await toggleOrganizationVerificationAction(orgId, nextStatus);
 
     if (res?.error) {
