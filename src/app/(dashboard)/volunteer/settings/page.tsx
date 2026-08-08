@@ -12,6 +12,9 @@ import { createClient } from "@/lib/supabase/client";
 import { signOut, deleteAccount } from "@/actions/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { COUNTRIES, PROVINCES_CANADA, STATES_US, CITIES_BY_REGION } from "@/lib/location-data";
+
 export default function VolunteerSettingsPage() {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
@@ -25,7 +28,22 @@ export default function VolunteerSettingsPage() {
   const [bio, setBio] = React.useState("");
   const [avatarUrl, setAvatarUrl] = React.useState("");
 
+  const [birthdate, setBirthdate] = React.useState("");
+  const [country, setCountry] = React.useState("CA");
+  const [provinceState, setProvinceState] = React.useState("BC");
+  const [city, setCity] = React.useState("Coquitlam");
+
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const calculatedAge = React.useMemo(() => {
+    if (!birthdate) return null;
+    const diff = Date.now() - new Date(birthdate).getTime();
+    const ageYears = Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
+    return ageYears > 0 ? ageYears : 0;
+  }, [birthdate]);
+
+  const regionOptions = country === "CA" ? PROVINCES_CANADA : STATES_US;
+  const cityOptions = CITIES_BY_REGION[provinceState] || CITIES_BY_REGION["BC"] || ["Vancouver", "Coquitlam"];
 
   React.useEffect(() => {
     async function loadProfile() {
@@ -37,6 +55,19 @@ export default function VolunteerSettingsPage() {
         setPhone(user.user_metadata?.phone || "");
         setBio(user.user_metadata?.bio || "");
         setAvatarUrl(user.user_metadata?.avatar_url || "");
+        setBirthdate(user.user_metadata?.birthdate || "");
+        if (user.user_metadata?.country === "United States") setCountry("US");
+        if (user.user_metadata?.province_state) setProvinceState(user.user_metadata.province_state);
+        if (user.user_metadata?.city) setCity(user.user_metadata.city);
+
+        // Fetch from profiles table
+        const { data: prof } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+        if (prof) {
+          if (prof.birthdate) setBirthdate(prof.birthdate);
+          if (prof.country === "United States" || prof.country === "US") setCountry("US");
+          if (prof.province_state) setProvinceState(prof.province_state);
+          if (prof.city) setCity(prof.city);
+        }
       }
       setLoading(false);
     }
@@ -78,13 +109,45 @@ export default function VolunteerSettingsPage() {
     e.preventDefault();
     setSaving(true);
     const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const countryName = country === "CA" ? "Canada" : "United States";
+    const locationStr = [city, provinceState, countryName].filter(Boolean).join(", ");
+
     const { error } = await supabase.auth.updateUser({
-      data: { full_name: fullName, phone, bio, avatar_url: avatarUrl }
+      data: {
+        full_name: fullName,
+        phone,
+        bio,
+        avatar_url: avatarUrl,
+        birthdate,
+        country: countryName,
+        province_state: provinceState,
+        city,
+        age: calculatedAge,
+        location: locationStr,
+      }
     });
+
+    if (user) {
+      await supabase.from("profiles").upsert({
+        id: user.id,
+        full_name: fullName,
+        bio,
+        birthdate: birthdate || null,
+        country: countryName,
+        province_state: provinceState,
+        city,
+        age: calculatedAge,
+        location: locationStr,
+        updated_at: new Date().toISOString(),
+      });
+    }
+
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("Profile Updated Successfully!");
+      toast.success("Profile & Location Settings Saved! 🎉");
     }
     setSaving(false);
   };
@@ -168,18 +231,90 @@ export default function VolunteerSettingsPage() {
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="(555) 000-0000"
-              />
+            {/* Birthdate & Age */}
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="birthdate">Date of Birth</Label>
+                  {calculatedAge !== null && (
+                    <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                      Age: {calculatedAge} yrs
+                    </span>
+                  )}
+                </div>
+                <Input
+                  id="birthdate"
+                  type="date"
+                  value={birthdate}
+                  onChange={(e) => setBirthdate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="(555) 000-0000"
+                />
+              </div>
+            </div>
+
+            {/* Location (Country, Province/State, City) */}
+            <div className="grid sm:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label>Country</Label>
+                <Select value={country} onValueChange={(val) => {
+                  setCountry(val);
+                  const defaultRegion = val === "CA" ? "BC" : "CA";
+                  setProvinceState(defaultRegion);
+                  setCity(CITIES_BY_REGION[defaultRegion]?.[0] || "");
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Country" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COUNTRIES.map(c => (
+                      <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{country === "CA" ? "Province" : "State"}</Label>
+                <Select value={provinceState} onValueChange={(val) => {
+                  setProvinceState(val);
+                  setCity(CITIES_BY_REGION[val]?.[0] || "");
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Region" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {regionOptions.map(r => (
+                      <SelectItem key={r.code} value={r.code}>{r.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>City</Label>
+                <Select value={city} onValueChange={setCity}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="City" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cityOptions.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="bio">Biography</Label>
+              <Label htmlFor="bio">Biography & Bio Details</Label>
               <Textarea
                 id="bio"
                 rows={3}

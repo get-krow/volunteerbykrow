@@ -54,10 +54,22 @@ export async function register(formData: FormData) {
   const password = formData.get("password")?.toString();
   const full_name = formData.get("full_name")?.toString();
   const role = formData.get("role")?.toString() || "volunteer";
+  const birthdate = formData.get("birthdate")?.toString();
+  const country = formData.get("country")?.toString();
+  const province_state = formData.get("province_state")?.toString();
+  const city = formData.get("city")?.toString();
 
   if (!email || !password || !full_name) {
     return { error: "Please fill in all required fields." };
   }
+
+  let age: number | undefined = undefined;
+  if (birthdate) {
+    const diff = Date.now() - new Date(birthdate).getTime();
+    age = Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
+  }
+
+  const locationStr = [city, province_state, country].filter(Boolean).join(", ");
 
   const { data: authData, error } = await supabase.auth.signUp({
     email,
@@ -66,6 +78,12 @@ export async function register(formData: FormData) {
       data: {
         full_name,
         role,
+        birthdate,
+        country,
+        province_state,
+        city,
+        age,
+        location: locationStr,
       },
     },
   });
@@ -74,12 +92,18 @@ export async function register(formData: FormData) {
     return { error: error.message };
   }
 
-  // Ensure role is explicitly set in profiles table
+  // Ensure role and profile metadata are explicitly set in profiles table
   if (authData?.user) {
     await supabase.from("profiles").upsert({
       id: authData.user.id,
       role: role as any,
       full_name,
+      birthdate: birthdate || null,
+      country: country || null,
+      province_state: province_state || null,
+      city: city || null,
+      age: age || null,
+      location: locationStr || null,
       updated_at: new Date().toISOString(),
     });
   }

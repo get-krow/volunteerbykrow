@@ -341,16 +341,129 @@ export async function cancelApplicationAction(opportunityId: string) {
       return { error: delErr.message };
     }
 
-    // 2. Decrement spots_filled on opportunities
-    const { data: opp } = await admin.from("opportunities").select("spots_filled").eq("id", opportunityId).single();
+    // 2. Delete any volunteer_hours entry for this opportunity & volunteer
+    await admin.from("volunteer_hours").delete().eq("opportunity_id", opportunityId).eq("volunteer_id", user.id);
+
+    // 3. Recalculate total hours for volunteer
+    const { data: vhRows } = await admin
+      .from("volunteer_hours")
+      .select("hours")
+      .eq("volunteer_id", user.id)
+      .eq("status", "approved");
+
+    const totalHours = (vhRows || []).reduce((acc, curr) => acc + Number(curr.hours || 0), 0);
+    await admin.from("profiles").update({ total_hours: totalHours }).eq("id", user.id);
+
+    // 4. Decrement spots_filled on opportunities
+    const { data: opp } = await admin.from("opportunities").select("spots_filled").eq("id", opportunityId).maybeSingle();
     if (opp && (opp.spots_filled || 0) > 0) {
-      await admin.from("opportunities").update({ spots_filled: opp.spots_filled - 1 }).eq("id", opportunityId);
+      await admin.from("opportunities").update({ spots_filled: Math.max(0, (opp.spots_filled || 0) - 1) }).eq("id", opportunityId);
     }
 
     return { success: true, message: "Registration cancelled successfully!" };
   } catch (err: any) {
     console.error("Unhandled error in cancelApplicationAction:", err);
-    return { error: err?.message || "Failed to cancel registration" };
+    return { error: err?.message || "Failed to cancel application" };
+  }
+}
+
+export async function getVolunteerHoursHistoryAction() {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { totalHours: 0, history: [] };
+    }
+
+    const admin = createAdminClient();
+
+    // 1. Fetch approved applications
+    const { data: apps } = await admin
+      .from("applications")
+      .select(`
+        id,
+        status,
+        created_at,
+        opportunity_id,
+        opportunities (
+          id,
+          title,
+          start_date,
+          volunteer_hours,
+          organizations (
+            id,
+            name
+          )
+        )
+      `)
+      .eq("volunteer_id", user.id)
+      .eq("status", "approved");
+
+    // 2. Fetch volunteer_hours rows
+    const { data: vh } = await admin
+      .from("volunteer_hours")
+      .select(`
+        id,
+        hours,
+        date,
+        status,
+        created_at,
+        opportunity_id,
+        opportunities (
+          id,
+          title,
+          start_date,
+          volunteer_hours,
+          organizations (
+            id,
+            name
+          )
+        )
+      `)
+      .eq("volunteer_id", user.id);
+
+    // Merge both sources seamlessly to guarantee zero lost hours
+    const historyMap = new Map();
+
+    (apps || []).forEach((a: any) => {
+      const opp = a.opportunities || {};
+      const org = opp.organizations || {};
+      const hrs = Number(opp.volunteer_hours || 4);
+      historyMap.set(opp.id || a.id, {
+        id: a.id,
+        event: opp.title || "Volunteer Event",
+        org: org.name || "Verified Organization",
+        date: opp.start_date ? new Date(opp.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : new Date(a.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+        hours: hrs,
+        status: "approved",
+      });
+    });
+
+    (vh || []).forEach((h: any) => {
+      const opp = h.opportunities || {};
+      const org = opp.organizations || {};
+      const hrs = Number(h.hours || opp.volunteer_hours || 4);
+      historyMap.set(h.opportunity_id || h.id, {
+        id: h.id,
+        event: opp.title || "Volunteer Event",
+        org: org.name || "Verified Organization",
+        date: h.date ? new Date(h.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : new Date(h.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+        hours: hrs,
+        status: h.status || "approved",
+      });
+    });
+
+    const combinedHistory = Array.from(historyMap.values());
+    const totalSum = combinedHistory.reduce((acc, item) => acc + item.hours, 0);
+
+    // Update profiles total_hours
+    await admin.from("profiles").update({ total_hours: totalSum }).eq("id", user.id);
+
+    return { success: true, totalHours: totalSum, history: combinedHistory };
+  } catch (err: any) {
+    console.error("Error in getVolunteerHoursHistoryAction:", err);
+    return { totalHours: 0, history: [] };
   }
 }
 

@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
-import { createClient } from "@/lib/supabase/client";
+import { getVolunteerHoursHistoryAction } from "@/actions/applications";
 
 export default function VolunteerHoursPage() {
   const [historyList, setHistoryList] = React.useState<any[]>([]);
@@ -20,33 +20,10 @@ export default function VolunteerHoursPage() {
 
   React.useEffect(() => {
     async function loadHours() {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (user) {
-        // Load volunteer_hours list
-        const { data: vh } = await supabase
-          .from("volunteer_hours")
-          .select("*, opportunities(title), organizations(name)")
-          .eq("volunteer_id", user.id)
-          .order("created_at", { ascending: false });
-
-        if (vh) {
-          const approved = vh.filter((h: any) => h.status === "approved" || h.status === "verified");
-          const totalSum = approved.reduce((acc: number, curr: any) => acc + (parseFloat(curr.hours) || 0), 0);
-          setTotalVerifiedHours(totalSum);
-
-          setHistoryList(vh.map((h: any) => ({
-            id: h.id,
-            event: h.opportunities?.title || "Volunteer Opportunity",
-            org: h.organizations?.name || "Verified Organization",
-            date: h.date || new Date(h.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-            hours: h.hours,
-            status: h.status || "approved",
-          })));
-        } else {
-          setTotalVerifiedHours(0);
-        }
+      const res = await getVolunteerHoursHistoryAction();
+      if (res?.history) {
+        setTotalVerifiedHours(res.totalHours || 0);
+        setHistoryList(res.history);
       }
       setLoading(false);
     }

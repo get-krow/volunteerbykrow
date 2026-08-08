@@ -123,7 +123,13 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
             }
             return new Date(data.start_date).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" });
           })(),
-          time: `${new Date(data.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+          time: (() => {
+            if (data.description && data.description.includes("Shift Time:")) {
+              const match = data.description.match(/Shift Time:\s*([^\n]+)/);
+              if (match?.[1]) return match[1].trim();
+            }
+            return "9:00 AM to 1:00 PM";
+          })(),
           hours: data.volunteer_hours,
           capacity: data.capacity || 20,
           spots_filled: data.spots_filled || 0,
@@ -190,8 +196,9 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
 
   if (loadingOpp) {
     return (
-      <div className="py-20 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-        <Loader2 className="w-4 h-4 animate-spin text-primary" /> Loading opportunity details...
+      <div className="min-h-screen py-24 px-4 text-center space-y-4">
+        <Loader2 className="w-10 h-10 animate-spin mx-auto text-primary" />
+        <p className="text-muted-foreground text-sm font-medium">Loading opportunity details...</p>
       </div>
     );
   }
@@ -375,13 +382,13 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
                 <span className="font-medium text-foreground">{opp.date}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Time</span>
+                <span className="text-muted-foreground">Shift Time</span>
                 <span className="font-medium text-foreground">{opp.time}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Capacity</span>
                 <span className="font-medium text-foreground">
-                  {opp.capacity - opp.spots_filled} spots remaining
+                  {Math.max(0, opp.capacity - opp.spots_filled)} spots remaining
                 </span>
               </div>
             </div>
@@ -432,7 +439,16 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
                     <Heart className={`w-4 h-4 ${saved ? "fill-red-500 text-red-500" : ""}`} />
                     {saved ? "Saved" : "Save"}
                   </Button>
-                  <Button variant="outline" size="icon" onClick={() => toast("Share link copied to clipboard")}>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      if (typeof window !== "undefined") {
+                        navigator.clipboard.writeText(window.location.href);
+                        toast.success("Share link copied to clipboard! 📋");
+                      }
+                    }}
+                  >
                     <Share2 className="w-4 h-4" />
                   </Button>
                 </div>

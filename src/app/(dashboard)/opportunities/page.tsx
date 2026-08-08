@@ -27,20 +27,39 @@ export default function OpportunitiesPage() {
     async function loadOpportunities() {
       const res = await getOpportunitiesAction();
       if (res?.opportunities) {
-        setOpportunities(res.opportunities.map(item => ({
-          id: item.id,
-          title: item.title,
-          organization: item.organizations?.name || "Verified Organization",
-          location: item.is_remote ? "Remote / Online" : item.address || "Local Community",
-          is_remote: item.is_remote,
-          date: new Date(item.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-          hours: item.volunteer_hours,
-          age_eligibility: item.age_eligibility ? `${item.age_eligibility}+ Years` : "All Ages",
-          category: item.category_id || "General",
-          spots_left: item.capacity ? item.capacity - item.spots_filled : 10,
-          image: item.images?.[0] || "https://images.unsplash.com/photo-1559027615-cd4628902d4a?auto=format&fit=crop&w=600&q=80",
-          tags: item.tags || ["Volunteering", "Community"]
-        })));
+        setOpportunities(res.opportunities.map(item => {
+          let shiftTime = "9:00 AM to 1:00 PM";
+          if (item.description && item.description.includes("Shift Time:")) {
+            const match = item.description.match(/Shift Time:\s*([^\n]+)/);
+            if (match?.[1]) shiftTime = match[1].trim();
+          }
+
+          const rawDate = item.start_date ? item.start_date.split("T")[0] : "";
+          const parts = rawDate.split("-");
+          let formattedDate = new Date(item.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+          if (parts.length === 3) {
+            const [y, m, d] = parts.map(Number);
+            formattedDate = new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+          }
+
+          return {
+            id: item.id,
+            title: item.title,
+            organization: item.organizations?.name || "Verified Organization",
+            location: item.is_remote ? "Remote / Online" : item.address || "Local Community",
+            is_remote: item.is_remote,
+            date: formattedDate,
+            hours: item.volunteer_hours,
+            shift_time: shiftTime,
+            capacity: item.capacity || 20,
+            spots_filled: item.spots_filled || 0,
+            spots_left: Math.max(0, (item.capacity || 20) - (item.spots_filled || 0)),
+            age_eligibility: item.age_eligibility ? `${item.age_eligibility}+ Years` : "All Ages",
+            category: item.category_id || "General",
+            image: item.images?.[0] || "https://images.unsplash.com/photo-1559027615-cd4628902d4a?auto=format&fit=crop&w=600&q=80",
+            tags: item.tags || ["Volunteering", "Community"]
+          };
+        }));
       }
 
       // Fetch user's registered applications
@@ -69,6 +88,7 @@ export default function OpportunitiesPage() {
       }
 
       setSignedUpIds(signedUpIds.filter((id) => id !== oppId));
+      setOpportunities(prev => prev.map(o => o.id === oppId ? { ...o, spots_left: o.spots_left + 1, spots_filled: Math.max(0, o.spots_filled - 1) } : o));
       toast.info("Registration Cancelled", {
         description: `You have unregistered from "${title}". You can sign up again anytime.`,
       });
@@ -83,6 +103,7 @@ export default function OpportunitiesPage() {
       }
 
       setSignedUpIds([...signedUpIds, oppId]);
+      setOpportunities(prev => prev.map(o => o.id === oppId ? { ...o, spots_left: Math.max(0, o.spots_left - 1), spots_filled: o.spots_filled + 1 } : o));
       toast.success("1-Click Sign-up Successful! 🎉", {
         description: `You are registered for "${title}". Event added to your Volunteer Calendar.`,
       });
@@ -218,18 +239,28 @@ export default function OpportunitiesPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-5 pt-2 space-y-3">
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5 text-primary" />
-                          <span>{opp.location}</span>
+                      <div className="space-y-1.5 text-xs text-muted-foreground">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className="flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                            <span>{opp.location}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
+                            <span>{opp.date}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5 text-primary shrink-0" />
+                            <span>{opp.hours} hrs</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5 text-primary" />
-                          <span>{opp.date}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5 text-primary" />
-                          <span>{opp.hours}h</span>
+
+                        <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] font-medium">
+                          <span className="text-primary font-bold">
+                            {opp.spots_left} spots remaining
+                          </span>
+                          <span>•</span>
+                          <span>Shift: {opp.shift_time}</span>
                         </div>
                       </div>
 

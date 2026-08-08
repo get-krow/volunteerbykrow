@@ -33,6 +33,7 @@ export const dashboardNavVolunteer = [
   { label: "Overview", href: "/volunteer", icon: "LayoutDashboard" },
   { label: "Discover", href: "/opportunities", icon: "Sparkles" },
   { label: "My Hours", href: "/volunteer/hours", icon: "Clock" },
+  { label: "Saved Opportunities", href: "/volunteer/saved", icon: "Bookmark" },
   { label: "Calendar", href: "/volunteer/calendar", icon: "Calendar" },
   { label: "Profile", href: "/volunteer/settings", icon: "User" },
 ] as const;
