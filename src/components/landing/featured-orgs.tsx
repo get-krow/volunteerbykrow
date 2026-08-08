@@ -11,7 +11,7 @@ const defaultOrgs = [
 ];
 
 export function FeaturedOrgs() {
-  const [partnerNames, setPartnerNames] = React.useState<string[]>(defaultOrgs);
+  const [partnerNames, setPartnerNames] = React.useState<string[]>([]);
 
   React.useEffect(() => {
     if (typeof window !== "undefined") {
@@ -19,13 +19,15 @@ export function FeaturedOrgs() {
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             setPartnerNames(parsed);
           }
         } catch (e) {}
       }
     }
   }, []);
+
+  if (partnerNames.length === 0) return null;
 
   const items = partnerNames.map(name => ({
     name,

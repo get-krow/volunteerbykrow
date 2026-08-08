@@ -438,7 +438,7 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
                           <Loader2 className="w-4 h-4 animate-spin" /> Processing...
                         </span>
                       ) : applied ? (
-                        "Registered ✓ (Click to Leave Event)"
+                        "Registered ✓"
                       ) : isFull ? (
                         "Event Full (Capacity Reached)"
                       ) : (

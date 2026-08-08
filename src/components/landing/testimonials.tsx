@@ -29,7 +29,7 @@ const defaultTestimonials = [
 ];
 
 export function Testimonials() {
-  const [items, setItems] = React.useState(defaultTestimonials);
+  const [items, setItems] = React.useState<any[]>([]);
 
   React.useEffect(() => {
     if (typeof window !== "undefined") {
@@ -37,7 +37,7 @@ export function Testimonials() {
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             setItems(parsed.map(r => ({
               name: r.author,
               role: r.role || "Volunteer",
@@ -50,6 +50,8 @@ export function Testimonials() {
       }
     }
   }, []);
+
+  if (items.length === 0) return null;
 
   return (
     <section className="py-24 sm:py-32">

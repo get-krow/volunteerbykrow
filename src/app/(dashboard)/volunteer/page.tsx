@@ -29,7 +29,7 @@ const container = {
 import { createClient } from "@/lib/supabase/client";
 import { OnboardingModal } from "@/components/volunteer/onboarding-modal";
 import { Badge } from "@/components/ui/badge";
-import { getUserApplicationsAction, cancelApplicationAction, getVolunteerHoursHistoryAction } from "@/actions/applications";
+import { getUserApplicationsAction, cancelApplicationAction, getVolunteerHoursHistoryAction, getSavedOpportunitiesAction } from "@/actions/applications";
 
 export default function VolunteerDashboard() {
   const [events, setEvents] = React.useState<EventItem[]>([]);
@@ -89,6 +89,12 @@ export default function VolunteerDashboard() {
           setVerifiedHours(hoursRes.totalHours);
         } else {
           setVerifiedHours(prof?.total_hours || 0);
+        }
+
+        // Fetch saved opportunities count reliably
+        const savedRes = await getSavedOpportunitiesAction();
+        if (savedRes?.opportunities) {
+          setSavedCount(savedRes.opportunities.length);
         }
       }
 

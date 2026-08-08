@@ -24,30 +24,10 @@ export default function SecretKrowAdminPage() {
   const [updatingOrgId, setUpdatingOrgId] = React.useState<string | null>(null);
 
   // Landing Page Reviews State
-  const [reviews, setReviews] = React.useState<any[]>([
-    {
-      id: "1",
-      author: "Samantha Chen",
-      role: "High School Volunteer",
-      text: "Volunteer by Krow made it so easy to find real local opportunities and automatically track my high school graduation service hours!",
-      stars: 5,
-    },
-    {
-      id: "2",
-      author: "Marcus Vance",
-      role: "Community Event Coordinator",
-      text: "As an event organizer, verifying attendance and awarding volunteer hours takes just one click. It eliminated all manual paperwork for us.",
-      stars: 5,
-    },
-  ]);
+  const [reviews, setReviews] = React.useState<any[]>([]);
 
   // Landing Page Partners State
-  const [partners, setPartners] = React.useState<string[]>([
-    "Vancouver Food Bank",
-    "BC Children's Hospital Support",
-    "Coquitlam Habitat Humanity",
-    "Burnaby Green Society",
-  ]);
+  const [partners, setPartners] = React.useState<string[]>([]);
 
   const [newPartnerName, setNewPartnerName] = React.useState("");
 
