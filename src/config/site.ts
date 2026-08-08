@@ -39,7 +39,10 @@ export const dashboardNavVolunteer = [
 
 export const dashboardNavOrganization = [
   { label: "Overview", href: "/organization", icon: "LayoutDashboard" },
+  { label: "Our Opportunities", href: "/organization/opportunities", icon: "Briefcase" },
   { label: "Add Opportunity", href: "/organization/opportunities/new", icon: "Plus" },
+  { label: "Volunteer Applications", href: "/organization/applications", icon: "FileText" },
+  { label: "Volunteer Roster", href: "/organization/volunteers", icon: "Users" },
   { label: "Calendar", href: "/organization/calendar", icon: "Calendar" },
   { label: "Profile", href: "/organization/profile", icon: "Building2" },
 ] as const;

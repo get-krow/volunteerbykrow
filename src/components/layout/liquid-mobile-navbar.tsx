@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Sparkles, LayoutDashboard, Calendar, User, Menu, X } from "lucide-react";
+import { Sparkles, LayoutDashboard, Calendar, User, Menu, X, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -34,12 +34,16 @@ export function LiquidMobileNavbar({
   const isOrg = pathname.startsWith("/organization");
   const isAdmin = pathname.startsWith("/admin");
 
+  const mainTab = isOrg
+    ? { id: "opps", label: "Our Opps", href: "/organization/opportunities", icon: Briefcase }
+    : { id: "discover", label: "Discover", href: "/opportunities", icon: Sparkles };
+
   const overviewHref = isOrg ? "/organization" : isAdmin ? "/admin" : "/volunteer";
-  const calendarHref = isOrg ? "/organization/hours" : "/volunteer/calendar";
+  const calendarHref = isOrg ? "/organization/calendar" : "/volunteer/calendar";
   const profileHref = isOrg ? "/organization/profile" : "/volunteer/settings";
 
   const tabs = [
-    { id: "discover", label: "Discover", href: "/opportunities", icon: Sparkles },
+    mainTab,
     { id: "overview", label: "Overview", href: overviewHref, icon: LayoutDashboard },
     { id: "calendar", label: "Calendar", href: calendarHref, icon: Calendar },
     { id: "profile", label: "Profile", href: profileHref, icon: User },
