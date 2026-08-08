@@ -45,7 +45,8 @@ export default function OpportunitiesPage() {
           return {
             id: item.id,
             title: item.title,
-            organization: item.organizations?.name || "Verified Organization",
+            organization: item.organizations?.name || "Community Organization",
+            verification_status: item.organizations?.verification_status || "pending",
             location: item.is_remote ? "Remote / Online" : item.address || "Local Community",
             is_remote: item.is_remote,
             date: formattedDate,
@@ -233,6 +234,15 @@ export default function OpportunitiesPage() {
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mb-1">
                         <Building2 className="w-3.5 h-3.5 text-primary" />
                         <span>{opp.organization}</span>
+                        {opp.verification_status === "verified" ? (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-green-600 bg-green-50 text-green-700 font-bold">
+                            Verified
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-600 bg-amber-50 text-amber-700 font-bold">
+                            Pending
+                          </Badge>
+                        )}
                       </div>
                       <CardTitle className="text-lg font-bold leading-snug line-clamp-2 group-hover:text-primary transition-colors">
                         {opp.title}

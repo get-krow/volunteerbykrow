@@ -113,10 +113,11 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
           id: data.id,
           title: data.title,
           organization: {
-            name: data.organizations?.name || "Verified Organization",
-            initials: data.organizations?.name ? data.organizations.name.slice(0, 2).toUpperCase() : "VO",
-            verified: true,
-            description: data.organizations?.description || "Verified Organization on Volunteer by KROW.",
+            name: data.organizations?.name || "Community Organization",
+            initials: data.organizations?.name ? data.organizations.name.slice(0, 2).toUpperCase() : "CO",
+            verified: data.organizations?.verification_status === "verified",
+            verification_status: data.organizations?.verification_status || "pending",
+            description: data.organizations?.description || (data.organizations?.verification_status === "verified" ? "Verified Organization on Volunteer by KROW." : "Organization pending admin verification."),
           },
           location: data.is_remote ? "Remote / Online" : data.address || "Local Community",
           is_remote: data.is_remote,
@@ -238,9 +239,13 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <Badge className="bg-primary text-primary-foreground">{opp.category}</Badge>
-          {opp.organization.verified && (
-            <Badge variant="outline" className="border-green-500/30 bg-green-500/10 text-green-600 gap-1">
-              <ShieldCheck className="w-3 h-3" /> Verified Org
+          {opp.organization.verified ? (
+            <Badge variant="outline" className="border-green-500/30 bg-green-500/10 text-green-600 font-bold gap-1">
+              <ShieldCheck className="w-3.5 h-3.5" /> Verified Org
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-600 font-bold gap-1">
+              <Clock className="w-3.5 h-3.5" /> Pending Admin Verification
             </Badge>
           )}
         </div>
@@ -343,27 +348,32 @@ function OpportunityDetailContent({ params }: { params: { id: string } }) {
                           </div>
                         </div>
 
-                        {isApproved ? (
-                          <Badge className="bg-green-600 hover:bg-green-700 text-white gap-1 py-1.5 px-3 self-end sm:self-center">
+                        {app.status === "approved" ? (
+                          <Badge className="bg-green-600 text-white gap-1 py-1.5 px-3 self-end sm:self-center font-bold">
                             <CheckCircle2 className="w-3.5 h-3.5" /> Attendance Verified ({opp.hours} hrs awarded)
+                          </Badge>
+                        ) : app.status === "attended" ? (
+                          <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-600 gap-1 py-1.5 px-3 self-end sm:self-center font-bold">
+                            <Clock className="w-3.5 h-3.5 text-amber-600" /> Attended ✓ (Hours Pending Admin Verification)
                           </Badge>
                         ) : (
                           <Button
                             size="sm"
-                            className="bg-green-600 hover:bg-green-700 text-white gap-1.5 text-xs font-semibold h-9 self-end sm:self-center shrink-0"
+                            className={`${opp.organization.verified ? "bg-green-600 hover:bg-green-700 text-white" : "bg-amber-600 hover:bg-amber-700 text-white"} gap-1.5 text-xs font-semibold h-9 self-end sm:self-center shrink-0`}
                             onClick={async () => {
                               const res = await verifyAttendanceAction(app.id, app.volunteer_id, opp.id, opp.hours);
                               if (res?.error) {
                                 toast.error(res.error);
                               } else {
-                                toast.success(`Attendance Verified!`, {
-                                  description: `Awarded ${opp.hours} volunteer hours to ${volName}.`,
+                                toast.success(res.verifiedHours ? "Attendance Verified & Hours Awarded!" : "Attendance Marked as Attended!", {
+                                  description: res.message,
                                 });
-                                setOrgApps(orgApps.map(a => a.id === app.id ? { ...a, status: "approved" } : a));
+                                setOrgApps(orgApps.map(a => a.id === app.id ? { ...a, status: res.verifiedHours ? "approved" : "attended" } : a));
                               }
                             }}
                           >
-                            <CheckCircle2 className="w-4 h-4" /> Verify Attendance & Award {opp.hours} Hrs
+                            <CheckCircle2 className="w-4 h-4" />
+                            {opp.organization.verified ? `Verify Attendance & Award ${opp.hours} Hrs` : "Mark Attended (Attendance Only)"}
                           </Button>
                         )}
                       </div>

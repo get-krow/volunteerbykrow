@@ -213,37 +213,57 @@ export async function verifyAttendanceAction(applicationId: string, volunteerId?
       .update({ status: "approved", reviewed_at: new Date().toISOString() })
       .eq("id", applicationId);
 
-    // 3. Get opportunity details for volunteer_hours and org ID
+    // 2. Get opportunity details for volunteer_hours and org ID
     const { data: opp } = await admin
       .from("opportunities")
       .select("organization_id, volunteer_hours")
       .eq("id", targetOpportunityId)
       .maybeSingle();
 
-    const verifiedHours = hours || opp?.volunteer_hours || 4;
+    let isOrgVerified = false;
+    let orgName = "Organization";
     let orgId = opp?.organization_id;
 
     if (!orgId) {
-      const { data: firstOrg } = await admin.from("organizations").select("id").limit(1).maybeSingle();
+      const { data: firstOrg } = await admin.from("organizations").select("id, name, verification_status").limit(1).maybeSingle();
       orgId = firstOrg?.id || null;
-    }
-
-    // Enforce Admin Organization Verification check
-    if (orgId) {
+      if (firstOrg) {
+        isOrgVerified = firstOrg.verification_status === "verified";
+        if (firstOrg.name) orgName = firstOrg.name;
+      }
+    } else {
       const { data: orgData } = await admin
         .from("organizations")
         .select("verification_status, name")
         .eq("id", orgId)
         .maybeSingle();
 
-      if (orgData && orgData.verification_status !== "verified") {
-        return {
-          error: `Organization "${orgData.name || 'Your Organization'}" must be verified by Krow Admin before approving volunteer hours to prevent unauthorized hour distributions.`
-        };
+      if (orgData) {
+        isOrgVerified = orgData.verification_status === "verified";
+        if (orgData.name) orgName = orgData.name;
       }
     }
 
-    // 4. Upsert into volunteer_hours table
+    // 3. Mark attendance status on application
+    await admin
+      .from("applications")
+      .update({ status: "attended", reviewed_at: new Date().toISOString() })
+      .eq("id", applicationId);
+
+    // If Organization is Pending, record attendance ONLY (do NOT award hours)
+    if (!isOrgVerified) {
+      revalidatePath("/organization/opportunities");
+      revalidatePath("/volunteer");
+      return {
+        success: true,
+        verifiedHours: false,
+        message: `Attendance marked as "Attended" for ${orgName}! Note: Hours will be awarded to volunteer once Krow Admin verifies this organization.`
+      };
+    }
+
+    // 4. If Verified, award volunteer_hours to volunteer
+    const verifiedHours = hours || opp?.volunteer_hours || 4;
+
     const { data: existingVh } = await admin
       .from("volunteer_hours")
       .select("id")
@@ -273,23 +293,20 @@ export async function verifyAttendanceAction(applicationId: string, volunteerId?
       });
     }
 
-    // 5. Recalculate total verified hours for volunteer profile
-    const { data: allVh } = await admin
+    // Recalculate total verified hours for volunteer
+    const { data: vhRows } = await admin
       .from("volunteer_hours")
       .select("hours")
       .eq("volunteer_id", targetVolunteerId)
-      .in("status", ["approved", "verified"]);
+      .eq("status", "approved");
 
-    const sumApproved = allVh && allVh.length > 0
-      ? allVh.reduce((acc, curr) => acc + (parseFloat(curr.hours) || 0), 0)
-      : verifiedHours;
+    const totalSum = (vhRows || []).reduce((acc, item) => acc + Number(item.hours || 0), 0);
+    await admin.from("profiles").update({ total_hours: totalSum }).eq("id", targetVolunteerId);
 
-    await admin
-      .from("profiles")
-      .update({ total_hours: sumApproved })
-      .eq("id", targetVolunteerId);
+    revalidatePath("/organization/opportunities");
+    revalidatePath("/volunteer");
 
-    return { success: true, message: `Attendance verified! ${verifiedHours} hours credited to volunteer.` };
+    return { success: true, verifiedHours: true, message: `Attendance verified! ${verifiedHours} hours credited to volunteer.` };
   } catch (err: any) {
     console.error("Unhandled error in verifyAttendanceAction:", err);
     return { error: err?.message || "Failed to verify attendance" };
