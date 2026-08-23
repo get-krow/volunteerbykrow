@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { X, Sparkles, AlertCircle, CheckCircle, Navigation, Lock } from 'lucide-react';
 import { SystemRole, UserProfile, OrganizerProfile } from '@/lib/types';
 import { db } from '@/lib/db';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -54,24 +55,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     return regex.test(pass);
   };
 
-  const handleGoogleAuth = () => {
+  const handleGoogleAuth = async () => {
     if (role === 'organizer') {
       setError('Google Login is not available for Organizer accounts.');
       return;
     }
-    // Volunteer Google signup simulation
-    const mockUser: UserProfile = {
-      id: 'vol-g-' + Date.now(),
-      role: 'volunteer',
-      email: 'google.volunteer@example.com',
-      name: 'Google Volunteer',
-      dob: '2004-08-20',
-      country: 'Canada',
-      province_state: 'BC',
-      city: 'Coquitlam',
-      created_at: new Date().toISOString(),
-    };
-    db.setCurrentUser(mockUser);
+
+    if (isSupabaseConfigured()) {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/` : undefined,
+        },
+      });
+      if (error) {
+        setError(error.message);
+      }
+      return;
+    }
+
+    // Fallback: proceed to DOB & Location onboarding for volunteer
     setStep('volunteer_details');
   };
 

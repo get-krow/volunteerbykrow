@@ -21,12 +21,14 @@ interface AppSidebarProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   currentUser?: UserProfile | null;
+  onOpenAuth?: () => void;
 }
 
 export const AppSidebar: React.FC<AppSidebarProps> = ({
   isCollapsed = false,
   onToggleCollapse,
   currentUser: propUser,
+  onOpenAuth,
 }) => {
   const pathname = usePathname();
   const currentUser = propUser || (typeof window !== 'undefined' ? db.getCurrentUser() : null);
@@ -172,12 +174,12 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                 </button>
               </div>
             ) : (
-              <Link
-                href="/opportunities"
+              <button
+                onClick={onOpenAuth}
                 className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-purple-50 text-[#635BFF] font-bold text-xs rounded-xl hover:bg-purple-100 transition-colors"
               >
                 Sign In / Sign Up
-              </Link>
+              </button>
             )}
           </div>
         ) : (
