@@ -13,8 +13,8 @@ import {
 } from './types';
 import { getBadgeForHours } from './badges';
 
-// Initial Mock Seed Data for rich out-of-the-box local demo
-const MOCK_CATEGORIES: Category[] = [
+// Predefined Specification Categories (Spec #23 & #102)
+const INITIAL_CATEGORIES: Category[] = [
   { id: 'education', name: 'Education', is_custom: false },
   { id: 'environment', name: 'Environment', is_custom: false },
   { id: 'sports', name: 'Sports', is_custom: false },
@@ -31,146 +31,12 @@ const MOCK_CATEGORIES: Category[] = [
   { id: 'other', name: 'Other', is_custom: false },
 ];
 
-const MOCK_ORGANIZERS: OrganizerProfile[] = [
-  {
-    id: 'org-krow',
-    org_name: 'Krow Organization',
-    hq_country: 'Canada',
-    hq_province_state: 'BC',
-    hq_city: 'Coquitlam',
-    hq_address: 'Coquitlam, BC',
-    no_hq: false,
-    bio: 'Official Krow Volunteer Community Organization.',
-    logo_url: 'https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=300&auto=format&fit=crop&q=80',
-    verification_status: 'verified',
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'org-1',
-    org_name: 'Metro Vancouver Food Bank',
-    hq_country: 'Canada',
-    hq_province_state: 'BC',
-    hq_city: 'Vancouver',
-    hq_address: '1428 Charles St, Vancouver, BC',
-    no_hq: false,
-    bio: 'Dedicated to providing fresh, nutritious food to families in need across Metro Vancouver.',
-    logo_url: 'https://images.unsplash.com/photo-1593113598332-cd288d649433?w=300&auto=format&fit=crop&q=80',
-    verification_status: 'verified',
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'org-2',
-    org_name: 'Tri-City Eco Alliance',
-    hq_country: 'Canada',
-    hq_province_state: 'BC',
-    hq_city: 'Coquitlam',
-    hq_address: '1200 Pipeline Rd, Coquitlam, BC',
-    no_hq: false,
-    bio: 'Protecting rivers, trails, and urban green spaces in Coquitlam, Port Moody, and Port Coquitlam.',
-    logo_url: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=300&auto=format&fit=crop&q=80',
-    verification_status: 'verified',
-    created_at: new Date().toISOString(),
-  },
-];
-
-const MOCK_OPPORTUNITIES: Opportunity[] = [
-  {
-    id: 'opp-krow-1',
-    org_id: 'org-krow',
-    org_name: 'Krow Organization',
-    org_verification_status: 'verified',
-    org_logo_url: 'https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=300&auto=format&fit=crop&q=80',
-    title: 'Test (Session 1 of 10)',
-    description: 'Community volunteer event session 1. Sign up to participate.',
-    instructions: 'Please arrive 10 minutes early.',
-    category_id: 'other',
-    custom_role: 'General',
-    banner_url: 'https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=1000&auto=format&fit=crop&q=80',
-    date: '2026-08-19',
-    start_time: '15:30',
-    end_time: '17:30',
-    duration_hours: 2,
-    location_type: 'physical',
-    location_address: 'Test',
-    min_age: null,
-    max_age: null,
-    max_volunteers: 20,
-    status: 'published',
-    registered_count: 0,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'opp-krow-2',
-    org_id: 'org-krow',
-    org_name: 'Krow Organization',
-    org_verification_status: 'verified',
-    org_logo_url: 'https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=300&auto=format&fit=crop&q=80',
-    title: 'Test (Session 2 of 10)',
-    description: 'Community volunteer event session 2. Sign up to participate.',
-    instructions: 'Please arrive 10 minutes early.',
-    category_id: 'other',
-    custom_role: 'General',
-    banner_url: 'https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=1000&auto=format&fit=crop&q=80',
-    date: '2026-08-26',
-    start_time: '15:30',
-    end_time: '17:30',
-    duration_hours: 2,
-    location_type: 'physical',
-    location_address: 'Test',
-    min_age: null,
-    max_age: null,
-    max_volunteers: 20,
-    status: 'published',
-    registered_count: 0,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'opp-krow-3',
-    org_id: 'org-krow',
-    org_name: 'Krow Organization',
-    org_verification_status: 'verified',
-    org_logo_url: 'https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=300&auto=format&fit=crop&q=80',
-    title: 'Test (Session 3 of 10)',
-    description: 'Community volunteer event session 3. Sign up to participate.',
-    instructions: 'Please arrive 10 minutes early.',
-    category_id: 'other',
-    custom_role: 'General',
-    banner_url: 'https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=1000&auto=format&fit=crop&q=80',
-    date: '2026-09-02',
-    start_time: '15:30',
-    end_time: '17:30',
-    duration_hours: 2,
-    location_type: 'physical',
-    location_address: 'Test',
-    min_age: null,
-    max_age: null,
-    max_volunteers: 20,
-    status: 'published',
-    registered_count: 0,
-    created_at: new Date().toISOString(),
-  },
-];
-
-const MOCK_VOLUNTEER: UserProfile = {
-  id: 'vol-1',
-  role: 'volunteer',
-  email: 'alex.volunteer@example.com',
-  name: 'Alex Chen',
-  dob: '2004-05-15',
-  country: 'Canada',
-  province_state: 'BC',
-  city: 'Coquitlam',
-  bio: 'High school graduate passionate about environmental conservation and community hunger relief.',
-  avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
-  created_at: new Date().toISOString(),
-};
-
-// In-Memory state manager for local client session
+// Clean Launch Ready State (Zero Fake Mocks)
 class LocalDatabase {
-  private categories: Category[] = MOCK_CATEGORIES;
-  private organizers: OrganizerProfile[] = MOCK_ORGANIZERS;
-  private opportunities: Opportunity[] = MOCK_OPPORTUNITIES;
-  private currentUser: UserProfile | null = MOCK_VOLUNTEER;
+  private categories: Category[] = INITIAL_CATEGORIES;
+  private organizers: OrganizerProfile[] = [];
+  private opportunities: Opportunity[] = [];
+  private currentUser: UserProfile | null = null;
   private registrations: Registration[] = [];
   private attendance: AttendanceRecord[] = [];
   private notifications: NotificationItem[] = [];
@@ -278,17 +144,16 @@ class LocalDatabase {
     const org = this.organizers.find((o) => o.id === orgId);
     if (!org) return;
 
-    const oldStatus = org.verification_status;
     org.verification_status = status;
 
-    // Update opps org_verification_status
+    // Update opportunities org_verification_status
     this.opportunities.forEach((opp) => {
       if (opp.org_id === orgId) {
         opp.org_verification_status = status;
       }
     });
 
-    // Generate in-app notification for Organizer
+    // In-app notification for Organizer
     const title = status === 'verified' ? 'Organization Verified!' : 'Organization Status Revoked';
     const message =
       status === 'verified'
@@ -404,7 +269,7 @@ class LocalDatabase {
       return { success: false, message: 'Registration has closed for past opportunities.' };
     }
 
-    // Age calculation on event date!
+    // Age calculation on event date
     const user = this.currentUser?.id === volunteerId ? this.currentUser : null;
     if (user && user.dob) {
       const dobYear = new Date(user.dob).getFullYear();
@@ -425,7 +290,7 @@ class LocalDatabase {
       }
     }
 
-    // Atomic Capacity Check
+    // Capacity Check
     const currentActiveRegs = this.registrations.filter(
       (r) => r.opportunity_id === opportunityId && r.status === 'registered'
     ).length;
@@ -434,7 +299,6 @@ class LocalDatabase {
       return { success: false, message: 'This opportunity is full.' };
     }
 
-    // Check existing registration
     const existing = this.registrations.find(
       (r) => r.opportunity_id === opportunityId && r.volunteer_id === volunteerId
     );
@@ -455,7 +319,7 @@ class LocalDatabase {
       });
     }
 
-    // In-app Notification for Volunteer
+    // Volunteer Notification
     this.addNotification({
       user_id: volunteerId,
       title: 'Registration Confirmed',
@@ -464,7 +328,7 @@ class LocalDatabase {
       link: '/dashboard',
     });
 
-    // In-app Notification for Organizer
+    // Organizer Notification
     this.addNotification({
       user_id: opp.org_id,
       title: 'New Volunteer Sign-Up',
@@ -472,17 +336,6 @@ class LocalDatabase {
       type: 'volunteer_signed_up',
       link: '/organizer',
     });
-
-    // Capacity notification to organizer if full
-    if (opp.max_volunteers && currentActiveRegs + 1 >= opp.max_volunteers) {
-      this.addNotification({
-        user_id: opp.org_id,
-        title: 'Opportunity Full',
-        message: `"${opp.title}" has reached its maximum volunteer capacity (${opp.max_volunteers}).`,
-        type: 'capacity_reached',
-        link: '/organizer',
-      });
-    }
 
     this.saveToStorage();
     return { success: true, message: 'Registration confirmed!' };
@@ -496,7 +349,6 @@ class LocalDatabase {
 
     if (!reg) return { success: false, message: 'Registration not found' };
 
-    // Unsigning cutoff check: before opportunity start date
     const oppDateStr = opp?.date || '';
     const nowStr = new Date().toISOString().split('T')[0];
     if (nowStr > oppDateStr) {
@@ -505,7 +357,6 @@ class LocalDatabase {
 
     reg.status = 'unsigned';
 
-    // Notify organizer
     if (opp) {
       this.addNotification({
         user_id: opp.org_id,
@@ -538,11 +389,7 @@ class LocalDatabase {
     const org = this.organizers.find((o) => o.id === opp?.org_id);
     const isVerified = org?.verification_status === 'verified';
 
-    // Hours logic rule:
-    // If Verified Org & status == 'here' -> hours_awarded = opp.duration_hours
-    // If Pending or Revoked Org -> hours_awarded = 0!
     const hoursAwarded = status === 'here' && isVerified ? opp?.duration_hours || 0 : 0;
-
     let att = this.attendance.find((a) => a.opportunity_id === opportunityId && a.volunteer_id === volunteerId);
 
     if (att) {
@@ -563,7 +410,6 @@ class LocalDatabase {
       this.attendance.push(att);
     }
 
-    // Check badge level up notification for volunteer
     if (status === 'here' && hoursAwarded > 0) {
       const prevTotal = this.calculateVolunteerTotalHours(volunteerId) - hoursAwarded;
       const newTotal = this.calculateVolunteerTotalHours(volunteerId);
@@ -591,7 +437,6 @@ class LocalDatabase {
 
     opp.status = 'ended';
 
-    // Auto-mark any unmarked registrations as 'not_here'
     const regs = this.registrations.filter((r) => r.opportunity_id === opportunityId && r.status === 'registered');
 
     regs.forEach((reg) => {
@@ -607,7 +452,6 @@ class LocalDatabase {
     this.saveToStorage();
   }
 
-  // Derived Totals & Reports
   public calculateVolunteerTotalHours(volunteerId: string): number {
     return this.attendance
       .filter((a) => a.volunteer_id === volunteerId && a.status === 'here')
@@ -615,11 +459,9 @@ class LocalDatabase {
   }
 
   public calculateVolunteerCompletedShifts(volunteerId: string): number {
-    // Specification Rule: Completed Shifts counts EVERY shift where marked 'Here' (Verified OR Pending!)
     return this.attendance.filter((a) => a.volunteer_id === volunteerId && a.status === 'here').length;
   }
 
-  // --- Saved Opportunities ---
   public toggleSavedOpportunity(volunteerId: string, opportunityId: string): boolean {
     const index = this.savedOpportunityIds.indexOf(opportunityId);
     let isSaved = false;
@@ -638,7 +480,6 @@ class LocalDatabase {
     return this.savedOpportunityIds;
   }
 
-  // --- Notifications ---
   public getNotifications(userId: string): NotificationItem[] {
     return this.notifications
       .filter((n) => n.user_id === userId)
@@ -671,7 +512,6 @@ class LocalDatabase {
     this.saveToStorage();
   }
 
-  // --- Admin Portal Hours Editor & Audit Log ---
   public adminEditShiftHours(
     attendanceId: string,
     newHours: number,
@@ -684,7 +524,6 @@ class LocalDatabase {
     const originalHours = att.hours_awarded;
     att.hours_awarded = newHours;
 
-    // Create mandatory Audit Log record
     const auditLog: HourAuditLog = {
       id: 'audit-' + Date.now(),
       attendance_id: attendanceId,
@@ -699,7 +538,6 @@ class LocalDatabase {
 
     this.hourAuditLogs.unshift(auditLog);
 
-    // Notify volunteer of admin hour edit
     this.addNotification({
       user_id: att.volunteer_id,
       title: 'Volunteer Hours Adjusted',

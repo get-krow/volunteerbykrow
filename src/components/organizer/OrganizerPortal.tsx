@@ -532,70 +532,80 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                 </div>
 
                 <div className="space-y-2">
-                  {/* Mock Registered Volunteers List */}
-                  {[
-                    { id: 'vol-1', name: 'Alex Chen', age: 20, city: 'Coquitlam', hours: 45, shifts: 8 },
-                    { id: 'vol-2', name: 'Jordan Smith', age: 19, city: 'Vancouver', hours: 12, shifts: 3 },
-                  ].map((vol) => {
-                    const attList = db.getAttendanceForOpportunity(selectedOppForAttendance.id);
-                    const currentAtt = attList.find((a) => a.volunteer_id === vol.id);
-                    const currentStatus = currentAtt?.status || 'unmarked';
-                    const badge = getBadgeForHours(vol.hours);
-
-                    return (
-                      <div
-                        key={vol.id}
-                        className="p-3.5 rounded-2xl border border-gray-100 flex items-center justify-between text-xs bg-gray-50/50"
-                      >
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() =>
-                              setCredentialUser({
-                                id: vol.id,
-                                role: 'volunteer',
-                                email: 'volunteer@example.com',
-                                name: vol.name,
-                                city: vol.city,
-                                country: 'Canada',
-                                province_state: 'BC',
-                                created_at: new Date().toISOString(),
-                              })
-                            }
-                            className="font-bold text-gray-900 hover:text-brand-600 flex items-center gap-1.5"
-                          >
-                            <span>{vol.name}</span>
-                            <span className="text-[10px] font-semibold text-brand-600 bg-purple-100 px-2 py-0.5 rounded-full">
-                              {badge.name}
-                            </span>
-                          </button>
+                  {(() => {
+                    const registeredVolunteers = db.getVolunteerRegistrations(selectedOppForAttendance.id);
+                    if (registeredVolunteers.length === 0) {
+                      return (
+                        <div className="py-6 text-center text-xs text-gray-400">
+                          No volunteers have registered for this opportunity yet.
                         </div>
+                      );
+                    }
 
-                        {/* Immediate [Here] [Not Here] Actions per spec #51 */}
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleMarkAttendance(selectedOppForAttendance.id, vol.id, 'here')}
-                            className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
-                              currentStatus === 'here'
-                                ? 'bg-emerald-600 text-white shadow-sm'
-                                : 'bg-white border border-gray-200 text-gray-700 hover:bg-emerald-50'
-                            }`}
-                          >
-                            Here
-                          </button>
-                          <button
-                            onClick={() => handleMarkAttendance(selectedOppForAttendance.id, vol.id, 'not_here')}
-                            className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
-                              currentStatus === 'not_here'
-                                ? 'bg-red-600 text-white shadow-sm'
-                                : 'bg-white border border-gray-200 text-gray-700 hover:bg-red-50'
-                            }`}
-                          >
-                            Not Here
-                          </button>
+                    return registeredVolunteers.map((reg) => {
+                      const volId = reg.volunteer_id;
+                      const volName = `Volunteer (${volId.slice(-4)})`;
+                      const volHours = db.calculateVolunteerTotalHours(volId);
+                      const attList = db.getAttendanceForOpportunity(selectedOppForAttendance.id);
+                      const currentAtt = attList.find((a) => a.volunteer_id === volId);
+                      const currentStatus = currentAtt?.status || 'unmarked';
+                      const badge = getBadgeForHours(volHours);
+
+                      return (
+                        <div
+                          key={volId}
+                          className="p-3.5 rounded-2xl border border-gray-100 flex items-center justify-between text-xs bg-gray-50/50"
+                        >
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() =>
+                                setCredentialUser({
+                                  id: volId,
+                                  role: 'volunteer',
+                                  email: 'volunteer@example.com',
+                                  name: volName,
+                                  city: 'Coquitlam',
+                                  country: 'Canada',
+                                  province_state: 'BC',
+                                  created_at: new Date().toISOString(),
+                                })
+                              }
+                              className="font-bold text-gray-900 hover:text-brand-600 flex items-center gap-1.5"
+                            >
+                              <span>{volName}</span>
+                              <span className="text-[10px] font-semibold text-brand-600 bg-purple-100 px-2 py-0.5 rounded-full">
+                                {badge.name}
+                              </span>
+                            </button>
+                          </div>
+
+                          {/* Immediate [Here] [Not Here] Actions per spec #51 */}
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleMarkAttendance(selectedOppForAttendance.id, volId, 'here')}
+                              className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+                                currentStatus === 'here'
+                                  ? 'bg-emerald-600 text-white shadow-sm'
+                                  : 'bg-white border border-gray-200 text-gray-700 hover:bg-emerald-50'
+                              }`}
+                            >
+                              Here
+                            </button>
+                            <button
+                              onClick={() => handleMarkAttendance(selectedOppForAttendance.id, volId, 'not_here')}
+                              className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+                                currentStatus === 'not_here'
+                                  ? 'bg-red-600 text-white shadow-sm'
+                                  : 'bg-white border border-gray-200 text-gray-700 hover:bg-red-50'
+                              }`}
+                            >
+                              Not Here
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             ) : (

@@ -128,10 +128,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     // Simulated successful login
     const loggedUser: UserProfile = {
-      id: role === 'organizer' ? 'org-1' : 'vol-1',
+      id: role === 'organizer' ? 'org-' + Date.now() : 'vol-' + Date.now(),
       role,
       email,
-      name: role === 'organizer' ? orgName || 'Metro Vancouver Food Bank' : name || 'Alex Chen',
+      name: role === 'organizer' ? orgName || 'Organization Account' : name || email.split('@')[0],
       dob: role === 'volunteer' ? '2004-05-15' : undefined,
       country: 'Canada',
       province_state: 'BC',
