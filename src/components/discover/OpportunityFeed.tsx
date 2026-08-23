@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { Search, ChevronDown } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, Filter, ChevronDown } from 'lucide-react';
 import { Opportunity, UserProfile } from '@/lib/types';
 import { db } from '@/lib/db';
 import { OpportunityCard } from './OpportunityCard';
+import { OpportunityDetailModal } from './OpportunityDetailModal';
+import { FilterSheet } from './FilterSheet';
 
 interface OpportunityFeedProps {
   currentUser: UserProfile | null;
@@ -16,17 +18,14 @@ export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, o
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [isMounted, setIsMounted] = useState(false);
 
-  React.useEffect(() => {
-    setIsMounted(true);
-    setOpportunities(db.getOpportunities());
-    if (currentUser) {
-      setRegistrations(db.getVolunteerRegistrations(currentUser.id));
-    }
-  }, [currentUser]);
+  // Modals & Sheets State
+  const [selectedOppForDetail, setSelectedOppForDetail] = useState<Opportunity | null>(null);
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
 
   // Search & Category State
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedVerification, setSelectedVerification] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'earliest' | 'latest' | 'alphabetical'>('earliest');
 
   const categories = [
@@ -39,9 +38,15 @@ export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, o
     { id: 'arts_culture', label: 'Arts & Culture' },
     { id: 'sports', label: 'Sports' },
     { id: 'technology', label: 'Technology' },
-    { id: 'disaster_relief', label: 'Disaster Relief' },
-    { id: 'food_hunger', label: 'Hunger' },
+    { id: 'food_hunger', label: 'Food & Hunger' },
+    { id: 'seniors', label: 'Seniors' },
+    { id: 'youth', label: 'Youth' },
   ];
+
+  useEffect(() => {
+    setIsMounted(true);
+    refreshData();
+  }, [currentUser]);
 
   const refreshData = () => {
     setOpportunities(db.getOpportunities());
@@ -76,8 +81,14 @@ export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, o
         }
 
         if (selectedCategory !== 'all') {
-          if (selectedCategory === 'food_hunger' && opp.category_id !== 'food_hunger') return false;
-          if (selectedCategory !== 'food_hunger' && opp.category_id !== selectedCategory && opp.custom_role?.toLowerCase() !== selectedCategory) return false;
+          if (opp.category_id !== selectedCategory && opp.custom_role?.toLowerCase() !== selectedCategory) {
+            return false;
+          }
+        }
+
+        if (selectedVerification !== 'all') {
+          if (selectedVerification === 'verified' && opp.org_verification_status !== 'verified') return false;
+          if (selectedVerification === 'pending' && opp.org_verification_status === 'verified') return false;
         }
 
         return true;
@@ -88,7 +99,7 @@ export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, o
         if (sortBy === 'alphabetical') return a.title.localeCompare(b.title);
         return 0;
       });
-  }, [opportunities, searchQuery, selectedCategory, sortBy]);
+  }, [opportunities, searchQuery, selectedCategory, selectedVerification, sortBy]);
 
   const registeredOppIds = useMemo(() => {
     return new Set(registrations.map((r) => r.opportunity_id));
@@ -96,13 +107,13 @@ export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, o
 
   return (
     <div className="space-y-6">
-      {/* Page Header Title */}
+      {/* Section 9 Spec Header: Discover — Find opportunities near you. */}
       <div>
-        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Discover Opportunities</h1>
-        <p className="text-sm text-gray-500 font-medium mt-1">Browse community volunteer roles. Sign up to participate.</p>
+        <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">Discover</h1>
+        <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">Find opportunities near you.</p>
       </div>
 
-      {/* Search & Sort Controls Row */}
+      {/* Search & Sort & Filter Trigger Bar */}
       <div className="flex flex-col sm:flex-row items-center gap-3">
         {/* Search Bar Input */}
         <div className="relative flex-1 w-full">
@@ -111,25 +122,36 @@ export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, o
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by role, organization, or location..."
-            className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-2xl text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 shadow-sm"
+            placeholder="Search opportunities near you..."
+            className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200/90 rounded-2xl text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 shadow-2xs"
           />
         </div>
 
-        {/* Sort Dropdown */}
-        <div className="relative flex-shrink-0 w-full sm:w-auto">
-          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 text-xs font-bold text-gray-800 shadow-sm">
-            <span className="text-gray-400 font-semibold uppercase text-[10px] tracking-wider">SORT:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="bg-transparent border-none focus:outline-none text-xs font-bold text-gray-800 cursor-pointer pr-4 appearance-none"
-            >
-              <option value="earliest">Earliest Date 🗓️</option>
-              <option value="latest">Latest Date</option>
-              <option value="alphabetical">Alphabetical A-Z</option>
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-gray-500 pointer-events-none -ml-3" />
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          {/* Filters Sheet Trigger Button */}
+          <button
+            onClick={() => setIsFilterSheetOpen(true)}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white border border-gray-200/90 rounded-2xl px-4 py-3 text-xs font-bold text-gray-700 hover:bg-gray-50 shadow-2xs transition-colors"
+          >
+            <Filter className="w-3.5 h-3.5 text-[#635BFF]" />
+            <span>Filters</span>
+          </button>
+
+          {/* Sort Dropdown */}
+          <div className="relative flex-1 sm:flex-none">
+            <div className="flex items-center gap-2 bg-white border border-gray-200/90 rounded-2xl px-4 py-3 text-xs font-bold text-gray-700 shadow-2xs">
+              <span className="text-gray-400 font-semibold uppercase text-[10px] tracking-wider">SORT:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="bg-transparent border-none focus:outline-none text-xs font-bold text-gray-800 cursor-pointer pr-4 appearance-none"
+              >
+                <option value="earliest">Earliest Date 🗓️</option>
+                <option value="latest">Latest Date</option>
+                <option value="alphabetical">Alphabetical A-Z</option>
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-gray-500 pointer-events-none -ml-3" />
+            </div>
           </div>
         </div>
       </div>
@@ -144,8 +166,8 @@ export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, o
               onClick={() => setSelectedCategory(cat.id)}
               className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                 isSelected
-                  ? 'bg-[#635BFF] text-white shadow-sm font-bold'
-                  : 'bg-gray-100/80 text-gray-600 hover:bg-gray-200/80 hover:text-gray-900'
+                  ? 'bg-[#635BFF] text-white shadow-xs font-bold'
+                  : 'bg-white border border-gray-200/80 text-gray-600 hover:bg-gray-50'
               }`}
             >
               {cat.label}
@@ -156,11 +178,11 @@ export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, o
 
       {/* Opportunities Card Grid */}
       {filteredOpportunities.length === 0 ? (
-        <div className="bg-white rounded-2xl p-12 text-center border border-gray-200/80 shadow-sm space-y-3">
+        <div className="bg-white rounded-2xl p-12 text-center border border-gray-200/80 shadow-2xs space-y-3">
           <div className="text-3xl">🔍</div>
           <h3 className="font-bold text-gray-900 text-base">No opportunities found</h3>
           <p className="text-xs text-gray-500 max-w-sm mx-auto">
-            Try searching for a different keyword or select another category filter.
+            Try searching for a different keyword or reset your filter selections.
           </p>
         </div>
       ) : (
@@ -171,12 +193,39 @@ export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, o
               opportunity={opp}
               currentUser={currentUser}
               onRegister={handleRegister}
+              onSelectCard={(o) => setSelectedOppForDetail(o)}
               isRegistered={registeredOppIds.has(opp.id)}
               onOpenAuth={onOpenAuth}
             />
           ))}
         </div>
       )}
+
+      {/* Opportunity Details Dedicated Modal (Section 11 Spec) */}
+      <OpportunityDetailModal
+        opportunity={selectedOppForDetail}
+        currentUser={currentUser}
+        isOpen={!!selectedOppForDetail}
+        onClose={() => setSelectedOppForDetail(null)}
+        onRegister={handleRegister}
+        isRegistered={selectedOppForDetail ? registeredOppIds.has(selectedOppForDetail.id) : false}
+        onOpenAuth={onOpenAuth}
+      />
+
+      {/* Filter Sheet (Section 13 Spec) */}
+      <FilterSheet
+        isOpen={isFilterSheetOpen}
+        onClose={() => setIsFilterSheetOpen(false)}
+        selectedCategory={selectedCategory}
+        onCategoryChange={setSelectedCategory}
+        selectedVerification={selectedVerification}
+        onVerificationChange={setSelectedVerification}
+        onReset={() => {
+          setSelectedCategory('all');
+          setSelectedVerification('all');
+          setSearchQuery('');
+        }}
+      />
     </div>
   );
 };

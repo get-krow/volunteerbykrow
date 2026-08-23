@@ -8,8 +8,7 @@ interface OpportunityCardProps {
   opportunity: Opportunity;
   currentUser: UserProfile | null;
   onRegister: (oppId: string) => void;
-  onSaveToggle?: (oppId: string) => void;
-  isSaved?: boolean;
+  onSelectCard?: (opp: Opportunity) => void;
   isRegistered?: boolean;
   onOpenAuth: () => void;
 }
@@ -18,6 +17,7 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
   opportunity: opp,
   currentUser,
   onRegister,
+  onSelectCard,
   isRegistered,
   onOpenAuth,
 }) => {
@@ -36,7 +36,6 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
     onRegister(opp.id);
   };
 
-  // Format date display (deterministic for SSR & Client hydration matching)
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '';
     const parts = dateStr.split('-');
@@ -48,104 +47,106 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
     return `${months[month] || parts[1]} ${day}, ${year}`;
   };
 
-  // Format time range
-  const formatTime = (startTime: string, endTime: string) => {
-    const parseTime = (t: string) => {
-      const [h, m] = t.split(':').map(Number);
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      const hour12 = h % 12 || 12;
-      return `${hour12}:${m < 10 ? '0' + m : m} ${ampm}`;
-    };
-    return `${parseTime(startTime)} to ${parseTime(endTime)}`;
+  const formatTime = (startTime: string) => {
+    if (!startTime) return '';
+    const [h, m] = startTime.split(':').map(Number);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const hour12 = h % 12 || 12;
+    return `${hour12}:${m < 10 ? '0' + m : m} ${ampm}`;
   };
 
   return (
-    <div className="bg-white border border-gray-200/80 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group">
+    <div
+      onClick={() => onSelectCard?.(opp)}
+      className="bg-white border border-gray-200/80 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between cursor-pointer group"
+    >
       <div>
-        {/* Card Image Header */}
-        <div className="relative h-48 w-full bg-gray-100 overflow-hidden">
+        {/* Section 10 Spec: Image (consistent proportion) */}
+        <div className="relative h-44 w-full bg-gray-100 overflow-hidden">
           <img
             src={opp.banner_url || 'https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=800&auto=format&fit=crop&q=80'}
             alt={opp.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
 
-          {/* Badges Overlay on Top-Left */}
-          <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
-            <span className="bg-white/95 backdrop-blur-sm border border-gray-200/80 text-gray-900 text-[11px] font-bold px-3 py-1 rounded-full shadow-sm">
+          {/* Role & Age Badges */}
+          <div className="absolute top-3 left-3 flex items-center gap-1.5 z-10">
+            <span className="bg-white/95 backdrop-blur-sm border border-gray-200/80 text-gray-900 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-2xs">
               {opp.custom_role || 'General'}
             </span>
-            <span className="bg-white/95 backdrop-blur-sm border border-gray-200/80 text-gray-900 text-[11px] font-bold px-3 py-1 rounded-full shadow-sm">
+            <span className="bg-white/95 backdrop-blur-sm border border-gray-200/80 text-gray-900 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-2xs">
               {opp.min_age ? `${opp.min_age}+` : 'All Ages'}
             </span>
           </div>
         </div>
 
-        {/* Card Body */}
-        <div className="p-5">
-          {/* Org Header */}
-          <div className="flex items-center gap-2 mb-2">
-            <Building2 className="w-4 h-4 text-[#635BFF] flex-shrink-0" />
-            <span className="text-xs font-bold text-gray-600 truncate">{opp.org_name || 'Krow Organization'}</span>
+        {/* Card Content Body */}
+        <div className="p-4 space-y-2">
+          {/* Opportunity Title */}
+          <h3 className="text-base font-extrabold text-gray-900 leading-snug group-hover:text-[#635BFF] transition-colors line-clamp-1">
+            {opp.title}
+          </h3>
 
+          {/* Organization & Verified Badge */}
+          <div className="flex items-center gap-1.5 text-xs text-gray-600">
+            <Building2 className="w-3.5 h-3.5 text-[#635BFF] flex-shrink-0" />
+            <span className="font-semibold truncate">{opp.org_name || 'Organization'}</span>
             {opp.org_verification_status === 'verified' && (
-              <span className="bg-emerald-50 text-emerald-600 border border-emerald-200 text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 ml-1 flex-shrink-0">
-                Verified
+              <span className="bg-emerald-50 text-emerald-700 text-[10px] font-extrabold px-1.5 py-0.2 rounded-full border border-emerald-200 flex-shrink-0">
+                ✓ Verified
               </span>
             )}
           </div>
 
-          {/* Opportunity Title */}
-          <h3 className="text-lg font-extrabold text-gray-900 leading-snug mb-3 group-hover:text-[#635BFF] transition-colors">
-            {opp.title}
-          </h3>
-
-          {/* Meta Information Row */}
-          <div className="flex items-center gap-3 text-xs text-gray-500 font-medium mb-3">
-            <div className="flex items-center gap-1 truncate">
-              <MapPin className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />
-              <span className="truncate">{opp.location_address || 'Test'}</span>
-            </div>
-
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <Calendar className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />
-              <span>{formatDate(opp.date)}</span>
-            </div>
-
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <Clock className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />
-              <span>{opp.duration_hours} hrs</span>
-            </div>
+          {/* Date & Time */}
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
+            <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <span>
+              {formatDate(opp.date)} · {formatTime(opp.start_time)}
+            </span>
           </div>
 
-          {/* Capacity and Time Subline */}
-          <div className="text-xs font-semibold mb-4">
-            <span className="text-[#635BFF]">
-              {spotsLeft !== null ? `${spotsLeft} spots remaining` : 'Unlimited spots'}
+          {/* Hours & Age */}
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
+            <Clock className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <span>
+              {opp.duration_hours} hours · {opp.min_age ? `Ages ${opp.min_age}+` : 'All Ages'}
             </span>
-            <span className="text-gray-400 mx-1.5">•</span>
-            <span className="text-gray-500 font-medium">
-              {formatTime(opp.start_time, opp.end_time)} ({opp.duration_hours} hrs)
-            </span>
+          </div>
+
+          {/* Location */}
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium truncate">
+            <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <span className="truncate">{opp.location_address || 'Location TBD'}</span>
+          </div>
+
+          {/* Spots Remaining */}
+          <div className="text-xs font-semibold text-[#635BFF] pt-1">
+            {spotsLeft !== null ? `${spotsLeft} spots remaining` : 'Unlimited spots'}
           </div>
         </div>
       </div>
 
       {/* Primary Action Button */}
-      <div className="px-5 pb-5">
+      <div className="p-4 pt-0">
         {isRegistered ? (
           <button
             disabled
-            className="w-full py-3 bg-emerald-50 text-emerald-700 font-bold text-xs rounded-xl flex items-center justify-center gap-2 border border-emerald-200"
+            className="w-full py-2.5 bg-emerald-50 text-emerald-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-emerald-200"
           >
             <CheckCircle2 className="w-4 h-4" /> Signed Up
           </button>
         ) : (
           <button
             onClick={handleActionClick}
-            className="w-full py-3 bg-[#635BFF] hover:bg-[#5046E5] active:scale-[0.99] text-white font-bold text-xs rounded-xl shadow-md shadow-purple-500/10 transition-all flex items-center justify-center gap-1.5"
+            disabled={isFull}
+            className={`w-full py-2.5 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 uppercase tracking-wider ${
+              isFull
+                ? 'bg-gray-300 text-gray-600 cursor-not-allowed shadow-none'
+                : 'bg-[#635BFF] hover:bg-[#5046E5] active:scale-[0.99]'
+            }`}
           >
-            Sign Up
+            {isFull ? 'Full' : 'Register'}
           </button>
         )}
       </div>

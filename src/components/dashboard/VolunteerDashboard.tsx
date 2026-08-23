@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Award,
   Calendar,
@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { UserProfile, Opportunity, Registration, AttendanceRecord } from '@/lib/types';
 import { db } from '@/lib/db';
-import { getNextBadgeInfo } from '@/lib/badges';
+import { getNextBadgeInfo, getBadgeForHours } from '@/lib/badges';
 import { generateVolunteerHoursReport } from '@/lib/pdf-report';
 import { createGoogleCalendarUrl, openAllUpcomingInCalendar } from '@/lib/google-calendar';
 
@@ -34,11 +34,8 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
 
-  React.useEffect(() => {
-    setRegistrations(db.getVolunteerRegistrations(currentUser.id));
-    setOpportunities(db.getOpportunities());
-    setSavedIds(db.getSavedOpportunityIds());
-    setAttendance(db.getAllAttendanceRecords());
+  useEffect(() => {
+    refreshData();
   }, [currentUser]);
 
   const refreshData = () => {
@@ -48,8 +45,7 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
     setAttendance(db.getAllAttendanceRecords());
   };
 
-  // Calculations
-  const totalAwardedHours = useMemo(() => {
+  const totalHours = useMemo(() => {
     return db.calculateVolunteerTotalHours(currentUser.id);
   }, [attendance, currentUser.id]);
 
@@ -57,291 +53,228 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
     return db.calculateVolunteerCompletedShifts(currentUser.id);
   }, [attendance, currentUser.id]);
 
-  const badgeInfo = useMemo(() => {
-    return getNextBadgeInfo(totalAwardedHours);
-  }, [totalAwardedHours]);
+  const currentBadge = useMemo(() => getBadgeForHours(totalHours), [totalHours]);
+  const badgeInfo = useMemo(() => getNextBadgeInfo(totalHours), [totalHours]);
 
-  // Upcoming shifts registered by volunteer
-  const upcomingShifts = useMemo(() => {
-    const regOppIds = new Set(registrations.map((r) => r.opportunity_id));
-    return opportunities.filter(
-      (opp) => regOppIds.has(opp.id) && opp.status === 'published' && new Date(opp.date).getTime() >= new Date().setHours(0, 0, 0, 0)
-    );
-  }, [registrations, opportunities]);
+  const upcomingRegisteredOpps = useMemo(() => {
+    const regSet = new Set(registrations.map((r) => r.opportunity_id));
+    return opportunities
+      .filter((o) => regSet.has(o.id) && o.status === 'published')
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [opportunities, registrations]);
 
-  // Saved Opportunities
   const savedOpportunities = useMemo(() => {
-    return opportunities.filter((o) => savedIds.includes(o.id) && o.status === 'published');
+    const savedSet = new Set(savedIds);
+    return opportunities.filter((o) => savedSet.has(o.id) && o.status === 'published');
   }, [opportunities, savedIds]);
 
-  // History of completed or past shifts
-  const shiftHistory = useMemo(() => {
-    const userAttendance = attendance.filter((a) => a.volunteer_id === currentUser.id);
-    return userAttendance.map((att) => {
-      const opp = opportunities.find((o) => o.id === att.opportunity_id);
-      return {
-        attendance: att,
-        opportunity: opp,
-      };
-    });
-  }, [attendance, opportunities, currentUser.id]);
-
   const handleUnsign = (oppId: string) => {
-    if (confirm('Are you sure you want to unsign from this shift?')) {
-      db.unsignFromOpportunity(oppId, currentUser.id);
+    if (confirm('Are you sure you want to unsign from this opportunity? Your spot will be made available to others.')) {
+      const res = db.unsignFromOpportunity(oppId, currentUser.id);
+      alert(res.message);
       refreshData();
     }
   };
 
-  const handleRemoveSaved = (oppId: string) => {
-    db.toggleSavedOpportunity(currentUser.id, oppId);
-    refreshData();
+  const handleGenerateReport = () => {
+    generateVolunteerHoursReport(currentUser, totalHours, completedShiftsCount, currentBadge);
   };
 
-  const handleDownloadPdf = () => {
-    generateVolunteerHoursReport(currentUser, totalAwardedHours, completedShiftsCount, badgeInfo.currentBadge);
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length < 3) return dateStr;
+    const year = parts[0];
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${months[month] || parts[1]} ${day}, ${year}`;
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Top Banner & Stats Overview Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Awarded Hours Hero Card */}
-        <div className="bg-gradient-to-br from-brand-900 via-brand-700 to-purple-600 text-white rounded-3xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-purple-200 uppercase tracking-wider">Total Awarded Hours</span>
-              <button
-                onClick={handleDownloadPdf}
-                className="px-3 py-1 bg-white/20 hover:bg-white text-brand-900 hover:text-brand-700 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 backdrop-blur-md shadow-sm"
-              >
-                <Download className="w-3.5 h-3.5" /> PDF Report
-              </button>
-            </div>
-            <div className="text-4xl sm:text-5xl font-black mt-2 tracking-tight">{totalAwardedHours} <span className="text-lg font-normal text-purple-200">hrs</span></div>
-            <p className="text-xs text-purple-100 mt-1">Verified by Krow Partner Organizations</p>
-          </div>
+    <div className="space-y-6 max-w-4xl mx-auto">
+      {/* Greeting Header (Section 17 Spec) */}
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
+          Good day, {currentUser.name || 'Volunteer'}
+        </h1>
+        <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">Keep making an impact in your community.</p>
+      </div>
 
-          <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between text-xs text-purple-200">
-            <span>Completed Shifts: <strong className="text-white text-sm">{completedShiftsCount}</strong></span>
-            <span>Verified Status</span>
-          </div>
-        </div>
-
-        {/* Badge Progress Card */}
-        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-card flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Badge Progression</span>
-              <span className="text-xs font-bold text-brand-600 px-2.5 py-0.5 rounded-full bg-purple-50">
-                {badgeInfo.currentBadge.name}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3 mt-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-600 to-purple-400 text-white flex items-center justify-center text-xl font-bold shadow-md">
-                🏆
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900 text-sm">{badgeInfo.currentBadge.name}</h3>
-                <p className="text-xs text-gray-500">
-                  {badgeInfo.nextBadge
-                    ? `${badgeInfo.hoursNeeded} more hours to unlock ${badgeInfo.nextBadge.name}`
-                    : 'Maximum rank level reached!'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <div className="flex items-center justify-between text-xs font-semibold text-gray-600 mb-1">
-              <span>Progress to next rank</span>
-              <span>{badgeInfo.progressPercent}%</span>
-            </div>
-            <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
-              <div
-                className="bg-brand-600 h-full rounded-full transition-all duration-500"
-                style={{ width: `${badgeInfo.progressPercent}%` }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Action & Calendar Sync Card */}
-        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-card flex flex-col justify-between">
-          <div>
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Google Calendar Sync</span>
-            <h3 className="font-bold text-gray-900 text-sm mt-2">Export Upcoming Shifts</h3>
-            <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-              Generate pre-filled Google Calendar event links for your registered volunteer shifts.
-            </p>
+      {/* Hours Hero Card & Badge Progression Card (Section 17 & 18 Spec) */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+        {/* Total Volunteer Hours Hero Card */}
+        <div className="md:col-span-5 bg-gradient-to-br from-[#635BFF] to-[#4F46E5] rounded-3xl p-6 text-white shadow-lg shadow-purple-500/15 flex flex-col justify-between relative overflow-hidden">
+          <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
+          <div className="space-y-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-purple-200">Total Awarded</span>
+            <h2 className="text-5xl font-black tracking-tight">{totalHours}</h2>
+            <p className="text-xs font-semibold text-purple-100">Volunteer Hours</p>
           </div>
 
           <button
-            onClick={() => openAllUpcomingInCalendar(upcomingShifts)}
-            disabled={upcomingShifts.length === 0}
-            className="w-full py-2.5 mt-4 bg-purple-50 hover:bg-purple-100 text-brand-700 rounded-2xl text-xs font-bold border border-purple-200 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+            onClick={handleGenerateReport}
+            className="mt-6 w-full py-2.5 bg-white/15 hover:bg-white/25 active:scale-[0.99] text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 border border-white/20 transition-all"
           >
-            <Calendar className="w-4 h-4" /> Add All Upcoming Shifts ({upcomingShifts.length})
+            <Download className="w-4 h-4" /> Download Hours Report
           </button>
+        </div>
+
+        {/* Badge Progression & Completed Shifts Stat Card (Section 19 & 20 Spec) */}
+        <div className="md:col-span-7 bg-white rounded-3xl p-6 border border-gray-200/80 shadow-2xs flex flex-col justify-between space-y-4">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Award className="w-5 h-5 text-[#635BFF]" />
+                <span className="font-extrabold text-sm text-gray-900 uppercase tracking-wider">{currentBadge.name}</span>
+              </div>
+              <span className="text-xs font-bold text-gray-500">
+                {totalHours} / {badgeInfo.nextBadge ? badgeInfo.nextBadge.min_hours : totalHours} hours
+              </span>
+            </div>
+
+            {/* Badge Progress Bar */}
+            <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
+              <div
+                className="bg-[#635BFF] h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, Math.max(5, badgeInfo.progressPercent))}%` }}
+              />
+            </div>
+
+            <p className="text-xs font-medium text-gray-500">
+              {badgeInfo.nextBadge
+                ? `${badgeInfo.hoursNeeded} hours until ${badgeInfo.nextBadge.name}`
+                : 'Highest badge level achieved!'}
+            </p>
+          </div>
+
+          <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+            <div>
+              <div className="text-xs font-bold text-gray-500">Completed Shifts</div>
+              <div className="text-2xl font-black text-gray-900">{completedShiftsCount}</div>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] font-semibold text-gray-400 block">Attended shifts marked HERE</span>
+              <span className="text-xs font-bold text-[#635BFF]">Verified & Pending Orgs</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Upcoming Shifts Section */}
-      <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-card space-y-4">
+      {/* Section 21 Spec: Upcoming Registered Shifts */}
+      <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-2xs space-y-4">
         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-brand-600" />
-            <h2 className="font-bold text-gray-900 text-base">Upcoming Shifts ({upcomingShifts.length})</h2>
-          </div>
-          {upcomingShifts.length > 0 && (
+          <h2 className="font-extrabold text-base text-gray-900">Upcoming Registered Shifts</h2>
+          {upcomingRegisteredOpps.length > 0 && (
             <button
-              onClick={() => openAllUpcomingInCalendar(upcomingShifts)}
-              className="text-xs font-semibold text-brand-600 hover:underline flex items-center gap-1"
+              onClick={() => openAllUpcomingInCalendar(upcomingRegisteredOpps)}
+              className="text-xs font-bold text-[#635BFF] hover:underline flex items-center gap-1"
             >
-              <ExternalLink className="w-3.5 h-3.5" /> Sync to Google Calendar
+              Add All to Calendar →
             </button>
           )}
         </div>
 
-        {upcomingShifts.length === 0 ? (
-          <div className="py-8 text-center text-xs text-gray-400">
-            You have no upcoming registered shifts. Browse Discover to register!
+        {upcomingRegisteredOpps.length === 0 ? (
+          <div className="py-8 text-center space-y-2">
+            <div className="text-2xl">🗓️</div>
+            <p className="text-xs text-gray-500 font-medium">You have no upcoming volunteer shifts.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {upcomingShifts.map((opp) => {
-              const gcalUrl = createGoogleCalendarUrl(opp);
-              return (
-                <div
-                  key={opp.id}
-                  className="p-4 rounded-2xl border border-gray-100 bg-gray-50/50 hover:bg-white hover:border-purple-200 transition-all flex flex-col justify-between space-y-3"
-                >
+          <div className="space-y-3">
+            {upcomingRegisteredOpps.map((opp) => (
+              <div
+                key={opp.id}
+                className="p-4 rounded-2xl border border-gray-200/80 bg-gray-50/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-purple-200 transition-all"
+              >
+                <div className="space-y-1 min-w-0">
+                  <div className="font-extrabold text-sm text-gray-900 truncate">{opp.title}</div>
+                  <div className="text-xs font-semibold text-gray-600">{opp.org_name}</div>
+                  <div className="flex items-center gap-3 text-xs text-gray-500">
+                    <span>{formatDate(opp.date)} · {opp.start_time}</span>
+                    <span>{opp.duration_hours} hours</span>
+                    <span className="truncate">{opp.location_address || 'Location TBD'}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <a
+                    href={createGoogleCalendarUrl(opp)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-100 text-gray-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition-colors"
+                  >
+                    <Calendar className="w-3.5 h-3.5 text-[#635BFF]" />
+                    <span>Calendar</span>
+                  </a>
+                  <button
+                    onClick={() => handleUnsign(opp.id)}
+                    className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-xl transition-colors"
+                  >
+                    Unsign
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Section 22 Spec: Volunteer History & Saved Opportunities */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Saved Opportunities */}
+        <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-2xs space-y-4">
+          <h2 className="font-extrabold text-base text-gray-900 border-b border-gray-100 pb-3">
+            Saved Opportunities ({savedOpportunities.length})
+          </h2>
+          {savedOpportunities.length === 0 ? (
+            <div className="py-6 text-center text-xs text-gray-400">No saved opportunities.</div>
+          ) : (
+            <div className="space-y-2">
+              {savedOpportunities.map((opp) => (
+                <div key={opp.id} className="p-3 rounded-xl border border-gray-100 flex items-center justify-between text-xs">
                   <div>
-                    <div className="flex items-center justify-between text-xs font-semibold text-brand-600 mb-1">
-                      <span>{opp.org_name}</span>
-                      <span className="px-2 py-0.5 rounded-full bg-purple-100 text-brand-700 text-[10px]">
-                        {opp.duration_hours} Hours
+                    <div className="font-bold text-gray-900 truncate max-w-[200px]">{opp.title}</div>
+                    <div className="text-gray-500">{formatDate(opp.date)} · {opp.duration_hours}h</div>
+                  </div>
+                  <span className="font-extrabold text-[#635BFF]">{opp.duration_hours} hrs</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Shift History */}
+        <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-2xs space-y-4">
+          <h2 className="font-extrabold text-base text-gray-900 border-b border-gray-100 pb-3">
+            Shift History
+          </h2>
+          {attendance.length === 0 ? (
+            <div className="py-6 text-center text-xs text-gray-400">No shift history recorded yet.</div>
+          ) : (
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {attendance.map((att) => {
+                const opp = opportunities.find((o) => o.id === att.opportunity_id);
+                return (
+                  <div key={att.id} className="p-3 rounded-xl border border-gray-100 flex items-center justify-between text-xs">
+                    <div>
+                      <div className="font-bold text-gray-900">{opp?.title || 'Volunteer Shift'}</div>
+                      <div className="text-gray-500">{att.marked_at ? att.marked_at.split('T')[0] : 'Past'}</div>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-extrabold text-emerald-600 block">
+                        {att.status === 'here' ? `+${att.hours_awarded} hrs` : 'Did Not Attend'}
+                      </span>
+                      <span className="text-[10px] text-gray-400">
+                        {att.is_verified_org_at_completion ? 'Verified Org' : 'Pending Org (0 hrs)'}
                       </span>
                     </div>
-
-                    <h4 className="font-bold text-gray-900 text-sm">{opp.title}</h4>
-
-                    <div className="mt-2 space-y-1 text-xs text-gray-600">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                        <span>{opp.date} ({opp.start_time} - {opp.end_time})</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                        <span className="truncate">{opp.location_address || opp.location_type}</span>
-                      </div>
-                    </div>
                   </div>
-
-                  <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs">
-                    <a
-                      href={gcalUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-brand-600 hover:underline font-semibold flex items-center gap-1"
-                    >
-                      <Calendar className="w-3.5 h-3.5" /> Add to Google Calendar
-                    </a>
-
-                    <button
-                      onClick={() => handleUnsign(opp.id)}
-                      className="text-red-500 hover:text-red-700 font-semibold"
-                    >
-                      Unsign / Quit
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Saved Opportunities Section */}
-      <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-card space-y-4">
-        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-          <div className="flex items-center gap-2">
-            <Bookmark className="w-5 h-5 text-brand-600 fill-current" />
-            <h2 className="font-bold text-gray-900 text-base">Saved Opportunities ({savedOpportunities.length})</h2>
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
-
-        {savedOpportunities.length === 0 ? (
-          <div className="py-6 text-center text-xs text-gray-400">
-            No saved opportunities yet. Click the bookmark icon on any opportunity card to save it here.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {savedOpportunities.map((opp) => (
-              <div key={opp.id} className="p-4 rounded-2xl border border-gray-100 bg-white flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                    <span className="font-semibold text-brand-600">{opp.org_name}</span>
-                    <button
-                      onClick={() => handleRemoveSaved(opp.id)}
-                      className="text-gray-400 hover:text-red-500"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <h4 className="font-bold text-gray-900 text-xs mb-2">{opp.title}</h4>
-                  <div className="text-[11px] text-gray-500 flex items-center gap-2">
-                    <span>{opp.date}</span>
-                    <span>•</span>
-                    <span>{opp.duration_hours}h</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Shift History Section */}
-      <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-card space-y-4">
-        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-          <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-brand-600" />
-            <h2 className="font-bold text-gray-900 text-base">Shift History</h2>
-          </div>
-        </div>
-
-        {shiftHistory.length === 0 ? (
-          <div className="py-6 text-center text-xs text-gray-400">
-            No past completed shifts recorded yet.
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {shiftHistory.map(({ attendance: att, opportunity: opp }) => (
-              <div key={att.id} className="py-3.5 flex items-center justify-between text-xs">
-                <div>
-                  <div className="font-bold text-gray-900">{opp?.title || 'Volunteer Shift'}</div>
-                  <div className="text-gray-500 mt-0.5">{opp?.org_name} • {opp?.date}</div>
-                  {!att.is_verified_org_at_completion && att.status === 'here' && (
-                    <div className="text-[10px] text-amber-600 font-medium mt-1">
-                      0 hours awarded because organization was Pending at shift completion.
-                    </div>
-                  )}
-                </div>
-
-                <div className="text-right">
-                  <span className="font-bold text-gray-900 text-sm">
-                    {att.status === 'here' ? `+${att.hours_awarded} hrs` : '0 hrs'}
-                  </span>
-                  <div className="text-[10px] text-gray-400 capitalize">
-                    {att.status === 'here' ? 'Completed Shift (+1)' : 'Did Not Attend'}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

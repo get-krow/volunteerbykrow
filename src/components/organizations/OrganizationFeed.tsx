@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { Search, Building2, MapPin, CheckCircle2, AlertCircle, ArrowRight, Mail } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, Building2, MapPin, CheckCircle2, ArrowRight, Mail, X } from 'lucide-react';
 import { OrganizerProfile, Opportunity, UserProfile } from '@/lib/types';
 import { db } from '@/lib/db';
 import { OpportunityCard } from '../discover/OpportunityCard';
+import { OpportunityDetailModal } from '../discover/OpportunityDetailModal';
 
 interface OrganizationFeedProps {
   currentUser: UserProfile | null;
@@ -14,27 +15,23 @@ interface OrganizationFeedProps {
 export const OrganizationFeed: React.FC<OrganizationFeedProps> = ({ currentUser, onOpenAuth }) => {
   const [organizers, setOrganizers] = useState<OrganizerProfile[]>([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [savedIds, setSavedIds] = useState<string[]>([]);
   const [registrations, setRegistrations] = useState<any[]>([]);
 
-  React.useEffect(() => {
-    setOrganizers(db.getOrganizers());
-    setOpportunities(db.getOpportunities());
-    setSavedIds(db.getSavedOpportunityIds());
-    if (currentUser) {
-      setRegistrations(db.getVolunteerRegistrations(currentUser.id));
-    }
-  }, [currentUser]);
-
-  // Search & Filters State
+  // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVerification, setSelectedVerification] = useState<string>('all');
 
-  // Active Selected Organization Modal
+  // Selected Org Detail Modal
   const [selectedOrg, setSelectedOrg] = useState<OrganizerProfile | null>(null);
+  const [selectedOppForDetail, setSelectedOppForDetail] = useState<Opportunity | null>(null);
+
+  useEffect(() => {
+    refreshData();
+  }, [currentUser]);
 
   const refreshData = () => {
-    setSavedIds(db.getSavedOpportunityIds());
+    setOrganizers(db.getOrganizers());
+    setOpportunities(db.getOpportunities());
     if (currentUser) {
       setRegistrations(db.getVolunteerRegistrations(currentUser.id));
     }
@@ -46,63 +43,61 @@ export const OrganizationFeed: React.FC<OrganizationFeedProps> = ({ currentUser,
       return;
     }
     const res = db.registerForOpportunity(oppId, currentUser.id);
-    if (!res.success) alert(res.message);
-    refreshData();
-  };
-
-  const handleSaveToggle = (oppId: string) => {
-    if (!currentUser) {
-      onOpenAuth();
-      return;
+    if (!res.success) {
+      alert(res.message);
     }
-    db.toggleSavedOpportunity(currentUser.id, oppId);
     refreshData();
   };
 
-  // Registered set
-  const registeredOppIds = useMemo(() => new Set(registrations.map((r) => r.opportunity_id)), [registrations]);
-
-  // Filtered Organizers list
   const filteredOrganizers = useMemo(() => {
     return organizers.filter((org) => {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchName = org.org_name.toLowerCase().includes(q);
-        const matchBio = (org.bio || '').toLowerCase().includes(q);
         const matchCity = (org.hq_city || '').toLowerCase().includes(q);
-        if (!matchName && !matchBio && !matchCity) return false;
+        const matchBio = (org.bio || '').toLowerCase().includes(q);
+        if (!matchName && !matchCity && !matchBio) return false;
       }
 
-      if (selectedVerification !== 'all' && org.verification_status !== selectedVerification) {
-        return false;
+      if (selectedVerification !== 'all') {
+        if (selectedVerification === 'verified' && org.verification_status !== 'verified') return false;
+        if (selectedVerification === 'pending' && org.verification_status === 'verified') return false;
       }
 
       return true;
     });
   }, [organizers, searchQuery, selectedVerification]);
 
-  // Opportunities for selected organization
-  const selectedOrgOpportunities = useMemo(() => {
+  const orgOppMap = useMemo(() => {
+    const map = new Map<string, Opportunity[]>();
+    opportunities.forEach((opp) => {
+      if (opp.status === 'published') {
+        const existing = map.get(opp.org_id) || [];
+        existing.push(opp);
+        map.set(opp.org_id, existing);
+      }
+    });
+    return map;
+  }, [opportunities]);
+
+  const registeredOppIds = useMemo(() => {
+    return new Set(registrations.map((r) => r.opportunity_id));
+  }, [registrations]);
+
+  const selectedOrgOpps = useMemo(() => {
     if (!selectedOrg) return [];
-    return opportunities.filter((o) => o.org_id === selectedOrg.id && o.status === 'published');
-  }, [opportunities, selectedOrg]);
+    return orgOppMap.get(selectedOrg.id) || [];
+  }, [selectedOrg, orgOppMap]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Header Banner */}
-      <div className="rounded-3xl bg-gradient-to-r from-purple-900 via-brand-800 to-purple-700 text-white p-6 sm:p-8 shadow-lg">
-        <div className="max-w-xl">
-          <span className="px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-xs font-semibold text-purple-200 border border-white/10 inline-block mb-2">
-            Partner Directory
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Posts by Organizations</h1>
-          <p className="text-xs text-purple-100 mt-2">
-            Discover community non-profits, eco alliances, and tech clubs. Click an organization to view all of their active volunteer postings.
-          </p>
-        </div>
+    <div className="space-y-6">
+      {/* Header Section 26 Spec */}
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">Organizations</h1>
+        <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">Find community organizations you care about.</p>
       </div>
 
-      {/* Search & Filter bar */}
+      {/* Search & Verification Filter */}
       <div className="flex flex-col sm:flex-row items-center gap-3">
         <div className="relative flex-1 w-full">
           <Search className="w-4 h-4 absolute left-4 top-3.5 text-gray-400" />
@@ -110,152 +105,151 @@ export const OrganizationFeed: React.FC<OrganizationFeedProps> = ({ currentUser,
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search organizations by name, bio, or city..."
-            className="w-full pl-11 pr-4 py-2.5 rounded-2xl border border-gray-200 bg-white text-xs text-gray-900 focus:ring-2 focus:ring-brand-500 focus:outline-none shadow-card"
+            placeholder="Search by organization name, location, or bio..."
+            className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200/90 rounded-2xl text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 shadow-2xs"
           />
         </div>
 
-        <select
-          value={selectedVerification}
-          onChange={(e) => setSelectedVerification(e.target.value)}
-          className="bg-white border border-gray-200 rounded-2xl px-4 py-2.5 text-xs font-semibold text-gray-700 shadow-card focus:ring-2 focus:ring-brand-500 focus:outline-none w-full sm:w-auto"
-        >
-          <option value="all">All Verification Statuses</option>
-          <option value="verified">Verified Orgs Only</option>
-          <option value="pending">Pending Orgs Only</option>
-        </select>
+        <div className="grid grid-cols-3 gap-1 bg-white border border-gray-200/90 p-1 rounded-2xl text-xs font-bold w-full sm:w-auto shadow-2xs">
+          {[
+            { id: 'all', label: 'All Orgs' },
+            { id: 'verified', label: 'Verified' },
+            { id: 'pending', label: 'Pending' },
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setSelectedVerification(item.id)}
+              className={`py-1.5 px-3 rounded-xl transition-all ${
+                selectedVerification === item.id ? 'bg-[#635BFF] text-white shadow-2xs' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Organization Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredOrganizers.map((org) => {
-          const oppCount = opportunities.filter((o) => o.org_id === org.id && o.status === 'published').length;
-
-          return (
-            <div
-              key={org.id}
-              onClick={() => setSelectedOrg(org)}
-              className="bg-white rounded-3xl border border-gray-100 shadow-card hover:shadow-card-hover p-6 cursor-pointer transition-all duration-300 flex flex-col justify-between group"
-            >
-              <div>
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-14 h-14 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center overflow-hidden flex-shrink-0 group-hover:scale-105 transition-transform">
-                    {org.logo_url ? (
-                      <img src={org.logo_url} alt={org.org_name} className="w-full h-full object-cover" />
-                    ) : (
-                      <Building2 className="w-7 h-7 text-brand-600" />
-                    )}
+      {/* Organization Cards Grid */}
+      {filteredOrganizers.length === 0 ? (
+        <div className="bg-white rounded-2xl p-12 text-center border border-gray-200/80 shadow-2xs space-y-3">
+          <div className="text-3xl">🏢</div>
+          <h3 className="font-bold text-gray-900 text-base">No organizations found</h3>
+          <p className="text-xs text-gray-500 max-w-sm mx-auto">
+            Try searching for another keyword or selecting a different verification status filter.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredOrganizers.map((org) => {
+            const opps = orgOppMap.get(org.id) || [];
+            return (
+              <div
+                key={org.id}
+                onClick={() => setSelectedOrg(org)}
+                className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between group space-y-4"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-purple-100 border border-purple-200 text-[#635BFF] flex items-center justify-center font-bold text-base overflow-hidden flex-shrink-0">
+                      {org.logo_url ? (
+                        <img src={org.logo_url} alt={org.org_name} className="w-full h-full object-cover" />
+                      ) : (
+                        <Building2 className="w-6 h-6" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="font-extrabold text-base text-gray-900 group-hover:text-[#635BFF] transition-colors truncate">
+                          {org.org_name}
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-gray-500 font-medium">
+                        <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                        <span className="truncate">
+                          {org.no_hq ? 'No Physical HQ' : `${org.hq_city}, ${org.hq_province_state}`}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
-                  <span
-                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${
-                      org.verification_status === 'verified'
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : 'bg-amber-50 text-amber-700 border border-amber-200'
-                    }`}
-                  >
-                    <CheckCircle2 className="w-3 h-3" />
-                    {org.verification_status === 'verified' ? 'Verified' : 'Pending'}
-                  </span>
+                  <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">
+                    {org.bio || 'Community organization posting volunteer opportunities.'}
+                  </p>
                 </div>
 
-                <h3 className="text-base font-bold text-gray-900 group-hover:text-brand-600 transition-colors leading-snug mb-1">
-                  {org.org_name}
-                </h3>
-
-                <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-3">
-                  <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                  <span>
-                    {org.no_hq
-                      ? 'No Physical HQ'
-                      : `${org.hq_city || 'HQ'}, ${org.hq_province_state || ''}, ${org.hq_country || ''}`}
-                  </span>
+                <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+                  <span className="font-bold text-[#635BFF]">{opps.length} opportunities</span>
+                  {org.verification_status === 'verified' ? (
+                    <span className="bg-emerald-50 text-emerald-700 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border border-emerald-200">
+                      ✓ Verified
+                    </span>
+                  ) : (
+                    <span className="bg-amber-50 text-amber-700 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border border-amber-200">
+                      Pending
+                    </span>
+                  )}
                 </div>
-
-                <p className="text-xs text-gray-500 line-clamp-3 leading-relaxed mb-4">{org.bio}</p>
               </div>
+            );
+          })}
+        </div>
+      )}
 
-              <div className="pt-4 border-t border-gray-100 flex items-center justify-between text-xs font-semibold text-brand-600 group-hover:text-brand-700">
-                <span>{oppCount} Active Opportunities</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Organization Detail Dashboard Modal */}
+      {/* Organization Detail Dashboard Modal (Section 27 Spec) */}
       {selectedOrg && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 space-y-6 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <div className="bg-white sm:rounded-3xl shadow-2xl border border-gray-100 max-w-4xl w-full min-h-screen sm:min-h-0 overflow-hidden relative flex flex-col my-auto p-6 sm:p-8 space-y-6">
             <button
               onClick={() => setSelectedOrg(null)}
-              className="absolute top-6 right-6 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
             >
-              ✕
+              <X className="w-5 h-5" />
             </button>
 
-            {/* Org Header Info */}
-            <div className="flex flex-col sm:flex-row items-start gap-4 border-b border-gray-100 pb-6">
-              <div className="w-20 h-20 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+            {/* Org Header */}
+            <div className="flex items-center gap-4 border-b border-gray-100 pb-6">
+              <div className="w-16 h-16 rounded-2xl bg-purple-100 border border-purple-200 text-[#635BFF] flex items-center justify-center font-bold text-2xl overflow-hidden flex-shrink-0">
                 {selectedOrg.logo_url ? (
                   <img src={selectedOrg.logo_url} alt={selectedOrg.org_name} className="w-full h-full object-cover" />
                 ) : (
-                  <Building2 className="w-10 h-10 text-brand-600" />
+                  <Building2 className="w-8 h-8" />
                 )}
               </div>
-
-              <div className="space-y-1.5 flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-xl font-bold text-gray-900">{selectedOrg.org_name}</h2>
-                  <span
-                    className={`px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                      selectedOrg.verification_status === 'verified'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}
-                  >
-                    {selectedOrg.verification_status === 'verified' ? 'Verified Org' : 'Pending Org'}
-                  </span>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-black text-gray-900">{selectedOrg.org_name}</h2>
+                  {selectedOrg.verification_status === 'verified' && (
+                    <span className="bg-emerald-50 text-emerald-700 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border border-emerald-200">
+                      ✓ Verified
+                    </span>
+                  )}
                 </div>
-
-                <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                    {selectedOrg.no_hq
-                      ? 'No Physical HQ'
-                      : selectedOrg.hq_address || `${selectedOrg.hq_city}, ${selectedOrg.hq_province_state}`}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Mail className="w-3.5 h-3.5 text-gray-400" />
-                    contact@{selectedOrg.org_name.toLowerCase().replace(/[^a-z]/g, '')}.org
-                  </span>
-                </div>
-
-                <p className="text-xs text-gray-600 leading-relaxed pt-1">{selectedOrg.bio}</p>
+                <p className="text-xs text-gray-500 font-medium">
+                  {selectedOrg.no_hq ? 'No Physical HQ' : `${selectedOrg.hq_city}, ${selectedOrg.hq_province_state}, ${selectedOrg.hq_country}`}
+                </p>
+                <p className="text-xs text-gray-600 max-w-xl">{selectedOrg.bio}</p>
               </div>
             </div>
 
-            {/* Opportunities List for this Org */}
-            <div>
-              <h3 className="text-sm font-bold text-gray-900 mb-4">
-                Active Opportunities ({selectedOrgOpportunities.length})
+            {/* Org Opportunities Grid */}
+            <div className="space-y-4">
+              <h3 className="font-extrabold text-base text-gray-900">
+                Opportunities by {selectedOrg.org_name} ({selectedOrgOpps.length})
               </h3>
 
-              {selectedOrgOpportunities.length === 0 ? (
-                <div className="p-8 text-center bg-gray-50 rounded-2xl text-xs text-gray-500">
-                  No active opportunities currently posted by this organization.
+              {selectedOrgOpps.length === 0 ? (
+                <div className="py-8 text-center text-xs text-gray-400">
+                  This organization currently has no active published opportunities.
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {selectedOrgOpportunities.map((opp) => (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {selectedOrgOpps.map((opp) => (
                     <OpportunityCard
                       key={opp.id}
                       opportunity={opp}
                       currentUser={currentUser}
                       onRegister={handleRegister}
-                      onSaveToggle={handleSaveToggle}
-                      isSaved={savedIds.includes(opp.id)}
+                      onSelectCard={(o) => setSelectedOppForDetail(o)}
                       isRegistered={registeredOppIds.has(opp.id)}
                       onOpenAuth={onOpenAuth}
                     />
@@ -266,6 +260,17 @@ export const OrganizationFeed: React.FC<OrganizationFeedProps> = ({ currentUser,
           </div>
         </div>
       )}
+
+      {/* Opportunity Details Dedicated Modal */}
+      <OpportunityDetailModal
+        opportunity={selectedOppForDetail}
+        currentUser={currentUser}
+        isOpen={!!selectedOppForDetail}
+        onClose={() => setSelectedOppForDetail(null)}
+        onRegister={handleRegister}
+        isRegistered={selectedOppForDetail ? registeredOppIds.has(selectedOppForDetail.id) : false}
+        onOpenAuth={onOpenAuth}
+      />
     </div>
   );
 };

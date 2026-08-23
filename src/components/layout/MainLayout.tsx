@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
-import { AppSidebar } from './AppSidebar';
+import React, { useState, useEffect } from 'react';
 import { TopHeader } from './TopHeader';
+import { MobileBottomNav } from './MobileBottomNav';
 import { AuthModal } from '../auth/AuthModal';
 import { db } from '@/lib/db';
 import { UserProfile } from '@/lib/types';
@@ -12,11 +12,12 @@ interface MainLayoutProps {
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() =>
-    typeof window !== 'undefined' ? db.getCurrentUser() : null
-  );
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    setCurrentUser(db.getCurrentUser());
+  }, []);
 
   const handleOpenAuth = () => {
     setIsAuthModalOpen(true);
@@ -29,23 +30,17 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex text-slate-900">
-      {/* Left Sidebar */}
-      <AppSidebar
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        currentUser={currentUser}
-        onOpenAuth={handleOpenAuth}
-      />
+    <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900 selection:bg-[#635BFF] selection:text-white">
+      {/* Top Desktop Navigation Header (Section 5 Spec) */}
+      <TopHeader currentUser={currentUser} onOpenAuth={handleOpenAuth} />
 
-      {/* Main Content Area */}
-      <div className={`flex-1 flex flex-col transition-all duration-300 ${isSidebarCollapsed ? 'pl-16' : 'pl-64'}`}>
-        {/* Top Sticky Header */}
-        <TopHeader />
+      {/* Centered Main Content Area (Section 7 Spec: Max-width centered layout) */}
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-8">
+        {children}
+      </main>
 
-        {/* Page Inner Content */}
-        <main className="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto">{children}</main>
-      </div>
+      {/* Fixed Mobile Bottom Navigation Bar (Section 6 Spec) */}
+      <MobileBottomNav currentUser={currentUser} onOpenAuth={handleOpenAuth} />
 
       {/* Global Authentication Modal */}
       <AuthModal

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Building2,
   Plus,
@@ -19,7 +19,7 @@ import {
   Sparkles,
   ChevronRight,
   LogOut,
-  Save,
+  ArrowLeft,
 } from 'lucide-react';
 import { Opportunity, OrganizerProfile, UserProfile, AttendanceRecord } from '@/lib/types';
 import { db } from '@/lib/db';
@@ -44,24 +44,25 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
         hq_city: 'Vancouver',
         hq_address: '1428 Charles St, Vancouver, BC',
         no_hq: false,
-        bio: 'Partnering with community volunteers across Metro Vancouver.',
-        verification_status: 'verified',
+        bio: 'Community volunteer organization.',
+        verification_status: 'pending',
         created_at: new Date().toISOString(),
       }
     );
   });
 
-  const [opportunities, setOpportunities] = useState<Opportunity[]>(() => db.getOpportunities());
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [selectedOppForAttendance, setSelectedOppForAttendance] = useState<Opportunity | null>(null);
 
-  // Add Opportunity Form State
+  // Multi-step Add Opportunity Wizard State (Section 32 Spec)
+  const [wizardStep, setWizardStep] = useState<number>(1);
   const [title, setTitle] = useState('');
   const [bannerUrl, setBannerUrl] = useState('');
   const [date, setDate] = useState(new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0]);
   const [startTime, setStartTime] = useState('09:00');
-  const [endTime, setEndTime] = useState('13:00');
+  const [endTime, setEndTime] = useState('12:00');
   const [locationType, setLocationType] = useState<'physical' | 'online' | 'tbd'>('physical');
-  const [locationAddress, setLocationAddress] = useState('1428 Charles St, Vancouver, BC');
+  const [locationAddress, setLocationAddress] = useState('');
   const [categoryId, setCategoryId] = useState('community');
   const [minAge, setMinAge] = useState<string>('');
   const [maxAge, setMaxAge] = useState<string>('');
@@ -74,11 +75,14 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   // Volunteer Credential View Modal
   const [credentialUser, setCredentialUser] = useState<UserProfile | null>(null);
 
+  useEffect(() => {
+    refreshData();
+  }, [currentUser]);
+
   const refreshData = () => {
     setOpportunities(db.getOpportunities());
   };
 
-  // Calculate duration in hours automatically per specification #37
   const calculatedDuration = useMemo(() => {
     try {
       const [sH, sM] = startTime.split(':').map(Number);
@@ -87,7 +91,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
       const hrs = Math.max(0.5, diffMinutes / 60);
       return Math.round(hrs * 10) / 10;
     } catch (e) {
-      return 4;
+      return 3;
     }
   }, [startTime, endTime]);
 
@@ -99,8 +103,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
     return opportunities.filter((o) => o.org_id === org.id && (o.status === 'ended' || o.status === 'cancelled'));
   }, [opportunities, org.id]);
 
-  const handlePostOpportunity = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handlePostOpportunity = () => {
     if (!title.trim()) {
       alert('Please enter an opportunity title.');
       return;
@@ -130,6 +133,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
     setTitle('');
     setDescription('');
     setInstructions('');
+    setWizardStep(1);
     refreshData();
     setTab('opportunities');
   };
@@ -154,94 +158,87 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Organizer Header & Verification Status Banner */}
-      <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div className="space-y-6 max-w-5xl mx-auto">
+      {/* Header & Verification Status */}
+      <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-purple-100 border border-purple-200 text-brand-700 flex items-center justify-center font-bold text-xl overflow-hidden">
+          <div className="w-14 h-14 rounded-2xl bg-purple-100 border border-purple-200 text-[#635BFF] flex items-center justify-center font-bold text-xl overflow-hidden flex-shrink-0">
             {org.logo_url ? <img src={org.logo_url} alt={org.org_name} className="w-full h-full object-cover" /> : <Building2 className="w-7 h-7" />}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-gray-900">{org.org_name}</h1>
+              <h1 className="text-xl font-black text-gray-900">{org.org_name}</h1>
               <span
-                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
                   org.verification_status === 'verified'
-                    ? 'bg-emerald-100 text-emerald-800'
-                    : 'bg-amber-100 text-amber-800'
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-amber-50 text-amber-700 border border-amber-200'
                 }`}
               >
-                {org.verification_status === 'verified' ? 'Verified Org' : 'Pending Org'}
+                {org.verification_status === 'verified' ? '✓ Verified' : 'Pending'}
               </span>
             </div>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {org.no_hq ? 'No Physical HQ' : `${org.hq_city}, ${org.hq_province_state}, ${org.hq_country}`}
+            <p className="text-xs text-gray-500 font-medium mt-0.5">
+              {org.no_hq ? 'No Physical HQ' : `${org.hq_city}, ${org.hq_province_state}`}
             </p>
           </div>
         </div>
 
-        {/* 4 Primary Navigation Tabs */}
-        <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-2xl w-full sm:w-auto">
-          <button
-            onClick={() => setTab('opportunities')}
-            className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all ${
-              tab === 'opportunities' ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Our Opportunities
-          </button>
-          <button
-            onClick={() => setTab('add')}
-            className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all ${
-              tab === 'add' ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Add Opportunity
-          </button>
-          <button
-            onClick={() => setTab('attendance')}
-            className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all ${
-              tab === 'attendance' ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Attendance
-          </button>
-          <button
-            onClick={() => setTab('profile')}
-            className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all ${
-              tab === 'profile' ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Profile
-          </button>
+        {/* Desktop Header Sub-nav */}
+        <div className="flex items-center gap-1 bg-gray-100/80 p-1 rounded-2xl w-full sm:w-auto">
+          {[
+            { id: 'opportunities', label: 'Our Opportunities' },
+            { id: 'add', label: 'Add Opportunity' },
+            { id: 'attendance', label: 'Attendance' },
+            { id: 'profile', label: 'Profile' },
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setTab(item.id as any)}
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                tab === item.id ? 'bg-white text-[#635BFF] shadow-2xs' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* TAB 1: OUR OPPORTUNITIES */}
+      {/* TAB 1: OUR OPPORTUNITIES (Section 30 & 31 Spec) */}
       {tab === 'opportunities' && (
         <div className="space-y-6">
-          <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-card space-y-4">
-            <h2 className="font-bold text-gray-900 text-base border-b border-gray-100 pb-3">
-              Active / Upcoming Opportunities ({activeOpportunities.length})
-            </h2>
+          <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <h2 className="font-extrabold text-base text-gray-900">
+                Active Opportunities ({activeOpportunities.length})
+              </h2>
+              <button
+                onClick={() => setTab('add')}
+                className="px-3.5 py-1.5 bg-[#635BFF] hover:bg-[#5046E5] text-white rounded-xl font-bold text-xs flex items-center gap-1 shadow-2xs transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Opportunity
+              </button>
+            </div>
 
             {activeOpportunities.length === 0 ? (
-              <div className="py-8 text-center text-xs text-gray-400">
-                You have no active opportunities posted. Click "Add Opportunity" to post one!
+              <div className="py-8 text-center space-y-2">
+                <div className="text-2xl">📋</div>
+                <p className="text-xs text-gray-500 font-medium">You have no active opportunities posted.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {activeOpportunities.map((opp) => (
                   <div
                     key={opp.id}
-                    className="p-5 rounded-2xl border border-gray-100 bg-white hover:border-purple-200 shadow-sm transition-all space-y-3"
+                    className="p-4 rounded-2xl border border-gray-200/80 bg-white hover:border-purple-200 shadow-2xs transition-all space-y-3"
                   >
                     <div className="flex items-start justify-between">
                       <div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 bg-purple-50 px-2 py-0.5 rounded-full">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#635BFF] bg-purple-50 px-2 py-0.5 rounded-full">
                           {opp.category_id.replace('_', ' ')}
                         </span>
-                        <h3 className="font-bold text-gray-900 text-sm mt-1">{opp.title}</h3>
+                        <h3 className="font-extrabold text-gray-900 text-sm mt-1">{opp.title}</h3>
                       </div>
                       <div className="flex items-center gap-1">
                         <button
@@ -249,14 +246,14 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                             setSelectedOppForAttendance(opp);
                             setTab('attendance');
                           }}
-                          className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-brand-700 rounded-lg text-xs font-semibold"
+                          className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-[#635BFF] rounded-lg text-xs font-bold"
                         >
                           Attendance
                         </button>
                         <button
                           onClick={() => handleSoftDelete(opp.id)}
                           className="p-1 text-gray-400 hover:text-red-600 rounded-lg"
-                          title="Soft Delete / Cancel"
+                          title="Cancel Opportunity"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -267,10 +264,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                       <div>Date: <strong>{opp.date}</strong> ({opp.start_time} - {opp.end_time})</div>
                       <div>Duration: <strong>{opp.duration_hours} Hours</strong></div>
                       <div>
-                        Capacity:{' '}
-                        <strong>
-                          {opp.registered_count || 0} / {opp.max_volunteers || 'Unlimited'} spots filled
-                        </strong>
+                        Registered: <strong>{opp.registered_count || 0} / {opp.max_volunteers || 'Unlimited'}</strong>
                       </div>
                     </div>
                   </div>
@@ -279,23 +273,23 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
             )}
           </div>
 
-          {/* Ended Opportunities Section */}
-          <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-card space-y-4">
-            <h2 className="font-bold text-gray-900 text-base border-b border-gray-100 pb-3">
+          {/* Past Opportunities Section 31 Spec */}
+          <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-2xs space-y-4">
+            <h2 className="font-extrabold text-base text-gray-900 border-b border-gray-100 pb-3">
               Ended / Past Opportunities ({endedOpportunities.length})
             </h2>
 
             {endedOpportunities.length === 0 ? (
-              <div className="py-4 text-center text-xs text-gray-400">No past opportunities recorded.</div>
+              <div className="py-4 text-center text-xs text-gray-400">No past opportunities.</div>
             ) : (
               <div className="divide-y divide-gray-100">
                 {endedOpportunities.map((opp) => (
                   <div key={opp.id} className="py-3 flex items-center justify-between text-xs">
                     <div>
                       <div className="font-bold text-gray-900">{opp.title}</div>
-                      <div className="text-gray-500">{opp.date} • {opp.duration_hours}h</div>
+                      <div className="text-gray-500">{opp.date} · {opp.duration_hours}h</div>
                     </div>
-                    <span className="px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 font-semibold uppercase text-[10px]">
+                    <span className="px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 font-bold uppercase text-[10px]">
                       {opp.status}
                     </span>
                   </div>
@@ -306,198 +300,261 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
         </div>
       )}
 
-      {/* TAB 2: ADD OPPORTUNITY */}
+      {/* TAB 2: MULTI-STEP ADD OPPORTUNITY WIZARD (Section 32 Spec) */}
       {tab === 'add' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-card max-w-3xl mx-auto space-y-6">
-          <div className="border-b border-gray-100 pb-4">
-            <h2 className="text-lg font-bold text-gray-900">Post New Volunteer Opportunity</h2>
-            <p className="text-xs text-gray-500">
-              Hours are automatically calculated from start and end times ({calculatedDuration} hours).
-            </p>
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-2xs max-w-2xl mx-auto space-y-6">
+          <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+            <div>
+              <h2 className="text-lg font-black text-gray-900">Post New Opportunity</h2>
+              <p className="text-xs text-gray-500 font-medium">Step {wizardStep} of 6</p>
+            </div>
+            {wizardStep > 1 && (
+              <button
+                onClick={() => setWizardStep(wizardStep - 1)}
+                className="text-xs font-bold text-[#635BFF] hover:underline flex items-center gap-1"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Back
+              </button>
+            )}
           </div>
 
-          <form onSubmit={handlePostOpportunity} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Title of Post</label>
-              <input
-                type="text"
-                required
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Weekend Food Sorting & Hamper Assembly"
-                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Step 1: Title & Category */}
+          {wizardStep === 1 && (
+            <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Date of Opportunity</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Title of Opportunity</label>
                 <input
-                  type="date"
+                  type="text"
                   required
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. Weekend Beach Cleanup & Habitat Restoration"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-purple-500/20"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Start Time</label>
-                <input
-                  type="time"
-                  required
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">End Time</label>
-                <input
-                  type="time"
-                  required
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
-                />
-              </div>
-            </div>
 
-            <div className="p-3 bg-purple-50 rounded-xl text-xs text-brand-800 font-medium">
-              Calculated Duration: <strong>{calculatedDuration} Hours</strong> (Default volunteer hour value)
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Category</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Category</label>
                 <select
                   value={categoryId}
                   onChange={(e) => setCategoryId(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-purple-500/20"
                 >
-                  <option value="community">Community</option>
                   <option value="environment">Environment</option>
-                  <option value="food_hunger">Food & Hunger</option>
+                  <option value="community">Community</option>
                   <option value="education">Education</option>
-                  <option value="technology">Technology</option>
+                  <option value="food_hunger">Food & Hunger</option>
+                  <option value="health">Health</option>
                   <option value="events">Events</option>
                   <option value="sports">Sports</option>
-                  <option value="health">Health</option>
-                  <option value="animals">Animals</option>
                 </select>
               </div>
 
+              <button
+                onClick={() => {
+                  if (!title.trim()) return alert('Please enter a title');
+                  setWizardStep(2);
+                }}
+                className="w-full py-3 bg-[#635BFF] text-white font-bold text-xs rounded-xl shadow-xs"
+              >
+                Continue
+              </button>
+            </div>
+          )}
+
+          {/* Step 2: Date & Time */}
+          {wizardStep === 2 && (
+            <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Max Volunteers (Capacity)</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Event Date</label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Start Time</label>
+                  <input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">End Time</label>
+                  <input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 bg-purple-50 rounded-xl text-xs text-brand-800 font-semibold">
+                Calculated Duration: {calculatedDuration} Hours
+              </div>
+
+              <button
+                onClick={() => setWizardStep(3)}
+                className="w-full py-3 bg-[#635BFF] text-white font-bold text-xs rounded-xl shadow-xs"
+              >
+                Continue
+              </button>
+            </div>
+          )}
+
+          {/* Step 3: Location */}
+          {wizardStep === 3 && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Location Type</label>
+                <select
+                  value={locationType}
+                  onChange={(e) => setLocationType(e.target.value as any)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs mb-2"
+                >
+                  <option value="physical">Physical Address (Google Maps)</option>
+                  <option value="online">Online Event</option>
+                  <option value="tbd">Location TBD</option>
+                </select>
+
+                {locationType === 'physical' && (
+                  <input
+                    type="text"
+                    value={locationAddress}
+                    onChange={(e) => setLocationAddress(e.target.value)}
+                    placeholder="Enter street address or Google Maps location"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
+                  />
+                )}
+              </div>
+
+              <button
+                onClick={() => setWizardStep(4)}
+                className="w-full py-3 bg-[#635BFF] text-white font-bold text-xs rounded-xl shadow-xs"
+              >
+                Continue
+              </button>
+            </div>
+          )}
+
+          {/* Step 4: Capacity & Age */}
+          {wizardStep === 4 && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Max Volunteers Capacity</label>
                 <input
                   type="number"
                   value={maxVolunteers}
                   onChange={(e) => setMaxVolunteers(e.target.value)}
                   placeholder="e.g. 10 (Leave blank for unlimited)"
-                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
                 />
               </div>
-            </div>
 
-            {/* Age Range bounds */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Minimum Age (Optional)</label>
-                <input
-                  type="number"
-                  value={minAge}
-                  onChange={(e) => setMinAge(e.target.value)}
-                  placeholder="e.g. 14"
-                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Min Age (Optional)</label>
+                  <input
+                    type="number"
+                    value={minAge}
+                    onChange={(e) => setMinAge(e.target.value)}
+                    placeholder="e.g. 16"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Max Age (Optional)</label>
+                  <input
+                    type="number"
+                    value={maxAge}
+                    onChange={(e) => setMaxAge(e.target.value)}
+                    placeholder="e.g. 25"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Maximum Age (Optional)</label>
-                <input
-                  type="number"
-                  value={maxAge}
-                  onChange={(e) => setMaxAge(e.target.value)}
-                  placeholder="e.g. 18"
-                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
-                />
-              </div>
-            </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Location Type</label>
-              <select
-                value={locationType}
-                onChange={(e) => setLocationType(e.target.value as any)}
-                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500 mb-2"
+              <button
+                onClick={() => setWizardStep(5)}
+                className="w-full py-3 bg-[#635BFF] text-white font-bold text-xs rounded-xl shadow-xs"
               >
-                <option value="physical">Physical Address (Google Maps)</option>
-                <option value="online">Online</option>
-                <option value="tbd">Location TBD</option>
-              </select>
+                Continue
+              </button>
+            </div>
+          )}
 
-              {locationType === 'physical' && (
-                <input
-                  type="text"
-                  value={locationAddress}
-                  onChange={(e) => setLocationAddress(e.target.value)}
-                  placeholder="Google Maps location or street address"
-                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
+          {/* Step 5: Details */}
+          {wizardStep === 5 && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Description</label>
+                <textarea
+                  rows={3}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Describe what volunteers will be doing..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
                 />
-              )}
-            </div>
+              </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Upload Banner Image URL (Optional)</label>
-              <input
-                type="url"
-                value={bannerUrl}
-                onChange={(e) => setBannerUrl(e.target.value)}
-                placeholder="https://images.unsplash.com/photo-..."
-                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
-              />
-            </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Instructions for Volunteers</label>
+                <textarea
+                  rows={2}
+                  value={instructions}
+                  onChange={(e) => setInstructions(e.target.value)}
+                  placeholder="What to bring, dress code, parking..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
+                />
+              </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Description</label>
-              <textarea
-                rows={3}
-                required
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe what volunteers will be doing..."
-                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
-              />
+              <button
+                onClick={() => setWizardStep(6)}
+                className="w-full py-3 bg-[#635BFF] text-white font-bold text-xs rounded-xl shadow-xs"
+              >
+                Review Opportunity →
+              </button>
             </div>
+          )}
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Instructions for Volunteers</label>
-              <textarea
-                rows={2}
-                value={instructions}
-                onChange={(e) => setInstructions(e.target.value)}
-                placeholder="Dress code, parking instructions, what to bring..."
-                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
-              />
+          {/* Step 6: Review & Post (Section 34 Spec) */}
+          {wizardStep === 6 && (
+            <div className="space-y-4">
+              <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-2 text-xs">
+                <div className="font-extrabold text-sm text-gray-900">{title}</div>
+                <div>Date: <strong>{date}</strong> ({startTime} - {endTime})</div>
+                <div>Hours: <strong>{calculatedDuration} Hours</strong></div>
+                <div>Capacity: <strong>{maxVolunteers || 'Unlimited'} spots</strong></div>
+                <div>Location: <strong>{locationAddress || locationType}</strong></div>
+              </div>
+
+              <button
+                onClick={handlePostOpportunity}
+                className="w-full py-3.5 bg-[#635BFF] hover:bg-[#5046E5] text-white font-bold text-xs rounded-xl shadow-md uppercase tracking-wider"
+              >
+                POST OPPORTUNITY!
+              </button>
             </div>
-
-            <button
-              type="submit"
-              className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-2xl text-xs font-bold shadow-md shadow-brand-500/20 transition-all uppercase tracking-wider"
-            >
-              POST!
-            </button>
-          </form>
+          )}
         </div>
       )}
 
-      {/* TAB 3: ATTENDANCE */}
+      {/* TAB 3: ATTENDANCE TAP SHEET (Section 35 & 36 Spec) */}
       {tab === 'attendance' && (
-        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-card space-y-6">
+        <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-2xs space-y-6">
           <div className="border-b border-gray-100 pb-3 flex items-center justify-between">
-            <h2 className="font-bold text-gray-900 text-base">Attendance Management Sheet</h2>
+            <h2 className="font-extrabold text-base text-gray-900">Attendance Sheet</h2>
             {selectedOppForAttendance && (
               <button
                 onClick={() => handleEndEvent(selectedOppForAttendance.id)}
-                className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-sm transition-colors"
+                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
               >
                 End Event
               </button>
@@ -505,16 +562,16 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
           </div>
 
           <div className="space-y-4">
-            <label className="block text-xs font-semibold text-gray-700">Select Opportunity to Manage Attendance:</label>
+            <label className="block text-xs font-bold text-gray-700">Select Event:</label>
             <select
               value={selectedOppForAttendance?.id || ''}
               onChange={(e) => {
                 const found = opportunities.find((o) => o.id === e.target.value);
                 setSelectedOppForAttendance(found || null);
               }}
-              className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
             >
-              <option value="">Select an active opportunity...</option>
+              <option value="">Select active event...</option>
               {activeOpportunities.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.title} — {o.date}
@@ -523,94 +580,62 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
             </select>
 
             {selectedOppForAttendance ? (
-              <div className="space-y-4 pt-2">
-                <div className="p-4 bg-purple-50 rounded-2xl flex items-center justify-between text-xs text-brand-900 font-medium">
-                  <div>
-                    <strong>{selectedOppForAttendance.title}</strong> | Date: {selectedOppForAttendance.date}
-                  </div>
-                  <span>{selectedOppForAttendance.duration_hours} Hours</span>
-                </div>
+              <div className="space-y-3 pt-2">
+                {(() => {
+                  const registeredVolunteers = db.getVolunteerRegistrations(selectedOppForAttendance.id);
+                  if (registeredVolunteers.length === 0) {
+                    return (
+                      <div className="py-6 text-center text-xs text-gray-400">
+                        No volunteers registered for this event yet.
+                      </div>
+                    );
+                  }
 
-                <div className="space-y-2">
-                  {(() => {
-                    const registeredVolunteers = db.getVolunteerRegistrations(selectedOppForAttendance.id);
-                    if (registeredVolunteers.length === 0) {
-                      return (
-                        <div className="py-6 text-center text-xs text-gray-400">
-                          No volunteers have registered for this opportunity yet.
+                  return registeredVolunteers.map((reg) => {
+                    const volId = reg.volunteer_id;
+                    const volName = `Volunteer (${volId.slice(-4)})`;
+                    const attList = db.getAttendanceForOpportunity(selectedOppForAttendance.id);
+                    const currentAtt = attList.find((a) => a.volunteer_id === volId);
+                    const currentStatus = currentAtt?.status || 'unmarked';
+
+                    return (
+                      <div
+                        key={volId}
+                        className="p-4 rounded-2xl border border-gray-200/80 flex items-center justify-between text-xs bg-gray-50/50"
+                      >
+                        <span className="font-extrabold text-gray-900">{volName}</span>
+
+                        {/* Section 36 Spec: Tap-Optimized Attendance Buttons */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleMarkAttendance(selectedOppForAttendance.id, volId, 'here')}
+                            className={`px-4 py-2 rounded-xl font-extrabold text-xs transition-all ${
+                              currentStatus === 'here'
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'bg-white border border-gray-200 text-gray-700 hover:bg-emerald-50'
+                            }`}
+                          >
+                            {currentStatus === 'here' ? '✓ HERE' : 'HERE'}
+                          </button>
+                          <button
+                            onClick={() => handleMarkAttendance(selectedOppForAttendance.id, volId, 'not_here')}
+                            className={`px-4 py-2 rounded-xl font-extrabold text-xs transition-all ${
+                              currentStatus === 'not_here'
+                                ? 'bg-red-600 text-white shadow-xs'
+                                : 'bg-white border border-gray-200 text-gray-700 hover:bg-red-50'
+                            }`}
+                          >
+                            NOT HERE
+                          </button>
                         </div>
-                      );
-                    }
-
-                    return registeredVolunteers.map((reg) => {
-                      const volId = reg.volunteer_id;
-                      const volName = `Volunteer (${volId.slice(-4)})`;
-                      const volHours = db.calculateVolunteerTotalHours(volId);
-                      const attList = db.getAttendanceForOpportunity(selectedOppForAttendance.id);
-                      const currentAtt = attList.find((a) => a.volunteer_id === volId);
-                      const currentStatus = currentAtt?.status || 'unmarked';
-                      const badge = getBadgeForHours(volHours);
-
-                      return (
-                        <div
-                          key={volId}
-                          className="p-3.5 rounded-2xl border border-gray-100 flex items-center justify-between text-xs bg-gray-50/50"
-                        >
-                          <div className="flex items-center gap-3">
-                            <button
-                              onClick={() =>
-                                setCredentialUser({
-                                  id: volId,
-                                  role: 'volunteer',
-                                  email: 'volunteer@example.com',
-                                  name: volName,
-                                  city: 'Coquitlam',
-                                  country: 'Canada',
-                                  province_state: 'BC',
-                                  created_at: new Date().toISOString(),
-                                })
-                              }
-                              className="font-bold text-gray-900 hover:text-brand-600 flex items-center gap-1.5"
-                            >
-                              <span>{volName}</span>
-                              <span className="text-[10px] font-semibold text-brand-600 bg-purple-100 px-2 py-0.5 rounded-full">
-                                {badge.name}
-                              </span>
-                            </button>
-                          </div>
-
-                          {/* Immediate [Here] [Not Here] Actions per spec #51 */}
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleMarkAttendance(selectedOppForAttendance.id, volId, 'here')}
-                              className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
-                                currentStatus === 'here'
-                                  ? 'bg-emerald-600 text-white shadow-sm'
-                                  : 'bg-white border border-gray-200 text-gray-700 hover:bg-emerald-50'
-                              }`}
-                            >
-                              Here
-                            </button>
-                            <button
-                              onClick={() => handleMarkAttendance(selectedOppForAttendance.id, volId, 'not_here')}
-                              className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
-                                currentStatus === 'not_here'
-                                  ? 'bg-red-600 text-white shadow-sm'
-                                  : 'bg-white border border-gray-200 text-gray-700 hover:bg-red-50'
-                              }`}
-                            >
-                              Not Here
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             ) : (
               <div className="py-6 text-center text-xs text-gray-400">
-                Select an active opportunity above to manage volunteer attendance sheets.
+                Select an event above to take volunteer attendance.
               </div>
             )}
           </div>
@@ -619,12 +644,12 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
 
       {/* TAB 4: ORGANIZER PROFILE SETTINGS */}
       {tab === 'profile' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-card max-w-2xl mx-auto space-y-6">
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-2xs max-w-xl mx-auto space-y-6">
           <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-            <h2 className="text-lg font-bold text-gray-900">Organization Settings</h2>
+            <h2 className="text-lg font-black text-gray-900">Organization Settings</h2>
             <button
               onClick={onLogout}
-              className="px-3.5 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-full text-xs font-semibold flex items-center gap-1.5"
+              className="px-3.5 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-full text-xs font-bold flex items-center gap-1.5"
             >
               <LogOut className="w-3.5 h-3.5" /> Log Out
             </button>
@@ -638,78 +663,43 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
             className="space-y-4 text-xs"
           >
             <div>
-              <label className="block font-semibold text-gray-700 mb-1">Organization Name</label>
+              <label className="block font-bold text-gray-700 mb-1">Organization Name</label>
               <input
                 type="text"
                 value={org.org_name}
                 onChange={(e) => setOrg({ ...org, org_name: e.target.value })}
-                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
               />
             </div>
 
             <div>
-              <label className="block font-semibold text-gray-700 mb-1">HQ Street Address / Location</label>
+              <label className="block font-bold text-gray-700 mb-1">HQ Street Address</label>
               <input
                 type="text"
                 value={org.hq_address || ''}
                 onChange={(e) => setOrg({ ...org, hq_address: e.target.value })}
                 placeholder="1428 Charles St, Vancouver, BC"
-                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
               />
             </div>
 
             <div>
-              <label className="block font-semibold text-gray-700 mb-1">Organization Bio</label>
+              <label className="block font-bold text-gray-700 mb-1">Organization Bio</label>
               <textarea
                 rows={3}
                 value={org.bio || ''}
                 onChange={(e) => setOrg({ ...org, bio: e.target.value })}
-                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-2xl font-bold shadow-md shadow-brand-500/20"
+              className="w-full py-3 bg-[#635BFF] hover:bg-[#5046E5] text-white rounded-xl font-bold text-xs shadow-xs"
             >
               Save Organization Settings
             </button>
           </form>
-        </div>
-      )}
-
-      {/* Volunteer Credential Inspector Modal per spec #53 */}
-      {credentialUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-md w-full p-6 space-y-4 relative">
-            <button
-              onClick={() => setCredentialUser(null)}
-              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 rounded-full"
-            >
-              ✕
-            </button>
-
-            <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
-              <div className="w-12 h-12 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-lg">
-                {credentialUser.name.charAt(0)}
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900 text-base">{credentialUser.name}</h3>
-                <span className="text-xs text-brand-600 font-semibold">
-                  {getBadgeForHours(45).name}
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-2 text-xs text-gray-600">
-              <div>City / Area: <strong>{credentialUser.city}, {credentialUser.province_state}</strong></div>
-              <div>Total Awarded Volunteer Hours: <strong>45 hrs</strong></div>
-              <div>Completed Shifts: <strong>8 shifts</strong></div>
-              <div className="p-2.5 bg-amber-50 rounded-xl text-amber-800 text-[10px]">
-                Note: Volunteer exact address is never exposed to organizers per Krow privacy policy.
-              </div>
-            </div>
-          </div>
         </div>
       )}
     </div>
