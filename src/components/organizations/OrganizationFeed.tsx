@@ -12,12 +12,19 @@ interface OrganizationFeedProps {
 }
 
 export const OrganizationFeed: React.FC<OrganizationFeedProps> = ({ currentUser, onOpenAuth }) => {
-  const [organizers] = useState<OrganizerProfile[]>(() => db.getOrganizers());
-  const [opportunities] = useState<Opportunity[]>(() => db.getOpportunities());
-  const [savedIds, setSavedIds] = useState<string[]>(() => db.getSavedOpportunityIds());
-  const [registrations, setRegistrations] = useState(() =>
-    currentUser ? db.getVolunteerRegistrations(currentUser.id) : []
-  );
+  const [organizers, setOrganizers] = useState<OrganizerProfile[]>([]);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [registrations, setRegistrations] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    setOrganizers(db.getOrganizers());
+    setOpportunities(db.getOpportunities());
+    setSavedIds(db.getSavedOpportunityIds());
+    if (currentUser) {
+      setRegistrations(db.getVolunteerRegistrations(currentUser.id));
+    }
+  }, [currentUser]);
 
   // Search & Filters State
   const [searchQuery, setSearchQuery] = useState('');

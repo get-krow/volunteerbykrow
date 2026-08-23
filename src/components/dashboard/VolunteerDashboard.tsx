@@ -29,12 +29,17 @@ interface VolunteerDashboardProps {
 }
 
 export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentUser }) => {
-  const [registrations, setRegistrations] = useState<Registration[]>(() =>
-    db.getVolunteerRegistrations(currentUser.id)
-  );
-  const [opportunities, setOpportunities] = useState<Opportunity[]>(() => db.getOpportunities());
-  const [savedIds, setSavedIds] = useState<string[]>(() => db.getSavedOpportunityIds());
-  const [attendance, setAttendance] = useState<AttendanceRecord[]>(() => db.getAllAttendanceRecords());
+  const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+
+  React.useEffect(() => {
+    setRegistrations(db.getVolunteerRegistrations(currentUser.id));
+    setOpportunities(db.getOpportunities());
+    setSavedIds(db.getSavedOpportunityIds());
+    setAttendance(db.getAllAttendanceRecords());
+  }, [currentUser]);
 
   const refreshData = () => {
     setRegistrations(db.getVolunteerRegistrations(currentUser.id));

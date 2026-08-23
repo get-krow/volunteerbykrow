@@ -12,10 +12,17 @@ interface OpportunityFeedProps {
 }
 
 export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, onOpenAuth }) => {
-  const [opportunities, setOpportunities] = useState<Opportunity[]>(() => db.getOpportunities());
-  const [registrations, setRegistrations] = useState(() =>
-    currentUser ? db.getVolunteerRegistrations(currentUser.id) : []
-  );
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [registrations, setRegistrations] = useState<any[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
+
+  React.useEffect(() => {
+    setIsMounted(true);
+    setOpportunities(db.getOpportunities());
+    if (currentUser) {
+      setRegistrations(db.getVolunteerRegistrations(currentUser.id));
+    }
+  }, [currentUser]);
 
   // Search & Category State
   const [searchQuery, setSearchQuery] = useState('');

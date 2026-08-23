@@ -36,10 +36,16 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
     onRegister(opp.id);
   };
 
-  // Format date display
+  // Format date display (deterministic for SSR & Client hydration matching)
   const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length < 3) return dateStr;
+    const year = parts[0];
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${months[month] || parts[1]} ${day}, ${year}`;
   };
 
   // Format time range

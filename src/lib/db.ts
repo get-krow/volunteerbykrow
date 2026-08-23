@@ -68,17 +68,38 @@ class LocalDatabase {
 
   private loadFromStorage() {
     try {
+      // Force purge stale local storage if legacy mock keys exist
+      const cacheVer = localStorage.getItem('krow_cache_v4_clean');
+      if (!cacheVer) {
+        localStorage.clear();
+        localStorage.setItem('krow_cache_v4_clean', 'true');
+        return;
+      }
+
       const storedCategories = localStorage.getItem('krow_categories');
       if (storedCategories) this.categories = JSON.parse(storedCategories);
 
       const storedOrganizers = localStorage.getItem('krow_organizers');
-      if (storedOrganizers) this.organizers = JSON.parse(storedOrganizers);
+      if (storedOrganizers) {
+        const parsed = JSON.parse(storedOrganizers);
+        this.organizers = parsed.filter((o: any) => !['org-krow', 'org-1', 'org-2'].includes(o.id));
+      }
 
       const storedOpps = localStorage.getItem('krow_opportunities');
-      if (storedOpps) this.opportunities = JSON.parse(storedOpps);
+      if (storedOpps) {
+        const parsed = JSON.parse(storedOpps);
+        this.opportunities = parsed.filter((o: any) => !o.id.startsWith('opp-krow-'));
+      }
 
       const storedUser = localStorage.getItem('krow_currentUser');
-      if (storedUser) this.currentUser = JSON.parse(storedUser);
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        if (parsed?.id === 'vol-1' || parsed?.name === 'Alex Chen') {
+          this.currentUser = null;
+        } else {
+          this.currentUser = parsed;
+        }
+      }
 
       const storedRegs = localStorage.getItem('krow_registrations');
       if (storedRegs) this.registrations = JSON.parse(storedRegs);
