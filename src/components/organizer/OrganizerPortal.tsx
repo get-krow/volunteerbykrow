@@ -157,6 +157,20 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
     }
   };
 
+  const handlePermanentDeleteOpportunity = async (oppId: string) => {
+    if (confirm('Are you sure you want to permanently delete this opportunity from the database?')) {
+      await db.deleteOpportunity(oppId);
+      refreshData();
+    }
+  };
+
+  const handleClearPastOpportunities = async () => {
+    if (confirm('Are you sure you want to permanently delete ALL past/ended opportunities from the database? This cannot be undone.')) {
+      await db.clearPastOpportunities(org.id);
+      refreshData();
+    }
+  };
+
   const handleMarkAttendance = (oppId: string, volId: string, status: 'here' | 'not_here') => {
     db.markAttendance(oppId, volId, status);
     refreshData();
@@ -281,9 +295,19 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
 
           {/* Past Opportunities Section 31 Spec */}
           <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-2xs space-y-4">
-            <h2 className="font-extrabold text-base text-gray-900 border-b border-gray-100 pb-3">
-              Ended / Past Opportunities ({endedOpportunities.length})
-            </h2>
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <h2 className="font-extrabold text-base text-gray-900">
+                Ended / Past Opportunities ({endedOpportunities.length})
+              </h2>
+              {endedOpportunities.length > 0 && (
+                <button
+                  onClick={handleClearPastOpportunities}
+                  className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-xs flex items-center gap-1.5 border border-red-200 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Clear Past Opportunities
+                </button>
+              )}
+            </div>
 
             {endedOpportunities.length === 0 ? (
               <div className="py-4 text-center text-xs text-gray-400">No past opportunities.</div>
@@ -295,9 +319,18 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                       <div className="font-bold text-gray-900">{opp.title}</div>
                       <div className="text-gray-500">{opp.date} · {opp.duration_hours}h</div>
                     </div>
-                    <span className="px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 font-bold uppercase text-[10px]">
-                      {opp.status}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 font-bold uppercase text-[10px]">
+                        {opp.status}
+                      </span>
+                      <button
+                        onClick={() => handlePermanentDeleteOpportunity(opp.id)}
+                        className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                        title="Permanently Delete Opportunity"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

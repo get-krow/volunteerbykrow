@@ -417,6 +417,43 @@ class LocalDatabase {
     this.saveToStorage();
   }
 
+  public async deleteOpportunity(id: string): Promise<void> {
+    this.opportunities = this.opportunities.filter((o) => o.id !== id);
+    this.registrations = this.registrations.filter((r) => r.opportunity_id !== id);
+    this.attendance = this.attendance.filter((a) => a.opportunity_id !== id);
+    this.saveToStorage();
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('opportunities').delete().eq('id', id);
+      } catch (err) {
+        console.error('Supabase opportunity delete error:', err);
+      }
+    }
+  }
+
+  public async clearPastOpportunities(orgId: string): Promise<void> {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const pastOppIds = new Set(
+      this.opportunities
+        .filter((o) => o.org_id === orgId && (o.status === 'ended' || o.status === 'cancelled' || o.date < todayStr))
+        .map((o) => o.id)
+    );
+
+    this.opportunities = this.opportunities.filter((o) => !pastOppIds.has(o.id));
+    this.registrations = this.registrations.filter((r) => !pastOppIds.has(r.opportunity_id));
+    this.attendance = this.attendance.filter((a) => !pastOppIds.has(a.opportunity_id));
+    this.saveToStorage();
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('opportunities').delete().eq('org_id', orgId).in('status', ['ended', 'cancelled']);
+      } catch (err) {
+        console.error('Supabase clear past opportunities error:', err);
+      }
+    }
+  }
+
   // --- Registration Logic ---
   public registerForOpportunity(opportunityId: string, volunteerId: string): { success: boolean; message: string } {
     const opp = this.opportunities.find((o) => o.id === opportunityId);
