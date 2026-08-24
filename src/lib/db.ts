@@ -1,4 +1,5 @@
 import {
+  SystemRole,
   UserProfile,
   OrganizerProfile,
   Category,
@@ -47,6 +48,117 @@ class LocalDatabase {
   constructor() {
     if (typeof window !== 'undefined') {
       this.loadFromStorage();
+      this.initSupabaseAuthListener();
+      this.syncWithSupabase();
+    }
+  }
+
+  private initSupabaseAuthListener() {
+    if (!isSupabaseConfigured()) return;
+    try {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user && !this.currentUser) {
+          const user: UserProfile = {
+            id: session.user.id,
+            email: session.user.email || 'google_user@gmail.com',
+            role: (session.user.user_metadata?.role as SystemRole) || 'volunteer',
+            name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Google User',
+            avatar_url: session.user.user_metadata?.avatar_url,
+            country: 'Canada',
+            province_state: 'BC',
+            city: 'Vancouver',
+            created_at: new Date().toISOString(),
+          };
+          this.setCurrentUser(user);
+        }
+      });
+
+      supabase.auth.onAuthStateChange((event, session) => {
+        if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+          const user: UserProfile = {
+            id: session.user.id,
+            email: session.user.email || 'google_user@gmail.com',
+            role: (session.user.user_metadata?.role as SystemRole) || 'volunteer',
+            name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Google User',
+            avatar_url: session.user.user_metadata?.avatar_url,
+            country: 'Canada',
+            province_state: 'BC',
+            city: 'Vancouver',
+            created_at: new Date().toISOString(),
+          };
+          this.setCurrentUser(user);
+        }
+      });
+    } catch (e) {
+      console.error('Supabase auth listener error:', e);
+    }
+  }
+
+  public async syncWithSupabase(): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    try {
+      const { data: dbOpps } = await supabase.from('opportunities').select('*');
+      if (dbOpps && dbOpps.length > 0) {
+        dbOpps.forEach((sOpp: any) => {
+          const idx = this.opportunities.findIndex((o) => o.id === sOpp.id || o.title === sOpp.title);
+          const mappedOpp: Opportunity = {
+            id: sOpp.id,
+            org_id: sOpp.org_id,
+            org_name: sOpp.org_name || 'Organization',
+            org_verification_status: 'verified',
+            title: sOpp.title,
+            description: sOpp.description,
+            instructions: sOpp.instructions,
+            category_id: sOpp.category_id || 'community',
+            banner_url: sOpp.banner_url,
+            date: sOpp.date,
+            start_time: sOpp.start_time,
+            end_time: sOpp.end_time,
+            duration_hours: sOpp.duration_hours || 2,
+            location_type: sOpp.location_type || 'physical',
+            location_address: sOpp.location_address,
+            min_age: sOpp.min_age,
+            max_age: sOpp.max_age,
+            max_volunteers: sOpp.max_volunteers,
+            status: sOpp.status || 'published',
+            created_at: sOpp.created_at || new Date().toISOString(),
+          };
+          if (idx >= 0) {
+            this.opportunities[idx] = { ...this.opportunities[idx], ...mappedOpp };
+          } else {
+            this.opportunities.unshift(mappedOpp);
+          }
+        });
+        this.saveToStorage();
+      }
+
+      const { data: dbOrgs } = await supabase.from('organizer_profiles').select('*');
+      if (dbOrgs && dbOrgs.length > 0) {
+        dbOrgs.forEach((sOrg: any) => {
+          const idx = this.organizers.findIndex((o) => o.id === sOrg.id);
+          const mappedOrg: OrganizerProfile = {
+            id: sOrg.id,
+            org_name: sOrg.org_name,
+            hq_country: sOrg.hq_country || 'Canada',
+            hq_province_state: sOrg.hq_province_state || 'BC',
+            hq_city: sOrg.hq_city || 'Vancouver',
+            hq_address: sOrg.hq_address,
+            no_hq: sOrg.no_hq || false,
+            bio: sOrg.bio,
+            logo_url: sOrg.logo_url,
+            verification_status: sOrg.verification_status || 'verified',
+            created_at: sOrg.created_at || new Date().toISOString(),
+          };
+          if (idx >= 0) {
+            this.organizers[idx] = { ...this.organizers[idx], ...mappedOrg };
+          } else {
+            this.organizers.push(mappedOrg);
+          }
+        });
+        this.saveToStorage();
+      }
+    } catch (e) {
+      console.error('Supabase sync error:', e);
     }
   }
 

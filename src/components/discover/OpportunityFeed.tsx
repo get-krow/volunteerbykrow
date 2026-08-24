@@ -59,7 +59,8 @@ export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, o
     };
   }, [currentUser]);
 
-  const refreshData = () => {
+  const refreshData = async () => {
+    await db.syncWithSupabase();
     setOpportunities(db.getOpportunities());
     if (currentUser) {
       setRegistrations(db.getVolunteerRegistrations(currentUser.id));
