@@ -29,11 +29,16 @@ import { DeleteAccountModal } from '../auth/DeleteAccountModal';
 interface OrganizerPortalProps {
   currentUser: UserProfile;
   onLogout: () => void;
+  initialTab?: 'opportunities' | 'add' | 'attendance' | 'profile';
 }
 
-export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, onLogout }) => {
-  const [tab, setTab] = useState<'opportunities' | 'add' | 'attendance' | 'profile'>('opportunities');
+export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, onLogout, initialTab = 'opportunities' }) => {
+  const [tab, setTab] = useState<'opportunities' | 'add' | 'attendance' | 'profile'>(initialTab);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (initialTab) setTab(initialTab);
+  }, [initialTab]);
 
   // Organizer info
   const [org, setOrg] = useState<OrganizerProfile>(() => {
@@ -189,26 +194,6 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
               {org.no_hq ? 'No Physical HQ' : `${org.hq_city}, ${org.hq_province_state}`}
             </p>
           </div>
-        </div>
-
-        {/* Desktop Header Sub-nav */}
-        <div className="flex items-center gap-1 bg-gray-100/80 p-1 rounded-2xl w-full sm:w-auto">
-          {[
-            { id: 'opportunities', label: 'Our Opportunities' },
-            { id: 'add', label: 'Add Opportunity' },
-            { id: 'attendance', label: 'Attendance' },
-            { id: 'profile', label: 'Profile' },
-          ].map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setTab(item.id as any)}
-              className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all ${
-                tab === item.id ? 'bg-white text-[#635BFF] shadow-2xs' : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -665,7 +650,9 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              alert('Organization profile updated.');
+              db.saveOrganizer(org);
+              db.updateProfile({ name: org.org_name });
+              alert('Organization profile settings saved successfully!');
             }}
             className="space-y-4 text-xs"
           >

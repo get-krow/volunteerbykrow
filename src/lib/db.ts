@@ -129,12 +129,52 @@ class LocalDatabase {
   public setCurrentUser(user: UserProfile | null) {
     this.currentUser = user;
     this.saveToStorage();
+
+    if (user && isSupabaseConfigured()) {
+      supabase
+        .from('profiles')
+        .upsert([
+          {
+            id: user.id.startsWith('usr_') ? undefined : user.id,
+            role: user.role,
+            email: user.email,
+            name: user.name,
+            dob: user.dob || null,
+            country: user.country || 'Canada',
+            province_state: user.province_state || 'BC',
+            city: user.city || 'Vancouver',
+            bio: user.bio || null,
+            avatar_url: user.avatar_url || null,
+          },
+        ])
+        .then(({ error }) => {
+          if (error) console.error('Supabase profile upsert error:', error);
+        });
+    }
   }
 
   public updateProfile(updates: Partial<UserProfile>) {
     if (!this.currentUser) return;
     this.currentUser = { ...this.currentUser, ...updates };
     this.saveToStorage();
+
+    if (isSupabaseConfigured()) {
+      supabase
+        .from('profiles')
+        .update({
+          name: updates.name,
+          dob: updates.dob,
+          country: updates.country,
+          province_state: updates.province_state,
+          city: updates.city,
+          bio: updates.bio,
+          avatar_url: updates.avatar_url,
+        })
+        .eq('id', this.currentUser.id)
+        .then(({ error }) => {
+          if (error) console.error('Supabase profile update error:', error);
+        });
+    }
   }
 
   // --- Categories ---
@@ -220,6 +260,15 @@ class LocalDatabase {
     } else {
       this.organizers.push(org);
     }
+
+    // Update opportunities matching this org_id so org_name stays in sync!
+    this.opportunities.forEach((opp) => {
+      if (opp.org_id === org.id) {
+        opp.org_name = org.org_name;
+        opp.org_logo_url = org.logo_url;
+      }
+    });
+
     this.saveToStorage();
 
     if (isSupabaseConfigured()) {
@@ -227,7 +276,7 @@ class LocalDatabase {
         .from('organizer_profiles')
         .upsert([
           {
-            id: org.id,
+            id: org.id.startsWith('usr_') ? undefined : org.id,
             org_name: org.org_name,
             hq_country: org.hq_country,
             hq_province_state: org.hq_province_state,
