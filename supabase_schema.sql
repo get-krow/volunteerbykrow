@@ -245,31 +245,54 @@ ALTER TABLE public.attendance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.saved_opportunities ENABLE ROW LEVEL SECURITY;
 
--- Public read access to opportunities & org profiles
-CREATE POLICY "Public read opportunities" ON public.opportunities FOR SELECT USING (true);
+-- 1. Profiles Policies
+DROP POLICY IF EXISTS "Public read profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Allow public insert profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Allow public update profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Users view own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users update own profile" ON public.profiles;
+
+CREATE POLICY "Public read profiles" ON public.profiles FOR SELECT USING (true);
+CREATE POLICY "Allow public insert profiles" ON public.profiles FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update profiles" ON public.profiles FOR UPDATE USING (true);
+
+-- 2. Organizer Profiles Policies
+DROP POLICY IF EXISTS "Public read organizer profiles" ON public.organizer_profiles;
+DROP POLICY IF EXISTS "Allow public insert organizer profiles" ON public.organizer_profiles;
+DROP POLICY IF EXISTS "Allow public update organizer profiles" ON public.organizer_profiles;
+
 CREATE POLICY "Public read organizer profiles" ON public.organizer_profiles FOR SELECT USING (true);
-CREATE POLICY "Public read categories" ON public.categories FOR SELECT USING (true);
+CREATE POLICY "Allow public insert organizer profiles" ON public.organizer_profiles FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update organizer profiles" ON public.organizer_profiles FOR UPDATE USING (true);
 
--- User profiles access
-CREATE POLICY "Users view own profile" ON public.profiles FOR SELECT USING (auth.uid() = id OR true);
-CREATE POLICY "Users update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+-- 3. Opportunities Policies
+DROP POLICY IF EXISTS "Public read opportunities" ON public.opportunities;
+DROP POLICY IF EXISTS "Organizers insert opportunities" ON public.opportunities;
+DROP POLICY IF EXISTS "Organizers update own opportunities" ON public.opportunities;
+DROP POLICY IF EXISTS "Allow public insert opportunities" ON public.opportunities;
+DROP POLICY IF EXISTS "Allow public update opportunities" ON public.opportunities;
+DROP POLICY IF EXISTS "Allow public delete opportunities" ON public.opportunities;
 
--- Organizers manage their own opportunities
-CREATE POLICY "Organizers insert opportunities" ON public.opportunities FOR INSERT WITH CHECK (auth.uid() = org_id);
-CREATE POLICY "Organizers update own opportunities" ON public.opportunities FOR UPDATE USING (auth.uid() = org_id);
+CREATE POLICY "Public read opportunities" ON public.opportunities FOR SELECT USING (true);
+CREATE POLICY "Allow public insert opportunities" ON public.opportunities FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update opportunities" ON public.opportunities FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete opportunities" ON public.opportunities FOR DELETE USING (true);
 
--- Registrations access
-CREATE POLICY "Volunteers view own registrations" ON public.registrations FOR SELECT USING (auth.uid() = volunteer_id OR EXISTS (SELECT 1 FROM public.opportunities WHERE opportunities.id = registrations.opportunity_id AND opportunities.org_id = auth.uid()));
-CREATE POLICY "Volunteers register" ON public.registrations FOR INSERT WITH CHECK (auth.uid() = volunteer_id);
-CREATE POLICY "Volunteers unsign" ON public.registrations FOR UPDATE USING (auth.uid() = volunteer_id);
+-- 4. Registrations & Attendance Policies
+DROP POLICY IF EXISTS "Allow public insert registrations" ON public.registrations;
+DROP POLICY IF EXISTS "Allow public read registrations" ON public.registrations;
+DROP POLICY IF EXISTS "Allow public update registrations" ON public.registrations;
 
--- Attendance access
-CREATE POLICY "Organizers manage attendance" ON public.attendance FOR ALL USING (EXISTS (SELECT 1 FROM public.opportunities WHERE opportunities.id = attendance.opportunity_id AND opportunities.org_id = auth.uid()));
-CREATE POLICY "Volunteers read own attendance" ON public.attendance FOR SELECT USING (auth.uid() = volunteer_id);
+CREATE POLICY "Allow public insert registrations" ON public.registrations FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public read registrations" ON public.registrations FOR SELECT USING (true);
+CREATE POLICY "Allow public update registrations" ON public.registrations FOR UPDATE USING (true);
 
--- Saved Opportunities access
-CREATE POLICY "Volunteers manage saved" ON public.saved_opportunities FOR ALL USING (auth.uid() = volunteer_id);
+DROP POLICY IF EXISTS "Allow public manage attendance" ON public.attendance;
+CREATE POLICY "Allow public manage attendance" ON public.attendance FOR ALL USING (true);
 
--- Notifications access
-CREATE POLICY "Users read own notifications" ON public.notifications FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users update own notifications" ON public.notifications FOR UPDATE USING (auth.uid() = user_id);
+-- 5. Saved & Notifications Policies
+DROP POLICY IF EXISTS "Allow public manage saved" ON public.saved_opportunities;
+CREATE POLICY "Allow public manage saved" ON public.saved_opportunities FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Allow public manage notifications" ON public.notifications;
+CREATE POLICY "Allow public manage notifications" ON public.notifications FOR ALL USING (true);

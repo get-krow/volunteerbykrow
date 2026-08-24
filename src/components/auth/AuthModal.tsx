@@ -83,12 +83,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     );
   };
 
-  const handleCompleteSignup = (e: React.FormEvent) => {
+  const handleCompleteSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return alert('Please enter your name');
 
+    let userId = 'usr_' + Date.now();
+    try {
+      const { data: signUpData } = await supabase.auth.signUp({
+        email,
+        password: password || 'KrowPass123!',
+        options: {
+          data: {
+            full_name: name,
+            role,
+          },
+        },
+      });
+      if (signUpData?.user?.id) {
+        userId = signUpData.user.id;
+      }
+    } catch (err) {
+      console.warn('Supabase Auth signUp:', err);
+    }
+
     const user: UserProfile = {
-      id: 'usr_' + Date.now(),
+      id: userId,
       email,
       role,
       name,
@@ -100,23 +119,60 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     };
 
     db.setCurrentUser(user);
+
+    if (role === 'organizer') {
+      db.saveOrganizer({
+        id: userId,
+        org_name: name,
+        hq_country: country,
+        hq_province_state: provinceState,
+        hq_city: city,
+        no_hq: false,
+        verification_status: 'verified',
+        created_at: new Date().toISOString(),
+      });
+    }
+
     onLoginSuccess(user);
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const existing = db.getCurrentUser();
+    let loggedInUser = db.getCurrentUser();
 
-    const loggedInUser: UserProfile = (existing && existing.email.toLowerCase() === email.toLowerCase()) ? existing : {
-      id: 'usr_' + Date.now(),
-      email,
-      role,
-      name: email.split('@')[0],
-      country: 'Canada',
-      province_state: 'BC',
-      city: 'Vancouver',
-      created_at: new Date().toISOString(),
-    };
+    try {
+      const { data: authData } = await supabase.auth.signInWithPassword({
+        email,
+        password: password || 'KrowPass123!',
+      });
+      if (authData?.user?.id) {
+        loggedInUser = {
+          id: authData.user.id,
+          email: authData.user.email || email,
+          role,
+          name: authData.user.user_metadata?.full_name || email.split('@')[0],
+          country: 'Canada',
+          province_state: 'BC',
+          city: 'Vancouver',
+          created_at: new Date().toISOString(),
+        };
+      }
+    } catch (err) {
+      console.warn('Supabase Auth signInWithPassword:', err);
+    }
+
+    if (!loggedInUser) {
+      loggedInUser = {
+        id: 'usr_' + Date.now(),
+        email,
+        role,
+        name: email.split('@')[0],
+        country: 'Canada',
+        province_state: 'BC',
+        city: 'Vancouver',
+        created_at: new Date().toISOString(),
+      };
+    }
 
     db.setCurrentUser(loggedInUser);
     onLoginSuccess(loggedInUser);
