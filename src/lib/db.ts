@@ -33,6 +33,20 @@ const INITIAL_CATEGORIES: Category[] = [
   { id: 'other', name: 'Other', is_custom: false },
 ];
 
+export function ensureUUID(id?: string): string {
+  if (!id) return '00000000-0000-4000-8000-000000000000';
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (uuidRegex.test(id)) return id;
+
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash << 5) - hash + id.charCodeAt(i);
+    hash |= 0;
+  }
+  const hex = Math.abs(hash).toString(16).padStart(12, '0');
+  return `00000000-0000-4000-8000-${hex.slice(0, 12)}`;
+}
+
 // Clean Launch Ready State (Zero Fake Mocks)
 class LocalDatabase {
   private categories: Category[] = INITIAL_CATEGORIES;
@@ -241,6 +255,9 @@ class LocalDatabase {
   }
 
   public setCurrentUser(user: UserProfile | null) {
+    if (user) {
+      user.id = ensureUUID(user.id);
+    }
     this.currentUser = user;
     this.saveToStorage();
 
@@ -249,7 +266,7 @@ class LocalDatabase {
         .from('profiles')
         .upsert([
           {
-            id: user.id.startsWith('usr_') ? undefined : user.id,
+            id: user.id,
             role: user.role,
             email: user.email,
             name: user.name,
@@ -368,6 +385,9 @@ class LocalDatabase {
   }
 
   public saveOrganizer(org: OrganizerProfile) {
+    const orgId = ensureUUID(org.id);
+    org.id = orgId;
+
     const index = this.organizers.findIndex((o) => o.id === org.id);
     if (index >= 0) {
       this.organizers[index] = { ...this.organizers[index], ...org };
@@ -386,24 +406,42 @@ class LocalDatabase {
     this.saveToStorage();
 
     if (isSupabaseConfigured()) {
+      // 1. Ensure parent profile row exists in Supabase
       supabase
-        .from('organizer_profiles')
+        .from('profiles')
         .upsert([
           {
-            id: org.id.startsWith('usr_') ? undefined : org.id,
-            org_name: org.org_name,
-            hq_country: org.hq_country,
-            hq_province_state: org.hq_province_state,
-            hq_city: org.hq_city,
-            hq_address: org.hq_address,
-            no_hq: org.no_hq,
-            bio: org.bio,
-            logo_url: org.logo_url,
-            verification_status: org.verification_status,
+            id: orgId,
+            role: 'organizer',
+            email: this.currentUser?.email || `${org.org_name.toLowerCase().replace(/\s+/g, '')}@org.com`,
+            name: org.org_name,
+            country: org.hq_country || 'Canada',
+            province_state: org.hq_province_state || 'BC',
+            city: org.hq_city || 'Vancouver',
           },
         ])
-        .then(({ error }) => {
-          if (error) console.error('Supabase organizer upsert error:', error);
+        .then(({ error: pErr }) => {
+          if (pErr) console.error('Supabase profile upsert for org error:', pErr);
+          // 2. Upsert organizer profile row
+          supabase
+            .from('organizer_profiles')
+            .upsert([
+              {
+                id: orgId,
+                org_name: org.org_name,
+                hq_country: org.hq_country || 'Canada',
+                hq_province_state: org.hq_province_state || 'BC',
+                hq_city: org.hq_city || 'Vancouver',
+                hq_address: org.hq_address || null,
+                no_hq: org.no_hq || false,
+                bio: org.bio || null,
+                logo_url: org.logo_url || null,
+                verification_status: org.verification_status || 'verified',
+              },
+            ])
+            .then(({ error: oErr }) => {
+              if (oErr) console.error('Supabase organizer upsert error:', oErr);
+            });
         });
     }
   }
@@ -427,12 +465,16 @@ class LocalDatabase {
   }
 
   public createOpportunity(oppData: Omit<Opportunity, 'id' | 'created_at' | 'status'> & Partial<Opportunity>): Opportunity {
-    let org = this.organizers.find((o) => o.id === oppData.org_id);
-    if (!org && oppData.org_id) {
+    const oppId = ensureUUID('opp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4));
+    const rawOrgId = oppData.org_id || this.currentUser?.id || 'org-krow';
+    const orgId = ensureUUID(rawOrgId);
+
+    let org = this.organizers.find((o) => o.id === orgId);
+    if (!org) {
       org = {
-        id: oppData.org_id,
+        id: orgId,
         org_name: oppData.org_name || 'Organization',
-        verification_status: oppData.org_verification_status || 'pending',
+        verification_status: oppData.org_verification_status || 'verified',
         no_hq: false,
         created_at: new Date().toISOString(),
       };
@@ -441,9 +483,10 @@ class LocalDatabase {
 
     const newOpp: Opportunity = {
       ...oppData,
-      id: 'opp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+      id: oppId,
+      org_id: orgId,
       org_name: oppData.org_name || org?.org_name || 'Organization',
-      org_verification_status: oppData.org_verification_status || org?.verification_status || 'pending',
+      org_verification_status: oppData.org_verification_status || org?.verification_status || 'verified',
       org_logo_url: oppData.org_logo_url || org?.logo_url || undefined,
       status: 'published',
       registered_count: 0,
@@ -454,30 +497,55 @@ class LocalDatabase {
     this.saveToStorage();
 
     if (isSupabaseConfigured()) {
+      // Ensure parent profile & organizer profile rows exist before inserting opportunity into Supabase
       supabase
-        .from('opportunities')
-        .insert([
+        .from('profiles')
+        .upsert([
           {
-            org_id: newOpp.org_id,
-            title: newOpp.title,
-            description: newOpp.description,
-            instructions: newOpp.instructions,
-            category_id: newOpp.category_id,
-            banner_url: newOpp.banner_url,
-            date: newOpp.date,
-            start_time: newOpp.start_time,
-            end_time: newOpp.end_time,
-            duration_hours: newOpp.duration_hours,
-            location_type: newOpp.location_type,
-            location_address: newOpp.location_address,
-            min_age: newOpp.min_age,
-            max_age: newOpp.max_age,
-            max_volunteers: newOpp.max_volunteers,
-            status: newOpp.status,
+            id: orgId,
+            role: 'organizer',
+            email: `${(newOpp.org_name || 'org').toLowerCase().replace(/\s+/g, '')}@org.com`,
+            name: newOpp.org_name || 'Organization',
           },
         ])
-        .then(({ error }) => {
-          if (error) console.error('Supabase opportunity insert error:', error);
+        .then(() => {
+          supabase
+            .from('organizer_profiles')
+            .upsert([
+              {
+                id: orgId,
+                org_name: newOpp.org_name || 'Organization',
+                verification_status: 'verified',
+              },
+            ])
+            .then(() => {
+              supabase
+                .from('opportunities')
+                .upsert([
+                  {
+                    id: oppId,
+                    org_id: orgId,
+                    title: newOpp.title,
+                    description: newOpp.description || null,
+                    instructions: newOpp.instructions || null,
+                    category_id: newOpp.category_id || 'community',
+                    banner_url: newOpp.banner_url || null,
+                    date: newOpp.date,
+                    start_time: newOpp.start_time,
+                    end_time: newOpp.end_time,
+                    duration_hours: newOpp.duration_hours || 2,
+                    location_type: newOpp.location_type || 'physical',
+                    location_address: newOpp.location_address || null,
+                    min_age: newOpp.min_age || null,
+                    max_age: newOpp.max_age || null,
+                    max_volunteers: newOpp.max_volunteers || null,
+                    status: newOpp.status || 'published',
+                  },
+                ])
+                .then(({ error: oppErr }) => {
+                  if (oppErr) console.error('Supabase opportunity upsert error:', oppErr);
+                });
+            });
         });
     }
 
