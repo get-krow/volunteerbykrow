@@ -16,7 +16,21 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
 
   useEffect(() => {
-    setCurrentUser(db.getCurrentUser());
+    const syncAuth = () => {
+      setCurrentUser(db.getCurrentUser());
+      if (typeof window !== 'undefined' && window.location.hash.includes('access_token=')) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+    };
+
+    syncAuth();
+
+    window.addEventListener('focus', syncAuth);
+    window.addEventListener('storage', syncAuth);
+    return () => {
+      window.removeEventListener('focus', syncAuth);
+      window.removeEventListener('storage', syncAuth);
+    };
   }, []);
 
   const handleOpenAuth = () => {

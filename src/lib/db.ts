@@ -56,37 +56,39 @@ class LocalDatabase {
   private initSupabaseAuthListener() {
     if (!isSupabaseConfigured()) return;
     try {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session?.user && !this.currentUser) {
-          const user: UserProfile = {
-            id: session.user.id,
-            email: session.user.email || 'google_user@gmail.com',
-            role: (session.user.user_metadata?.role as SystemRole) || 'volunteer',
-            name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Google User',
-            avatar_url: session.user.user_metadata?.avatar_url,
-            country: 'Canada',
-            province_state: 'BC',
-            city: 'Vancouver',
-            created_at: new Date().toISOString(),
-          };
-          this.setCurrentUser(user);
+      const processSession = (session: any) => {
+        if (!session?.user) return;
+        const rawMeta = session.user.user_metadata || {};
+        const fullName = rawMeta.full_name || rawMeta.name || session.user.email?.split('@')[0] || 'Volunteer';
+        const avatarUrl = rawMeta.avatar_url || rawMeta.picture || null;
+
+        const user: UserProfile = {
+          id: session.user.id,
+          email: session.user.email || 'volunteer@gmail.com',
+          role: (rawMeta.role as SystemRole) || 'volunteer',
+          name: fullName,
+          avatar_url: avatarUrl,
+          country: 'Canada',
+          province_state: 'BC',
+          city: 'Vancouver',
+          created_at: new Date().toISOString(),
+        };
+
+        this.setCurrentUser(user);
+
+        // Clean ugly OAuth token hash fragment from browser URL bar
+        if (typeof window !== 'undefined' && window.location.hash.includes('access_token=')) {
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
         }
+      };
+
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) processSession(session);
       });
 
       supabase.auth.onAuthStateChange((event, session) => {
-        if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-          const user: UserProfile = {
-            id: session.user.id,
-            email: session.user.email || 'google_user@gmail.com',
-            role: (session.user.user_metadata?.role as SystemRole) || 'volunteer',
-            name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Google User',
-            avatar_url: session.user.user_metadata?.avatar_url,
-            country: 'Canada',
-            province_state: 'BC',
-            city: 'Vancouver',
-            created_at: new Date().toISOString(),
-          };
-          this.setCurrentUser(user);
+        if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+          processSession(session);
         }
       });
     } catch (e) {
