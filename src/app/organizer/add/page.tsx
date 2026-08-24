@@ -16,7 +16,7 @@ export default function OrganizerAddPage() {
   return (
     <MainLayout>
       {currentUser ? (
-        <OrganizerPortal currentUser={currentUser} onLogout={() => { db.setCurrentUser(null); setCurrentUser(null); }} />
+        <OrganizerPortal initialTab="add" currentUser={currentUser} onLogout={() => { db.setCurrentUser(null); setCurrentUser(null); }} />
       ) : (
         <div className="max-w-md mx-auto my-20 p-8 bg-white rounded-3xl border border-gray-200 shadow-sm text-center">
           <h2 className="text-xl font-extrabold text-gray-900 mb-2">Organizer Portal</h2>

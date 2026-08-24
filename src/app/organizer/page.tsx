@@ -23,7 +23,7 @@ export default function OrganizerPage() {
   return (
     <MainLayout>
       {currentUser ? (
-        <OrganizerPortal currentUser={currentUser} onLogout={handleLogout} />
+        <OrganizerPortal initialTab="opportunities" currentUser={currentUser} onLogout={handleLogout} />
       ) : (
         <div className="max-w-md mx-auto my-20 p-8 bg-white rounded-3xl border border-gray-200 shadow-sm text-center space-y-4">
           <h2 className="text-xl font-extrabold text-gray-900">Organizer Portal</h2>
