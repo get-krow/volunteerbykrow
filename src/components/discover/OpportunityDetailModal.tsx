@@ -80,11 +80,23 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
             <div className="md:col-span-7 space-y-6">
               {/* Banner Image */}
               <div className="relative h-56 sm:h-72 w-full bg-gray-100 overflow-hidden sm:rounded-2xl">
-                <img
-                  src={opp.banner_url || 'https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=1000&auto=format&fit=crop&q=80'}
-                  alt={opp.title}
-                  className="w-full h-full object-cover"
-                />
+                {opp.banner_url ? (
+                  <img
+                    src={opp.banner_url}
+                    alt={opp.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-[#635BFF] via-[#5046E5] to-[#3730A3] flex items-center justify-center p-6 relative overflow-hidden">
+                    <div className="absolute -right-10 -bottom-10 w-56 h-56 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+                    <div className="text-center text-white space-y-2 z-10 px-4">
+                      <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md mx-auto flex items-center justify-center font-black text-xl shadow-md border border-white/20">
+                        {opp.org_name ? opp.org_name.charAt(0) : 'V'}
+                      </div>
+                      <p className="font-extrabold text-sm sm:text-base tracking-wide opacity-95">{opp.org_name || 'Volunteer Opportunity'}</p>
+                    </div>
+                  </div>
+                )}
                 <div className="absolute top-4 left-4 flex items-center gap-2">
                   <span className="bg-white/95 backdrop-blur-sm border border-gray-200/80 text-gray-900 text-xs font-bold px-3 py-1 rounded-full shadow-xs">
                     {opp.custom_role || 'General'}

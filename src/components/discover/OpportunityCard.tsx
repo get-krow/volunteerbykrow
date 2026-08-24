@@ -63,11 +63,23 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
       <div>
         {/* Section 10 Spec: Image (consistent proportion) */}
         <div className="relative h-44 w-full bg-gray-100 overflow-hidden">
-          <img
-            src={opp.banner_url || 'https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=800&auto=format&fit=crop&q=80'}
-            alt={opp.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
+          {opp.banner_url ? (
+            <img
+              src={opp.banner_url}
+              alt={opp.title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-[#635BFF] via-[#5046E5] to-[#3730A3] flex items-center justify-center p-4 relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
+              <div className="absolute -right-6 -bottom-6 w-32 h-32 rounded-full bg-white/10 blur-xl pointer-events-none" />
+              <div className="text-center text-white space-y-1 z-10 px-2">
+                <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-md mx-auto flex items-center justify-center font-black text-sm shadow-xs">
+                  {opp.org_name ? opp.org_name.charAt(0) : 'V'}
+                </div>
+                <p className="font-extrabold text-xs tracking-wide opacity-90 line-clamp-1">{opp.org_name || 'Volunteer Opportunity'}</p>
+              </div>
+            </div>
+          )}
 
           {/* Role & Age Badges */}
           <div className="absolute top-3 left-3 flex items-center gap-1.5 z-10">

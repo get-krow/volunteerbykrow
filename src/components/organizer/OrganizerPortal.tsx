@@ -20,6 +20,8 @@ import {
   ChevronRight,
   LogOut,
   ArrowLeft,
+  Upload,
+  Image,
 } from 'lucide-react';
 import { Opportunity, OrganizerProfile, UserProfile, AttendanceRecord } from '@/lib/types';
 import { db } from '@/lib/db';
@@ -169,6 +171,22 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
       await db.clearPastOpportunities(org.id);
       refreshData();
     }
+  };
+
+  const handleBannerFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image file size must be less than 5MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        setBannerUrl(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleMarkAttendance = (oppId: string, volId: string, status: 'here' | 'not_here') => {
@@ -387,6 +405,80 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                   <option value="events">Events</option>
                   <option value="sports">Sports</option>
                 </select>
+              </div>
+
+              {/* Banner Image Upload & Blank Purple Banner Fallback */}
+              <div className="space-y-2 pt-2 border-t border-gray-100">
+                <label className="block text-xs font-bold text-gray-700">Opportunity Banner Image</label>
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  id="opportunity_banner_upload"
+                  onChange={handleBannerFileUpload}
+                  className="hidden"
+                />
+
+                {bannerUrl ? (
+                  <div className="relative h-40 w-full rounded-2xl overflow-hidden border border-gray-200 group">
+                    <img src={bannerUrl} alt="Banner Preview" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gray-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <label
+                        htmlFor="opportunity_banner_upload"
+                        className="px-3 py-1.5 bg-white text-gray-900 text-xs font-bold rounded-xl cursor-pointer shadow-md hover:bg-gray-100"
+                      >
+                        Change Image
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setBannerUrl('')}
+                        className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-xl shadow-md hover:bg-red-700"
+                      >
+                        Remove (Use Purple Banner)
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="opportunity_banner_upload"
+                      className="border-2 border-dashed border-purple-200 hover:border-[#635BFF] bg-purple-50/40 hover:bg-purple-50/80 transition-all rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer text-center group"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-purple-100 text-[#635BFF] flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                        <Upload className="w-5 h-5" />
+                      </div>
+                      <span className="font-extrabold text-xs text-gray-900">Click to Upload Banner Image</span>
+                      <span className="text-[10px] text-gray-400 mt-0.5">Upload image file from device (PNG, JPG, WEBP)</span>
+                    </label>
+
+                    {/* Preview of Purple Blank Banner Fallback */}
+                    <div className="h-16 w-full rounded-2xl bg-gradient-to-br from-[#635BFF] via-[#5046E5] to-[#3730A3] p-3 flex items-center justify-between text-white shadow-2xs">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-xs">
+                          {org.org_name ? org.org_name.charAt(0) : 'V'}
+                        </div>
+                        <div>
+                          <p className="font-extrabold text-xs">{org.org_name}</p>
+                          <p className="text-[10px] text-purple-200">Default Purple Blank Banner (Active)</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold bg-white/20 backdrop-blur-md px-2 py-0.5 rounded-full">
+                        Blank Purple Banner
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="pt-1">
+                  <label className="block text-[11px] font-medium text-gray-500 mb-1">Or paste Image URL (Optional)</label>
+                  <input
+                    type="url"
+                    value={bannerUrl.startsWith('data:') ? '' : bannerUrl}
+                    onChange={(e) => setBannerUrl(e.target.value)}
+                    placeholder="https://images.unsplash.com/photo-..."
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-purple-500/20"
+                  />
+                </div>
               </div>
 
               <button
