@@ -190,9 +190,23 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                 {org.verification_status === 'verified' ? '✓ Verified' : 'Pending'}
               </span>
             </div>
-            <p className="text-xs text-gray-500 font-medium mt-0.5">
-              {org.no_hq ? 'No Physical HQ' : `${org.hq_city}, ${org.hq_province_state}`}
-            </p>
+            <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium mt-0.5">
+              <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+              {org.no_hq ? (
+                <span>🌐 Virtual / Remote (No Physical HQ)</span>
+              ) : (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                    (org.hq_address ? org.hq_address + ', ' : '') + org.hq_city + ', ' + org.hq_province_state + ', ' + org.hq_country
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#635BFF] hover:underline font-semibold flex items-center gap-1"
+                >
+                  {org.hq_address ? `${org.hq_address}, ${org.hq_city}` : `${org.hq_city}, ${org.hq_province_state}`} (View on Google Maps)
+                </a>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -660,22 +674,102 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
               <label className="block font-bold text-gray-700 mb-1">Organization Name</label>
               <input
                 type="text"
+                required
                 value={org.org_name}
                 onChange={(e) => setOrg({ ...org, org_name: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-purple-500/20"
               />
             </div>
 
-            <div>
-              <label className="block font-bold text-gray-700 mb-1">HQ Street Address</label>
-              <input
-                type="text"
-                value={org.hq_address || ''}
-                onChange={(e) => setOrg({ ...org, hq_address: e.target.value })}
-                placeholder="1428 Charles St, Vancouver, BC"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
-              />
+            {/* Square Checkbox for No HQ (Section 27 Spec) */}
+            <div className="p-3 bg-purple-50/50 border border-purple-100 rounded-xl space-y-2">
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={org.no_hq}
+                  onChange={(e) =>
+                    setOrg({
+                      ...org,
+                      no_hq: e.target.checked,
+                      hq_address: e.target.checked ? '' : org.hq_address,
+                    })
+                  }
+                  className="w-4 h-4 text-[#635BFF] rounded border-gray-300 focus:ring-[#635BFF]"
+                />
+                <span className="font-bold text-gray-900">This organization does not have a physical HQ (Virtual / Remote)</span>
+              </label>
+              <p className="text-[11px] text-gray-500 pl-6">
+                Check this box if your organization operates entirely remotely or online.
+              </p>
             </div>
+
+            {/* HQ Location Details */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Country</label>
+                <select
+                  value={org.hq_country || 'Canada'}
+                  onChange={(e) => setOrg({ ...org, hq_country: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs"
+                >
+                  <option value="Canada">Canada</option>
+                  <option value="United States">United States</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Province / State</label>
+                <input
+                  type="text"
+                  required
+                  value={org.hq_province_state || ''}
+                  onChange={(e) => setOrg({ ...org, hq_province_state: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">City</label>
+                <input
+                  type="text"
+                  required
+                  value={org.hq_city || ''}
+                  onChange={(e) => setOrg({ ...org, hq_city: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs"
+                />
+              </div>
+            </div>
+
+            {!org.no_hq ? (
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-bold text-gray-700">HQ Street Address</label>
+                  {org.hq_address && (
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                        org.hq_address + ', ' + org.hq_city + ', ' + org.hq_province_state + ', ' + org.hq_country
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-bold text-[#635BFF] hover:underline flex items-center gap-1"
+                    >
+                      <MapPin className="w-3 h-3" /> View on Google Maps
+                    </a>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={org.hq_address || ''}
+                  onChange={(e) => setOrg({ ...org, hq_address: e.target.value })}
+                  placeholder="e.g. 1428 Charles St, Vancouver, BC"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-purple-500/20"
+                />
+              </div>
+            ) : (
+              <div className="p-3 bg-gray-50 border border-gray-200/60 rounded-xl text-[11px] text-gray-500 font-medium">
+                🌐 Address disabled because "No Physical HQ (Virtual / Remote)" is selected.
+              </div>
+            )}
 
             <div>
               <label className="block font-bold text-gray-700 mb-1">Organization Bio</label>
@@ -683,6 +777,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                 rows={3}
                 value={org.bio || ''}
                 onChange={(e) => setOrg({ ...org, bio: e.target.value })}
+                placeholder="Describe your organization's mission and community goals..."
                 className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
               />
             </div>

@@ -165,9 +165,21 @@ export const OrganizationFeed: React.FC<OrganizationFeedProps> = ({ currentUser,
                       </div>
                       <div className="flex items-center gap-1 text-xs text-gray-500 font-medium">
                         <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                        <span className="truncate">
-                          {org.no_hq ? 'No Physical HQ' : `${org.hq_city}, ${org.hq_province_state}`}
-                        </span>
+                        {org.no_hq ? (
+                          <span className="truncate">🌐 No Physical HQ (Virtual)</span>
+                        ) : (
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                              (org.hq_address ? org.hq_address + ', ' : '') + org.hq_city + ', ' + org.hq_province_state + ', ' + org.hq_country
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="truncate text-[#635BFF] hover:underline font-semibold"
+                          >
+                            {org.hq_address ? `${org.hq_address}, ${org.hq_city}` : `${org.hq_city}, ${org.hq_province_state}`}
+                          </a>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -224,9 +236,23 @@ export const OrganizationFeed: React.FC<OrganizationFeedProps> = ({ currentUser,
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-gray-500 font-medium">
-                  {selectedOrg.no_hq ? 'No Physical HQ' : `${selectedOrg.hq_city}, ${selectedOrg.hq_province_state}, ${selectedOrg.hq_country}`}
-                </p>
+                <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
+                  <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                  {selectedOrg.no_hq ? (
+                    <span>🌐 Virtual / Remote (No Physical HQ)</span>
+                  ) : (
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                        (selectedOrg.hq_address ? selectedOrg.hq_address + ', ' : '') + selectedOrg.hq_city + ', ' + selectedOrg.hq_province_state + ', ' + selectedOrg.hq_country
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#635BFF] hover:underline font-semibold flex items-center gap-1"
+                    >
+                      {selectedOrg.hq_address ? `${selectedOrg.hq_address}, ${selectedOrg.hq_city}, ${selectedOrg.hq_province_state}` : `${selectedOrg.hq_city}, ${selectedOrg.hq_province_state}, ${selectedOrg.hq_country}`} (View on Google Maps)
+                    </a>
+                  )}
+                </div>
                 <p className="text-xs text-gray-600 max-w-xl">{selectedOrg.bio}</p>
               </div>
             </div>
