@@ -191,6 +191,16 @@ class LocalDatabase {
     this.saveToStorage();
   }
 
+  public saveOrganizer(org: OrganizerProfile) {
+    const index = this.organizers.findIndex((o) => o.id === org.id);
+    if (index >= 0) {
+      this.organizers[index] = { ...this.organizers[index], ...org };
+    } else {
+      this.organizers.push(org);
+    }
+    this.saveToStorage();
+  }
+
   // --- Opportunities ---
   public getOpportunities(): Opportunity[] {
     return this.opportunities.map((opp) => {
@@ -209,20 +219,31 @@ class LocalDatabase {
     return opps.find((o) => o.id === id);
   }
 
-  public createOpportunity(oppData: Omit<Opportunity, 'id' | 'created_at' | 'status'>): Opportunity {
-    const org = this.organizers.find((o) => o.id === oppData.org_id);
+  public createOpportunity(oppData: Omit<Opportunity, 'id' | 'created_at' | 'status'> & Partial<Opportunity>): Opportunity {
+    let org = this.organizers.find((o) => o.id === oppData.org_id);
+    if (!org && oppData.org_id) {
+      org = {
+        id: oppData.org_id,
+        org_name: oppData.org_name || 'Organization',
+        verification_status: oppData.org_verification_status || 'pending',
+        no_hq: false,
+        created_at: new Date().toISOString(),
+      };
+      this.organizers.push(org);
+    }
+
     const newOpp: Opportunity = {
       ...oppData,
       id: 'opp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
-      org_name: org?.org_name || 'Organization',
-      org_verification_status: org?.verification_status || 'pending',
-      org_logo_url: org?.logo_url || undefined,
+      org_name: oppData.org_name || org?.org_name || 'Organization',
+      org_verification_status: oppData.org_verification_status || org?.verification_status || 'pending',
+      org_logo_url: oppData.org_logo_url || org?.logo_url || undefined,
       status: 'published',
       registered_count: 0,
       created_at: new Date().toISOString(),
     };
 
-    this.opportunities.push(newOpp);
+    this.opportunities.unshift(newOpp);
     this.saveToStorage();
     return newOpp;
   }

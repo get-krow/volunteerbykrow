@@ -46,6 +46,17 @@ export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, o
   useEffect(() => {
     setIsMounted(true);
     refreshData();
+
+    const handleSync = () => {
+      refreshData();
+    };
+
+    window.addEventListener('focus', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('focus', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
   }, [currentUser]);
 
   const refreshData = () => {

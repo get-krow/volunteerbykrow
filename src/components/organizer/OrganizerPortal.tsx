@@ -109,8 +109,13 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
       return;
     }
 
+    db.saveOrganizer(org);
+
     db.createOpportunity({
       org_id: org.id,
+      org_name: org.org_name,
+      org_verification_status: org.verification_status,
+      org_logo_url: org.logo_url,
       title,
       description,
       instructions,
