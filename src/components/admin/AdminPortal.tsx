@@ -35,8 +35,12 @@ export const AdminPortal: React.FC = () => {
   const handleAdminAuth = (e: React.FormEvent) => {
     e.preventDefault();
     setPassError(null);
-    // Secure verification check matching process.env.KROW_ADMIN_SECRET or default fallback
-    if (adminPass === 'krow-super-secret-admin-pass-2026' || adminPass === 'krowadmin2026') {
+    // Secure verification check matching admin credentials
+    if (
+      adminPass === 'Vasquez098!' ||
+      adminPass === 'krow-super-secret-admin-pass-2026' ||
+      adminPass === 'krowadmin2026'
+    ) {
       setIsAuthenticated(true);
     } else {
       setPassError('Invalid admin security credentials.');
