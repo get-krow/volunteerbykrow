@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { User, MapPin, Calendar, Mail, Save, LogOut, Trash2, Camera, ShieldAlert } from 'lucide-react';
 import { UserProfile } from '@/lib/types';
 import { db } from '@/lib/db';
+import { DeleteAccountModal } from '../auth/DeleteAccountModal';
 
 interface VolunteerProfileProps {
   currentUser: UserProfile;
@@ -20,6 +21,7 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
   const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar_url || '');
 
   const [isSaved, setIsSaved] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,16 +36,6 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
     });
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
-  };
-
-  const handleDeleteAccount = () => {
-    const confirmation = prompt(
-      'WARNING: Deleting your account will anonymize your personal data while preserving historical volunteer hour totals for organizational audit purposes. Type DELETE to confirm:'
-    );
-    if (confirmation === 'DELETE') {
-      db.setCurrentUser(null);
-      onLogout();
-    }
   };
 
   return (
@@ -71,7 +63,7 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
         <form onSubmit={handleSave} className="space-y-4">
           {/* Avatar Upload */}
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-xl overflow-hidden border-2 border-brand-200">
+            <div className="w-16 h-16 rounded-full bg-purple-100 text-[#635BFF] flex items-center justify-center font-bold text-xl overflow-hidden border-2 border-purple-200">
               {avatarUrl ? (
                 <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
               ) : (
@@ -85,7 +77,7 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
                 value={avatarUrl}
                 onChange={(e) => setAvatarUrl(e.target.value)}
                 placeholder="https://images.unsplash.com/photo-..."
-                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500 focus:outline-none"
+                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
               />
             </div>
           </div>
@@ -97,7 +89,7 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500 focus:outline-none"
+              className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
             />
           </div>
 
@@ -108,7 +100,7 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
               required
               value={dob}
               onChange={(e) => setDob(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500 focus:outline-none"
+              className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
             />
             <p className="text-[10px] text-gray-400 mt-1">
               Age eligibility is evaluated based on your exact age on the opportunity event date.
@@ -121,7 +113,7 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
               <select
                 value={country}
                 onChange={(e) => setCountry(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
+                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-purple-500"
               >
                 <option value="Canada">Canada</option>
                 <option value="United States">United States</option>
@@ -135,7 +127,7 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
                 required
                 value={provinceState}
                 onChange={(e) => setProvinceState(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
+                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-purple-500"
               />
             </div>
 
@@ -146,7 +138,7 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
                 required
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
+                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-purple-500"
               />
             </div>
           </div>
@@ -158,19 +150,19 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               placeholder="Tell organizers a little about yourself and your volunteer goals..."
-              className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
+              className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-purple-500"
             />
           </div>
 
           <button
             type="submit"
-            className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-2xl text-xs font-bold shadow-md shadow-brand-500/20 transition-all flex items-center justify-center gap-2"
+            className="w-full py-2.5 bg-[#635BFF] hover:bg-[#5046E5] text-white rounded-2xl text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2"
           >
             <Save className="w-4 h-4" /> Save Profile Changes
           </button>
         </form>
 
-        {/* Danger Zone */}
+        {/* Section 50 Spec: Danger Zone Delete Account */}
         <div className="pt-6 border-t border-red-100">
           <div className="p-4 rounded-2xl bg-red-50/50 border border-red-100 flex items-center justify-between">
             <div>
@@ -178,11 +170,11 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
                 <ShieldAlert className="w-4 h-4 text-red-600" /> Danger Zone: Delete Account
               </h4>
               <p className="text-[11px] text-red-700 mt-0.5">
-                Anonymizes your personal profile while preserving historical audit records.
+                Permanently removes your personal profile information.
               </p>
             </div>
             <button
-              onClick={handleDeleteAccount}
+              onClick={() => setIsDeleteModalOpen(true)}
               className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-sm transition-colors flex-shrink-0"
             >
               Delete Account
@@ -190,6 +182,13 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
           </div>
         </div>
       </div>
+
+      <DeleteAccountModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        userId={currentUser.id}
+        userName={currentUser.name}
+      />
     </div>
   );
 };

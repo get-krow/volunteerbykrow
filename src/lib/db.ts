@@ -12,6 +12,7 @@ import {
   RecurrenceType,
 } from './types';
 import { getBadgeForHours } from './badges';
+import { supabase, isSupabaseConfigured } from './supabase';
 
 // Predefined Specification Categories (Spec #23 & #102)
 const INITIAL_CATEGORIES: Category[] = [
@@ -191,6 +192,27 @@ class LocalDatabase {
     this.saveToStorage();
   }
 
+  public async deleteAccount(userId: string): Promise<void> {
+    if (this.currentUser?.id === userId) {
+      this.currentUser = null;
+    }
+    this.organizers = this.organizers.filter((o) => o.id !== userId);
+    this.opportunities = this.opportunities.filter((o) => o.org_id !== userId);
+    this.registrations = this.registrations.filter((r) => r.volunteer_id !== userId);
+    this.attendance = this.attendance.filter((a) => a.volunteer_id !== userId);
+    this.saveToStorage();
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('organizer_profiles').delete().eq('id', userId);
+        await supabase.from('profiles').delete().eq('id', userId);
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.error('Supabase account delete error:', err);
+      }
+    }
+  }
+
   public saveOrganizer(org: OrganizerProfile) {
     const index = this.organizers.findIndex((o) => o.id === org.id);
     if (index >= 0) {
@@ -199,6 +221,28 @@ class LocalDatabase {
       this.organizers.push(org);
     }
     this.saveToStorage();
+
+    if (isSupabaseConfigured()) {
+      supabase
+        .from('organizer_profiles')
+        .upsert([
+          {
+            id: org.id,
+            org_name: org.org_name,
+            hq_country: org.hq_country,
+            hq_province_state: org.hq_province_state,
+            hq_city: org.hq_city,
+            hq_address: org.hq_address,
+            no_hq: org.no_hq,
+            bio: org.bio,
+            logo_url: org.logo_url,
+            verification_status: org.verification_status,
+          },
+        ])
+        .then(({ error }) => {
+          if (error) console.error('Supabase organizer upsert error:', error);
+        });
+    }
   }
 
   // --- Opportunities ---
@@ -245,6 +289,35 @@ class LocalDatabase {
 
     this.opportunities.unshift(newOpp);
     this.saveToStorage();
+
+    if (isSupabaseConfigured()) {
+      supabase
+        .from('opportunities')
+        .insert([
+          {
+            org_id: newOpp.org_id,
+            title: newOpp.title,
+            description: newOpp.description,
+            instructions: newOpp.instructions,
+            category_id: newOpp.category_id,
+            banner_url: newOpp.banner_url,
+            date: newOpp.date,
+            start_time: newOpp.start_time,
+            end_time: newOpp.end_time,
+            duration_hours: newOpp.duration_hours,
+            location_type: newOpp.location_type,
+            location_address: newOpp.location_address,
+            min_age: newOpp.min_age,
+            max_age: newOpp.max_age,
+            max_volunteers: newOpp.max_volunteers,
+            status: newOpp.status,
+          },
+        ])
+        .then(({ error }) => {
+          if (error) console.error('Supabase opportunity insert error:', error);
+        });
+    }
+
     return newOpp;
   }
 

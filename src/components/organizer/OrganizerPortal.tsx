@@ -24,6 +24,7 @@ import {
 import { Opportunity, OrganizerProfile, UserProfile, AttendanceRecord } from '@/lib/types';
 import { db } from '@/lib/db';
 import { getBadgeForHours } from '@/lib/badges';
+import { DeleteAccountModal } from '../auth/DeleteAccountModal';
 
 interface OrganizerPortalProps {
   currentUser: UserProfile;
@@ -32,6 +33,7 @@ interface OrganizerPortalProps {
 
 export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, onLogout }) => {
   const [tab, setTab] = useState<'opportunities' | 'add' | 'attendance' | 'profile'>('opportunities');
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // Organizer info
   const [org, setOrg] = useState<OrganizerProfile>(() => {
@@ -705,8 +707,27 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
               Save Organization Settings
             </button>
           </form>
+
+          {/* Section 50 & 39 Spec: Delete Account Button */}
+          <div className="pt-4 border-t border-gray-100 space-y-2">
+            <h3 className="font-extrabold text-xs text-red-600 uppercase tracking-wider">Danger Zone</h3>
+            <button
+              type="button"
+              onClick={() => setIsDeleteModalOpen(true)}
+              className="w-full py-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-xl border border-red-200 transition-colors"
+            >
+              Delete Organization Account
+            </button>
+          </div>
         </div>
       )}
+
+      <DeleteAccountModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        userId={currentUser.id}
+        userName={org.org_name}
+      />
     </div>
   );
 };
