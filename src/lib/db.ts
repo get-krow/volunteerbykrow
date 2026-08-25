@@ -162,37 +162,30 @@ class LocalDatabase {
 
       // 3. Sync Opportunities
       const { data: dbOpps } = await supabase.from('opportunities').select('*');
-      if (dbOpps && dbOpps.length > 0) {
-        dbOpps.forEach((sOpp: any) => {
-          const idx = this.opportunities.findIndex((o) => o.id === sOpp.id || o.title === sOpp.title);
-          const mappedOpp: Opportunity = {
-            id: sOpp.id,
-            org_id: sOpp.org_id,
-            org_name: sOpp.org_name || 'Organization',
-            org_verification_status: 'verified',
-            title: sOpp.title,
-            description: sOpp.description,
-            instructions: sOpp.instructions,
-            category_id: sOpp.category_id || 'community',
-            banner_url: sOpp.banner_url,
-            date: sOpp.date,
-            start_time: sOpp.start_time,
-            end_time: sOpp.end_time,
-            duration_hours: sOpp.duration_hours || 2,
-            location_type: sOpp.location_type || 'physical',
-            location_address: sOpp.location_address,
-            min_age: sOpp.min_age,
-            max_age: sOpp.max_age,
-            max_volunteers: sOpp.max_volunteers,
-            status: sOpp.status || 'published',
-            created_at: sOpp.created_at || new Date().toISOString(),
-          };
-          if (idx >= 0) {
-            this.opportunities[idx] = { ...this.opportunities[idx], ...mappedOpp };
-          } else {
-            this.opportunities.unshift(mappedOpp);
-          }
-        });
+      if (dbOpps) {
+        const mappedOpps: Opportunity[] = dbOpps.map((sOpp: any) => ({
+          id: sOpp.id,
+          org_id: sOpp.org_id,
+          org_name: sOpp.org_name || 'Organization',
+          org_verification_status: 'verified',
+          title: sOpp.title,
+          description: sOpp.description,
+          instructions: sOpp.instructions,
+          category_id: sOpp.category_id || 'community',
+          banner_url: sOpp.banner_url,
+          date: sOpp.date,
+          start_time: sOpp.start_time,
+          end_time: sOpp.end_time,
+          duration_hours: sOpp.duration_hours || 2,
+          location_type: sOpp.location_type || 'physical',
+          location_address: sOpp.location_address,
+          min_age: sOpp.min_age,
+          max_age: sOpp.max_age,
+          max_volunteers: sOpp.max_volunteers,
+          status: sOpp.status || 'published',
+          created_at: sOpp.created_at || new Date().toISOString(),
+        }));
+        this.opportunities = mappedOpps;
       }
 
       // 4. Update dynamic registered_count on all opportunities
@@ -684,25 +677,33 @@ class LocalDatabase {
   }
 
   public async deleteOpportunity(id: string): Promise<void> {
-    this.opportunities = this.opportunities.filter((o) => o.id !== id);
-    this.registrations = this.registrations.filter((r) => r.opportunity_id !== id);
-    this.attendance = this.attendance.filter((a) => a.opportunity_id !== id);
+    const oppUUID = ensureUUID(id);
+
+    this.opportunities = this.opportunities.filter((o) => o.id !== id && o.id !== oppUUID);
+    this.registrations = this.registrations.filter((r) => r.opportunity_id !== id && r.opportunity_id !== oppUUID);
+    this.attendance = this.attendance.filter((a) => a.opportunity_id !== id && a.opportunity_id !== oppUUID);
     this.saveToStorage();
 
     if (isSupabaseConfigured()) {
       try {
-        await supabase.from('opportunities').delete().eq('id', id);
+        await supabase.from('registrations').delete().or(`opportunity_id.eq.${id},opportunity_id.eq.${oppUUID}`);
+        await supabase.from('attendance').delete().or(`opportunity_id.eq.${id},opportunity_id.eq.${oppUUID}`);
+        const { error } = await supabase.from('opportunities').delete().or(`id.eq.${id},id.eq.${oppUUID}`);
+        if (error) {
+          console.error('Supabase opportunity delete error:', error);
+        }
       } catch (err) {
-        console.error('Supabase opportunity delete error:', err);
+        console.error('Supabase opportunity delete exception:', err);
       }
     }
   }
 
   public async clearPastOpportunities(orgId: string): Promise<void> {
+    const orgUUID = ensureUUID(orgId);
     const todayStr = new Date().toISOString().split('T')[0];
     const pastOppIds = new Set(
       this.opportunities
-        .filter((o) => o.org_id === orgId && (o.status === 'ended' || o.status === 'cancelled' || o.date < todayStr))
+        .filter((o) => (o.org_id === orgId || o.org_id === orgUUID) && (o.status === 'ended' || o.status === 'cancelled' || o.date < todayStr))
         .map((o) => o.id)
     );
 
@@ -713,7 +714,13 @@ class LocalDatabase {
 
     if (isSupabaseConfigured()) {
       try {
-        await supabase.from('opportunities').delete().eq('org_id', orgId).in('status', ['ended', 'cancelled']);
+        for (const oppId of Array.from(pastOppIds)) {
+          const oppUUID = ensureUUID(oppId);
+          await supabase.from('registrations').delete().or(`opportunity_id.eq.${oppId},opportunity_id.eq.${oppUUID}`);
+          await supabase.from('attendance').delete().or(`opportunity_id.eq.${oppId},opportunity_id.eq.${oppUUID}`);
+          await supabase.from('opportunities').delete().or(`id.eq.${oppId},id.eq.${oppUUID}`);
+        }
+        await supabase.from('opportunities').delete().or(`org_id.eq.${orgId},org_id.eq.${orgUUID}`).in('status', ['ended', 'cancelled']);
       } catch (err) {
         console.error('Supabase clear past opportunities error:', err);
       }

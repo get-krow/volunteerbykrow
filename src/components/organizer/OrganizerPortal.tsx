@@ -407,9 +407,9 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                           Attendance
                         </button>
                         <button
-                          onClick={() => handleSoftDelete(opp.id)}
-                          className="p-1 text-gray-400 hover:text-red-600 rounded-lg"
-                          title="Cancel Opportunity"
+                          onClick={() => handlePermanentDeleteOpportunity(opp.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                          title="Permanently Delete Opportunity from Database"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
