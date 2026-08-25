@@ -1,13 +1,14 @@
 'use client';
 
 import React from 'react';
-import { Calendar, Clock, MapPin, CheckCircle2, Building2 } from 'lucide-react';
+import { Calendar, Clock, MapPin, CheckCircle2, Building2, UserMinus } from 'lucide-react';
 import { Opportunity, UserProfile } from '@/lib/types';
 
 interface OpportunityCardProps {
   opportunity: Opportunity;
   currentUser: UserProfile | null;
   onRegister: (oppId: string) => void;
+  onUnsign?: (oppId: string) => void;
   onSelectCard?: (opp: Opportunity) => void;
   isRegistered?: boolean;
   onOpenAuth: () => void;
@@ -17,6 +18,7 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
   opportunity: opp,
   currentUser,
   onRegister,
+  onUnsign,
   onSelectCard,
   isRegistered,
   onOpenAuth,
@@ -142,12 +144,26 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
       {/* Primary Action Button */}
       <div className="p-4 pt-0">
         {isRegistered ? (
-          <button
-            disabled
-            className="w-full py-2.5 bg-emerald-50 text-emerald-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-emerald-200"
-          >
-            <CheckCircle2 className="w-4 h-4" /> Signed Up
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 py-2.5 bg-emerald-50 text-emerald-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1 border border-emerald-200">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Signed Up
+            </div>
+            {onUnsign && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (confirm(`Leave "${opp.title}"? Your spot will be made available to others.`)) {
+                    onUnsign(opp.id);
+                  }
+                }}
+                className="px-3 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-xl border border-red-200 transition-colors flex items-center justify-center gap-1"
+                title="Leave Event"
+              >
+                <UserMinus className="w-3.5 h-3.5" />
+                <span>Leave</span>
+              </button>
+            )}
+          </div>
         ) : (
           <button
             onClick={handleActionClick}

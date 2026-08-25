@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { X, Calendar, Clock, MapPin, Building2, CheckCircle2, ShieldCheck, Users } from 'lucide-react';
+import { X, Calendar, Clock, MapPin, Building2, CheckCircle2, ShieldCheck, Users, UserMinus } from 'lucide-react';
 import { Opportunity, UserProfile } from '@/lib/types';
 import { createGoogleCalendarUrl } from '@/lib/google-calendar';
 
@@ -11,6 +11,7 @@ interface OpportunityDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onRegister: (oppId: string) => void;
+  onUnsign?: (oppId: string) => void;
   isRegistered?: boolean;
   onOpenAuth: () => void;
 }
@@ -21,6 +22,7 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
   isOpen,
   onClose,
   onRegister,
+  onUnsign,
   isRegistered,
   onOpenAuth,
 }) => {
@@ -205,12 +207,9 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                 <div className="pt-2">
                   {isRegistered ? (
                     <div className="space-y-2">
-                      <button
-                        disabled
-                        className="w-full py-3 bg-emerald-50 text-emerald-700 font-bold text-xs rounded-xl flex items-center justify-center gap-2 border border-emerald-200"
-                      >
+                      <div className="w-full py-3 bg-emerald-50 text-emerald-700 font-bold text-xs rounded-xl flex items-center justify-center gap-2 border border-emerald-200">
                         <CheckCircle2 className="w-4 h-4" /> You are Registered
-                      </button>
+                      </div>
                       <a
                         href={createGoogleCalendarUrl(opp)}
                         target="_blank"
@@ -219,6 +218,20 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                       >
                         <Calendar className="w-3.5 h-3.5" /> Add to Google Calendar
                       </a>
+                      {onUnsign && (
+                        <button
+                          onClick={() => {
+                            if (confirm(`Leave "${opp.title}"? Your registration will be permanently removed.`)) {
+                              onUnsign(opp.id);
+                              onClose();
+                            }
+                          }}
+                          className="w-full py-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-extrabold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-red-200 transition-colors shadow-2xs"
+                        >
+                          <UserMinus className="w-3.5 h-3.5" />
+                          <span>Leave Event</span>
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <button

@@ -79,6 +79,15 @@ export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, o
     refreshData();
   };
 
+  const handleUnsign = (oppId: string) => {
+    if (!currentUser) return;
+    const res = db.unsignFromOpportunity(oppId, currentUser.id);
+    if (!res.success) {
+      alert(res.message);
+    }
+    refreshData();
+  };
+
   // Filter & Sort Pipeline
   const filteredOpportunities = useMemo(() => {
     return opportunities
@@ -205,6 +214,7 @@ export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, o
               opportunity={opp}
               currentUser={currentUser}
               onRegister={handleRegister}
+              onUnsign={handleUnsign}
               onSelectCard={(o) => setSelectedOppForDetail(o)}
               isRegistered={registeredOppIds.has(opp.id)}
               onOpenAuth={onOpenAuth}
@@ -220,6 +230,7 @@ export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, o
         isOpen={!!selectedOppForDetail}
         onClose={() => setSelectedOppForDetail(null)}
         onRegister={handleRegister}
+        onUnsign={handleUnsign}
         isRegistered={selectedOppForDetail ? registeredOppIds.has(selectedOppForDetail.id) : false}
         onOpenAuth={onOpenAuth}
       />

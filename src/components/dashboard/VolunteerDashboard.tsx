@@ -16,6 +16,7 @@ import {
   ChevronRight,
   TrendingUp,
   XCircle,
+  UserMinus,
 } from 'lucide-react';
 import { UserProfile, Opportunity, Registration, AttendanceRecord } from '@/lib/types';
 import { db } from '@/lib/db';
@@ -209,9 +210,11 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
                   </a>
                   <button
                     onClick={() => handleUnsign(opp.id)}
-                    className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-xl transition-colors"
+                    className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-extrabold text-xs rounded-xl border border-red-200 transition-colors flex items-center gap-1 shadow-2xs"
+                    title="Leave Event"
                   >
-                    Unsign
+                    <UserMinus className="w-3.5 h-3.5" />
+                    <span>Leave Event</span>
                   </button>
                 </div>
               </div>
