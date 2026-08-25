@@ -5,7 +5,7 @@ import { TopHeader } from './TopHeader';
 import { MobileBottomNav } from './MobileBottomNav';
 import { AuthModal } from '../auth/AuthModal';
 import { db } from '@/lib/db';
-import { UserProfile } from '@/lib/types';
+import { UserProfile, SystemRole } from '@/lib/types';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -13,6 +13,7 @@ interface MainLayoutProps {
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authRole, setAuthRole] = useState<SystemRole>('volunteer');
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
 
   useEffect(() => {
@@ -33,7 +34,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     };
   }, []);
 
-  const handleOpenAuth = () => {
+  const handleOpenAuth = (role: SystemRole = 'volunteer') => {
+    setAuthRole(role);
     setIsAuthModalOpen(true);
   };
 
@@ -60,7 +62,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
-        initialRole="volunteer"
+        initialRole={authRole}
         onLoginSuccess={handleLoginSuccess}
       />
     </div>

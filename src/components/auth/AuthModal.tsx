@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Mail, Lock, User, MapPin, Calendar, ArrowRight, ArrowLeft } from 'lucide-react';
+import { X, Mail, Lock, User, Building2, MapPin, Calendar, ArrowRight, ArrowLeft } from 'lucide-react';
 import { SystemRole, UserProfile } from '@/lib/types';
 import { db } from '@/lib/db';
 import { supabase } from '@/lib/supabase';
@@ -194,19 +194,45 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </button>
 
         {/* Brand Header */}
-        <div className="text-center space-y-1 mb-6">
-          <div className="flex items-center justify-center gap-1.5 mb-2">
+        <div className="text-center space-y-1 mb-4">
+          <div className="flex items-center justify-center gap-1.5 mb-1.5">
             <span className="font-black text-xl text-gray-900 tracking-tight">volunteer</span>
             <span className="px-2 py-0.5 rounded-full bg-[#EEECFF] border border-[#D9D3FF] text-[#635BFF] font-extrabold text-xs">
               by krow
             </span>
           </div>
           <h2 className="text-xl font-black text-gray-900">
-            {mode === 'login' ? 'Welcome back' : 'Create your account'}
+            {mode === 'login' ? `Log in as ${role === 'volunteer' ? 'Volunteer' : 'Organizer'}` : `Sign up as ${role === 'volunteer' ? 'Volunteer' : 'Organizer'}`}
           </h2>
           <p className="text-xs text-gray-500 font-medium">
-            {mode === 'login' ? 'Log in to continue' : `Step ${step} of 3 — ${role === 'volunteer' ? 'Volunteer' : 'Organizer'}`}
+            {mode === 'login' ? 'Select your account type below' : `Step ${step} of 3 — ${role === 'volunteer' ? 'Volunteer Account' : 'Organizer Account'}`}
           </p>
+        </div>
+
+        {/* Role Selector: Volunteer vs Organizer */}
+        <div className="grid grid-cols-2 gap-1 bg-gray-100 p-1 rounded-2xl mb-4 text-xs font-bold">
+          <button
+            type="button"
+            onClick={() => setRole('volunteer')}
+            className={`py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+              role === 'volunteer'
+                ? 'bg-white text-[#635BFF] shadow-2xs font-black'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <User className="w-3.5 h-3.5" /> Volunteer
+          </button>
+          <button
+            type="button"
+            onClick={() => setRole('organizer')}
+            className={`py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+              role === 'organizer'
+                ? 'bg-[#635BFF] text-white shadow-2xs font-black'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Building2 className="w-3.5 h-3.5" /> Organizer
+          </button>
         </div>
 
         {/* Mode Switch Tabs */}
