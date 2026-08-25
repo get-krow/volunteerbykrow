@@ -212,7 +212,7 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                       disabled
                       className="w-full py-3.5 bg-gray-100 border border-gray-200 text-gray-500 font-extrabold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-not-allowed uppercase tracking-wider"
                     >
-                      Event Closed
+                      CLOSED
                     </button>
                   ) : isRegistered ? (
                     <div className="space-y-2">

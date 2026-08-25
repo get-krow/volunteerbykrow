@@ -158,7 +158,7 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
             disabled
             className="w-full py-2.5 bg-gray-100 text-gray-500 font-extrabold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-gray-200 cursor-not-allowed uppercase tracking-wider"
           >
-            Event Closed
+            CLOSED
           </button>
         ) : isRegistered ? (
           <div className="flex items-center gap-2">
