@@ -442,14 +442,15 @@ class LocalDatabase {
   }
 
   public updateOrganizerVerification(orgId: string, status: VerificationStatus) {
-    const org = this.organizers.find((o) => o.id === orgId);
+    const orgUUID = ensureUUID(orgId);
+    const org = this.organizers.find((o) => o.id === orgId || o.id === orgUUID);
     if (!org) return;
 
     org.verification_status = status;
 
     // Update opportunities org_verification_status
     this.opportunities.forEach((opp) => {
-      if (opp.org_id === orgId || opp.org_id === ensureUUID(orgId)) {
+      if (opp.org_id === orgId || opp.org_id === orgUUID) {
         opp.org_verification_status = status;
       }
     });
@@ -457,7 +458,7 @@ class LocalDatabase {
     // Retroactively update attendance hours for this organization's opportunities
     const orgOppIds = new Set(
       this.opportunities
-        .filter((o) => o.org_id === orgId || o.org_id === ensureUUID(orgId))
+        .filter((o) => o.org_id === orgId || o.org_id === orgUUID)
         .map((o) => o.id)
     );
     this.attendance.forEach((att) => {
@@ -483,18 +484,29 @@ class LocalDatabase {
     });
 
     this.saveToStorage();
+
+    if (isSupabaseConfigured()) {
+      supabase
+        .from('organizer_profiles')
+        .update({ verification_status: status })
+        .or(`id.eq.${orgId},id.eq.${orgUUID}`)
+        .then(({ error }) => {
+          if (error) console.error('Supabase update verification status error:', error);
+        });
+    }
   }
 
   public async deleteOrganizer(orgId: string): Promise<void> {
-    this.organizers = this.organizers.filter((o) => o.id !== orgId);
-    this.opportunities = this.opportunities.filter((o) => o.org_id !== orgId);
+    const orgUUID = ensureUUID(orgId);
+    this.organizers = this.organizers.filter((o) => o.id !== orgId && o.id !== orgUUID);
+    this.opportunities = this.opportunities.filter((o) => o.org_id !== orgId && o.org_id !== orgUUID);
     this.saveToStorage();
 
     if (isSupabaseConfigured()) {
       try {
-        await supabase.from('organizer_profiles').delete().eq('id', orgId);
-        await supabase.from('profiles').delete().eq('id', orgId);
-        await supabase.from('opportunities').delete().eq('org_id', orgId);
+        await supabase.from('organizer_profiles').delete().or(`id.eq.${orgId},id.eq.${orgUUID}`);
+        await supabase.from('profiles').delete().or(`id.eq.${orgId},id.eq.${orgUUID}`);
+        await supabase.from('opportunities').delete().or(`org_id.eq.${orgId},org_id.eq.${orgUUID}`);
       } catch (err) {
         console.error('Supabase delete organizer error:', err);
       }

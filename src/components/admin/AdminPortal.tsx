@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Shield, CheckCircle2, AlertCircle, Search, Edit3, Lock, RefreshCw, Plus, Trash2 } from 'lucide-react';
 import { OrganizerProfile, UserProfile, AttendanceRecord, HourAuditLog, Category } from '@/lib/types';
 import { db } from '@/lib/db';
@@ -32,6 +32,11 @@ export const AdminPortal: React.FC = () => {
     setCategories(db.getCategories());
   };
 
+  useEffect(() => {
+    refreshData();
+    db.syncWithSupabase().then(() => refreshData());
+  }, []);
+
   const handleAdminAuth = (e: React.FormEvent) => {
     e.preventDefault();
     setPassError(null);
@@ -56,16 +61,16 @@ export const AdminPortal: React.FC = () => {
         const matchCity = (org.hq_city || '').toLowerCase().includes(q);
         if (!matchName && !matchCity) return false;
       }
-      if (orgFilter !== 'all' && org.verification_status !== orgFilter) {
+      if (orgFilter !== 'all' && (org.verification_status || 'verified') !== orgFilter) {
         return false;
       }
       return true;
     });
   }, [organizers, orgSearch, orgFilter]);
 
-  const handleToggleVerification = (orgId: string, currentStatus: string) => {
+  const handleToggleVerification = async (orgId: string, currentStatus: string) => {
     const nextStatus = currentStatus === 'verified' ? 'pending' : 'verified';
-    db.updateOrganizerVerification(orgId, nextStatus);
+    await db.updateOrganizerVerification(orgId, nextStatus);
     refreshData();
   };
 
