@@ -27,6 +27,124 @@ import { Opportunity, OrganizerProfile, UserProfile, AttendanceRecord } from '@/
 import { db } from '@/lib/db';
 import { getBadgeForHours } from '@/lib/badges';
 import { DeleteAccountModal } from '../auth/DeleteAccountModal';
+import { AppleWheelPicker, AppleWheelOption } from '../ui/AppleWheelPicker';
+
+const MONTH_OPTIONS: AppleWheelOption[] = [
+  { label: 'Jan', value: '01' },
+  { label: 'Feb', value: '02' },
+  { label: 'Mar', value: '03' },
+  { label: 'Apr', value: '04' },
+  { label: 'May', value: '05' },
+  { label: 'Jun', value: '06' },
+  { label: 'Jul', value: '07' },
+  { label: 'Aug', value: '08' },
+  { label: 'Sep', value: '09' },
+  { label: 'Oct', value: '10' },
+  { label: 'Nov', value: '11' },
+  { label: 'Dec', value: '12' },
+];
+
+const DAY_OPTIONS: AppleWheelOption[] = Array.from({ length: 31 }, (_, i) => {
+  const d = (i + 1).toString().padStart(2, '0');
+  return { label: d, value: d };
+});
+
+const YEAR_OPTIONS: AppleWheelOption[] = [
+  { label: '2026', value: '2026' },
+  { label: '2027', value: '2027' },
+  { label: '2028', value: '2028' },
+  { label: '2029', value: '2029' },
+  { label: '2030', value: '2030' },
+];
+
+const HOUR_OPTIONS: AppleWheelOption[] = Array.from({ length: 12 }, (_, i) => {
+  const h = (i + 1).toString().padStart(2, '0');
+  return { label: h, value: h };
+});
+
+const MINUTE_OPTIONS: AppleWheelOption[] = [
+  { label: '00', value: '00' },
+  { label: '15', value: '15' },
+  { label: '30', value: '30' },
+  { label: '45', value: '45' },
+];
+
+const AMPM_OPTIONS: AppleWheelOption[] = [
+  { label: 'AM', value: 'AM' },
+  { label: 'PM', value: 'PM' },
+];
+
+const CAPACITY_OPTIONS: AppleWheelOption[] = [
+  { label: 'Unlimited (No Max)', value: '' },
+  { label: '1 Volunteer', value: '1' },
+  { label: '2 Volunteers', value: '2' },
+  { label: '3 Volunteers', value: '3' },
+  { label: '5 Volunteers', value: '5' },
+  { label: '10 Volunteers', value: '10' },
+  { label: '15 Volunteers', value: '15' },
+  { label: '20 Volunteers', value: '20' },
+  { label: '25 Volunteers', value: '25' },
+  { label: '30 Volunteers', value: '30' },
+  { label: '50 Volunteers', value: '50' },
+  { label: '75 Volunteers', value: '75' },
+  { label: '100 Volunteers', value: '100' },
+  { label: '250 Volunteers', value: '250' },
+  { label: '500 Volunteers', value: '500' },
+];
+
+const MIN_AGE_OPTIONS: AppleWheelOption[] = [
+  { label: 'All Ages (No Min)', value: '' },
+  { label: '10+', value: '10' },
+  { label: '12+', value: '12' },
+  { label: '13+', value: '13' },
+  { label: '14+', value: '14' },
+  { label: '15+', value: '15' },
+  { label: '16+', value: '16' },
+  { label: '17+', value: '17' },
+  { label: '18+', value: '18' },
+  { label: '21+', value: '21' },
+  { label: '25+', value: '25' },
+];
+
+const MAX_AGE_OPTIONS: AppleWheelOption[] = [
+  { label: 'No Limit', value: '' },
+  { label: 'Max 16', value: '16' },
+  { label: 'Max 17', value: '17' },
+  { label: 'Max 18', value: '18' },
+  { label: 'Max 21', value: '21' },
+  { label: 'Max 25', value: '25' },
+  { label: 'Max 30', value: '30' },
+  { label: 'Max 40', value: '40' },
+  { label: 'Max 50', value: '50' },
+  { label: 'Max 65', value: '65' },
+];
+
+function parseDateParts(dateStr: string) {
+  const parts = (dateStr || '').split('-');
+  return {
+    year: parts[0] || '2026',
+    month: parts[1] || '01',
+    day: parts[2] || '01',
+  };
+}
+
+function parseTime12(timeStr24: string) {
+  const [hStr, mStr] = (timeStr24 || '09:00').split(':');
+  let h = parseInt(hStr || '9', 10);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  const hour12 = h.toString().padStart(2, '0');
+  const minute = mStr || '00';
+  return { hour: hour12, minute, ampm };
+}
+
+function formatTime24(hour12: string, minute: string, ampm: string) {
+  let h = parseInt(hour12, 10);
+  if (ampm === 'PM' && h < 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+  return `${h.toString().padStart(2, '0')}:${minute}`;
+}
 
 interface OrganizerPortalProps {
   currentUser: UserProfile;
@@ -493,52 +611,133 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
             </div>
           )}
 
-          {/* Step 2: Date & Time */}
-          {wizardStep === 2 && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Event Date</label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
-                />
-              </div>
+          {/* Step 2: Date & Time (Apple Wheel Pickers) */}
+          {wizardStep === 2 && (() => {
+            const dateParts = parseDateParts(date);
+            const startTime12 = parseTime12(startTime);
+            const endTime12 = parseTime12(endTime);
 
-              <div className="grid grid-cols-2 gap-3">
+            const handleDateWheelChange = (key: 'month' | 'day' | 'year', val: string) => {
+              const updated = { ...dateParts, [key]: val };
+              setDate(`${updated.year}-${updated.month}-${updated.day}`);
+            };
+
+            const handleStartTimeChange = (key: 'hour' | 'minute' | 'ampm', val: string) => {
+              const updated = { ...startTime12, [key]: val };
+              setStartTime(formatTime24(updated.hour, updated.minute, updated.ampm));
+            };
+
+            const handleEndTimeChange = (key: 'hour' | 'minute' | 'ampm', val: string) => {
+              const updated = { ...endTime12, [key]: val };
+              setEndTime(formatTime24(updated.hour, updated.minute, updated.ampm));
+            };
+
+            return (
+              <div className="space-y-5">
+                {/* Date Wheel Picker */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Start Time</label>
-                  <input
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
-                  />
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold text-gray-800">Event Date</label>
+                    <span className="text-[11px] font-extrabold text-[#635BFF] bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-100">
+                      {new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <AppleWheelPicker
+                      label="Month"
+                      options={MONTH_OPTIONS}
+                      value={dateParts.month}
+                      onChange={(v) => handleDateWheelChange('month', v)}
+                    />
+                    <AppleWheelPicker
+                      label="Day"
+                      options={DAY_OPTIONS}
+                      value={dateParts.day}
+                      onChange={(v) => handleDateWheelChange('day', v)}
+                    />
+                    <AppleWheelPicker
+                      label="Year"
+                      options={YEAR_OPTIONS}
+                      value={dateParts.year}
+                      onChange={(v) => handleDateWheelChange('year', v)}
+                    />
+                  </div>
                 </div>
+
+                {/* Start Time Wheel Picker */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">End Time</label>
-                  <input
-                    type="time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
-                  />
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold text-gray-800">Start Time</label>
+                    <span className="text-[11px] font-extrabold text-gray-700 bg-gray-100 px-2.5 py-0.5 rounded-full">
+                      {startTime12.hour}:{startTime12.minute} {startTime12.ampm}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <AppleWheelPicker
+                      label="Hour"
+                      options={HOUR_OPTIONS}
+                      value={startTime12.hour}
+                      onChange={(v) => handleStartTimeChange('hour', v)}
+                    />
+                    <AppleWheelPicker
+                      label="Minute"
+                      options={MINUTE_OPTIONS}
+                      value={startTime12.minute}
+                      onChange={(v) => handleStartTimeChange('minute', v)}
+                    />
+                    <AppleWheelPicker
+                      label="AM/PM"
+                      options={AMPM_OPTIONS}
+                      value={startTime12.ampm}
+                      onChange={(v) => handleStartTimeChange('ampm', v)}
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className="p-3 bg-purple-50 rounded-xl text-xs text-brand-800 font-semibold">
-                Calculated Duration: {calculatedDuration} Hours
-              </div>
+                {/* End Time Wheel Picker */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold text-gray-800">End Time</label>
+                    <span className="text-[11px] font-extrabold text-gray-700 bg-gray-100 px-2.5 py-0.5 rounded-full">
+                      {endTime12.hour}:{endTime12.minute} {endTime12.ampm}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <AppleWheelPicker
+                      label="Hour"
+                      options={HOUR_OPTIONS}
+                      value={endTime12.hour}
+                      onChange={(v) => handleEndTimeChange('hour', v)}
+                    />
+                    <AppleWheelPicker
+                      label="Minute"
+                      options={MINUTE_OPTIONS}
+                      value={endTime12.minute}
+                      onChange={(v) => handleEndTimeChange('minute', v)}
+                    />
+                    <AppleWheelPicker
+                      label="AM/PM"
+                      options={AMPM_OPTIONS}
+                      value={endTime12.ampm}
+                      onChange={(v) => handleEndTimeChange('ampm', v)}
+                    />
+                  </div>
+                </div>
 
-              <button
-                onClick={() => setWizardStep(3)}
-                className="w-full py-3 bg-[#635BFF] text-white font-bold text-xs rounded-xl shadow-xs"
-              >
-                Continue
-              </button>
-            </div>
-          )}
+                <div className="p-3 bg-purple-50 rounded-xl text-xs text-brand-800 font-semibold flex items-center justify-between">
+                  <span>Calculated Duration:</span>
+                  <span className="font-black text-sm text-[#635BFF]">{calculatedDuration} Hours</span>
+                </div>
+
+                <button
+                  onClick={() => setWizardStep(3)}
+                  className="w-full py-3 bg-[#635BFF] text-white font-bold text-xs rounded-xl shadow-xs hover:bg-[#5046E5] transition-all"
+                >
+                  Continue
+                </button>
+              </div>
+            );
+          })()}
 
           {/* Step 3: Location */}
           {wizardStep === 3 && (
@@ -575,46 +774,44 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
             </div>
           )}
 
-          {/* Step 4: Capacity & Age */}
+          {/* Step 4: Capacity & Age (Apple Wheel Pickers) */}
           {wizardStep === 4 && (
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Max Volunteers Capacity</label>
-                <input
-                  type="number"
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-bold text-gray-800">Max Volunteers Capacity</label>
+                  <span className="text-[11px] font-extrabold text-[#635BFF] bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-100">
+                    {maxVolunteers ? `${maxVolunteers} Volunteers` : 'Unlimited'}
+                  </span>
+                </div>
+                <AppleWheelPicker
+                  options={CAPACITY_OPTIONS}
                   value={maxVolunteers}
-                  onChange={(e) => setMaxVolunteers(e.target.value)}
-                  placeholder="e.g. 10 (Leave blank for unlimited)"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
+                  onChange={(v) => setMaxVolunteers(v)}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Min Age (Optional)</label>
-                  <input
-                    type="number"
+              <div>
+                <label className="block text-xs font-bold text-gray-800 mb-2">Age Requirements</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <AppleWheelPicker
+                    label="Min Age"
+                    options={MIN_AGE_OPTIONS}
                     value={minAge}
-                    onChange={(e) => setMinAge(e.target.value)}
-                    placeholder="e.g. 16"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
+                    onChange={(v) => setMinAge(v)}
                   />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Max Age (Optional)</label>
-                  <input
-                    type="number"
+                  <AppleWheelPicker
+                    label="Max Age"
+                    options={MAX_AGE_OPTIONS}
                     value={maxAge}
-                    onChange={(e) => setMaxAge(e.target.value)}
-                    placeholder="e.g. 25"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
+                    onChange={(v) => setMaxAge(v)}
                   />
                 </div>
               </div>
 
               <button
                 onClick={() => setWizardStep(5)}
-                className="w-full py-3 bg-[#635BFF] text-white font-bold text-xs rounded-xl shadow-xs"
+                className="w-full py-3 bg-[#635BFF] text-white font-bold text-xs rounded-xl shadow-xs hover:bg-[#5046E5] transition-all"
               >
                 Continue
               </button>
