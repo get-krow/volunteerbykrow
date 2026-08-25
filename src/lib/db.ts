@@ -144,7 +144,11 @@ class LocalDatabase {
       const { data: dbRegs } = await supabase.from('registrations').select('*');
       if (dbRegs && dbRegs.length > 0) {
         dbRegs.forEach((r: any) => {
-          const idx = this.registrations.findIndex((existing) => existing.id === r.id);
+          const idx = this.registrations.findIndex(
+            (existing) =>
+              existing.id === r.id ||
+              (existing.opportunity_id === r.opportunity_id && existing.volunteer_id === r.volunteer_id)
+          );
           const mappedReg: Registration = {
             id: r.id,
             opportunity_id: r.opportunity_id,
@@ -735,15 +739,39 @@ class LocalDatabase {
 
   // --- Registration Logic ---
   public getRegisteredCount(opportunityId: string): number {
-    return this.registrations.filter(
-      (r) => r.opportunity_id === opportunityId && r.status === 'registered'
-    ).length;
+    const oppUUID = ensureUUID(opportunityId);
+    const uniqueVolunteers = new Set<string>();
+
+    this.registrations.forEach((r) => {
+      if (
+        (r.opportunity_id === opportunityId || r.opportunity_id === oppUUID) &&
+        r.status === 'registered'
+      ) {
+        uniqueVolunteers.add(r.volunteer_id);
+      }
+    });
+
+    return uniqueVolunteers.size;
   }
 
   public getRegistrationsForOpportunity(opportunityId: string): Registration[] {
-    return this.registrations.filter(
-      (r) => r.opportunity_id === opportunityId && r.status === 'registered'
-    );
+    const oppUUID = ensureUUID(opportunityId);
+    const seenVolunteers = new Set<string>();
+    const list: Registration[] = [];
+
+    this.registrations.forEach((r) => {
+      if (
+        (r.opportunity_id === opportunityId || r.opportunity_id === oppUUID) &&
+        r.status === 'registered'
+      ) {
+        if (!seenVolunteers.has(r.volunteer_id)) {
+          seenVolunteers.add(r.volunteer_id);
+          list.push(r);
+        }
+      }
+    });
+
+    return list;
   }
 
   public getRegistrationsForVolunteer(volunteerId: string): Registration[] {
@@ -801,9 +829,11 @@ class LocalDatabase {
       return { success: false, message: 'This opportunity is full.' };
     }
 
-    let regId = 'reg-' + Date.now();
+    let regId = ensureUUID('reg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7));
     const existing = this.registrations.find(
-      (r) => r.opportunity_id === opportunityId && r.volunteer_id === volunteerId
+      (r) =>
+        (r.opportunity_id === opportunityId || r.opportunity_id === ensureUUID(opportunityId)) &&
+        r.volunteer_id === volunteerId
     );
 
     if (existing) {

@@ -778,34 +778,46 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
           {wizardStep === 4 && (
             <div className="space-y-5">
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-bold text-gray-800">Max Volunteers Capacity</label>
-                  <span className="text-[11px] font-extrabold text-[#635BFF] bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-100">
-                    {maxVolunteers ? `${maxVolunteers} Volunteers` : 'Unlimited'}
-                  </span>
-                </div>
-                <AppleWheelPicker
-                  options={CAPACITY_OPTIONS}
+                <label className="block text-xs font-bold text-gray-800 mb-1">Max Volunteers Capacity</label>
+                <p className="text-[11px] text-gray-500 mb-2">Type the maximum number of spots available (leave empty for unlimited spots):</p>
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="e.g. 10 (Leave blank for unlimited)"
                   value={maxVolunteers}
-                  onChange={(v) => setMaxVolunteers(v)}
+                  onChange={(e) => setMaxVolunteers(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-bold focus:ring-2 focus:ring-purple-500/20 focus:border-[#635BFF] transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-800 mb-2">Age Requirements</label>
+                <label className="block text-xs font-bold text-gray-800 mb-1">Age Requirements</label>
+                <p className="text-[11px] text-gray-500 mb-2">Type minimum and maximum age requirements (leave empty for no restriction):</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <AppleWheelPicker
-                    label="Min Age"
-                    options={MIN_AGE_OPTIONS}
-                    value={minAge}
-                    onChange={(v) => setMinAge(v)}
-                  />
-                  <AppleWheelPicker
-                    label="Max Age"
-                    options={MAX_AGE_OPTIONS}
-                    value={maxAge}
-                    onChange={(v) => setMaxAge(v)}
-                  />
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-600 mb-1">Minimum Age</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder="e.g. 14 (No min age)"
+                      value={minAge}
+                      onChange={(e) => setMinAge(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs font-bold focus:ring-2 focus:ring-purple-500/20 focus:border-[#635BFF] transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-600 mb-1">Maximum Age</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder="e.g. 99 (No max age)"
+                      value={maxAge}
+                      onChange={(e) => setMaxAge(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs font-bold focus:ring-2 focus:ring-purple-500/20 focus:border-[#635BFF] transition-all"
+                    />
+                  </div>
                 </div>
               </div>
 
