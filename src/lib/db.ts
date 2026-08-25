@@ -378,6 +378,22 @@ class LocalDatabase {
     this.saveToStorage();
   }
 
+  public async deleteOrganizer(orgId: string): Promise<void> {
+    this.organizers = this.organizers.filter((o) => o.id !== orgId);
+    this.opportunities = this.opportunities.filter((o) => o.org_id !== orgId);
+    this.saveToStorage();
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('organizer_profiles').delete().eq('id', orgId);
+        await supabase.from('profiles').delete().eq('id', orgId);
+        await supabase.from('opportunities').delete().eq('org_id', orgId);
+      } catch (err) {
+        console.error('Supabase delete organizer error:', err);
+      }
+    }
+  }
+
   public async deleteAccount(userId: string): Promise<void> {
     if (this.currentUser?.id === userId) {
       this.currentUser = null;

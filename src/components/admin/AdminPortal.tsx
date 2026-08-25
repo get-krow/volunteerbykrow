@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Shield, CheckCircle2, AlertCircle, Search, Edit3, Lock, RefreshCw, Plus } from 'lucide-react';
+import { Shield, CheckCircle2, AlertCircle, Search, Edit3, Lock, RefreshCw, Plus, Trash2 } from 'lucide-react';
 import { OrganizerProfile, UserProfile, AttendanceRecord, HourAuditLog, Category } from '@/lib/types';
 import { db } from '@/lib/db';
 
@@ -67,6 +67,13 @@ export const AdminPortal: React.FC = () => {
     const nextStatus = currentStatus === 'verified' ? 'pending' : 'verified';
     db.updateOrganizerVerification(orgId, nextStatus);
     refreshData();
+  };
+
+  const handleDeleteOrganization = async (orgId: string, orgName: string) => {
+    if (confirm(`Are you sure you want to permanently delete "${orgName}" from Supabase database?`)) {
+      await db.deleteOrganizer(orgId);
+      refreshData();
+    }
   };
 
   const handleSaveHoursCorrection = (e: React.FormEvent) => {
@@ -247,16 +254,25 @@ export const AdminPortal: React.FC = () => {
                       {new Date(org.created_at).toLocaleDateString()}
                     </td>
                     <td className="py-3.5 px-3 text-right">
-                      <button
-                        onClick={() => handleToggleVerification(org.id, org.verification_status)}
-                        className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
-                          org.verification_status === 'verified'
-                            ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
-                            : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
-                        }`}
-                      >
-                        {org.verification_status === 'verified' ? 'Revoke' : 'Verify'}
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleToggleVerification(org.id, org.verification_status)}
+                          className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+                            org.verification_status === 'verified'
+                              ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+                              : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
+                          }`}
+                        >
+                          {org.verification_status === 'verified' ? 'Revoke' : 'Verify'}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteOrganization(org.id, org.org_name)}
+                          className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-xs border border-red-200 transition-colors"
+                          title="Delete Organization"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

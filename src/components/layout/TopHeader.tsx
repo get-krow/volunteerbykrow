@@ -213,21 +213,12 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             <LogOut className="w-4 h-4" />
           </button>
         ) : (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onOpenAuth?.('organizer')}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs rounded-xl transition-all border border-gray-200/60"
-            >
-              <Building2 className="w-3.5 h-3.5 text-[#635BFF]" />
-              Organizer Login
-            </button>
-            <button
-              onClick={() => onOpenAuth?.('volunteer')}
-              className="px-3.5 py-1.5 bg-[#635BFF] hover:bg-[#5046E5] text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1"
-            >
-              Sign In
-            </button>
-          </div>
+          <button
+            onClick={() => onOpenAuth?.()}
+            className="px-4 py-2 bg-[#635BFF] hover:bg-[#5046E5] text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+          >
+            Sign In
+          </button>
         )}
       </div>
     </header>
