@@ -172,7 +172,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
         hq_address: '1428 Charles St, Vancouver, BC',
         no_hq: false,
         bio: 'Community volunteer organization.',
-        verification_status: 'pending',
+        verification_status: 'verified',
         created_at: new Date().toISOString(),
       }
     );

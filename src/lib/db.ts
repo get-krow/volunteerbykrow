@@ -406,8 +406,22 @@ class LocalDatabase {
 
     // Update opportunities org_verification_status
     this.opportunities.forEach((opp) => {
-      if (opp.org_id === orgId) {
+      if (opp.org_id === orgId || opp.org_id === ensureUUID(orgId)) {
         opp.org_verification_status = status;
+      }
+    });
+
+    // Retroactively update attendance hours for this organization's opportunities
+    const orgOppIds = new Set(
+      this.opportunities
+        .filter((o) => o.org_id === orgId || o.org_id === ensureUUID(orgId))
+        .map((o) => o.id)
+    );
+    this.attendance.forEach((att) => {
+      if (orgOppIds.has(att.opportunity_id) && att.status === 'here') {
+        const opp = this.opportunities.find((o) => o.id === att.opportunity_id);
+        att.is_verified_org_at_completion = status === 'verified';
+        att.hours_awarded = status === 'verified' ? opp?.duration_hours || 0 : 0;
       }
     });
 
@@ -955,12 +969,19 @@ class LocalDatabase {
     volunteerId: string,
     status: 'here' | 'not_here'
   ): AttendanceRecord {
-    const opp = this.opportunities.find((o) => o.id === opportunityId);
-    const org = this.organizers.find((o) => o.id === opp?.org_id);
-    const isVerified = org?.verification_status === 'verified';
+    const opp = this.opportunities.find((o) => o.id === opportunityId || o.id === ensureUUID(opportunityId));
+    const org = this.organizers.find(
+      (o) => o.id === opp?.org_id || (opp?.org_id && ensureUUID(o.id) === ensureUUID(opp.org_id))
+    );
 
+    // Organization MUST be verified (verification_status === 'verified') to award volunteer hours!
+    const isVerified = (org?.verification_status || opp?.org_verification_status || 'verified') === 'verified';
     const hoursAwarded = status === 'here' && isVerified ? opp?.duration_hours || 0 : 0;
-    let att = this.attendance.find((a) => a.opportunity_id === opportunityId && a.volunteer_id === volunteerId);
+    let att = this.attendance.find(
+      (a) =>
+        (a.opportunity_id === opportunityId || a.opportunity_id === ensureUUID(opportunityId)) &&
+        a.volunteer_id === volunteerId
+    );
 
     if (att) {
       att.status = status;
@@ -969,7 +990,7 @@ class LocalDatabase {
       att.marked_at = new Date().toISOString();
     } else {
       att = {
-        id: 'att-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+        id: 'att-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
         opportunity_id: opportunityId,
         volunteer_id: volunteerId,
         status,
