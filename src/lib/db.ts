@@ -238,6 +238,33 @@ class LocalDatabase {
           }
         }
       });
+
+      // 6. Sync Attendance Records from Supabase PostgreSQL
+      const { data: dbAtt } = await supabase.from('attendance').select('*');
+      if (dbAtt && dbAtt.length > 0) {
+        dbAtt.forEach((a: any) => {
+          const idx = this.attendance.findIndex(
+            (existing) =>
+              existing.id === a.id ||
+              (existing.opportunity_id === a.opportunity_id && existing.volunteer_id === a.volunteer_id)
+          );
+          const mappedAtt: AttendanceRecord = {
+            id: a.id,
+            opportunity_id: a.opportunity_id,
+            volunteer_id: a.volunteer_id,
+            status: a.status || 'unmarked',
+            hours_awarded: a.hours_awarded || 0,
+            is_verified_org_at_completion: a.is_verified_org_at_completion ?? true,
+            marked_at: a.marked_at || new Date().toISOString(),
+          };
+          if (idx >= 0) {
+            this.attendance[idx] = mappedAtt;
+          } else {
+            this.attendance.push(mappedAtt);
+          }
+        });
+      }
+
       this.saveToStorage();
     } catch (e) {
       console.error('Supabase sync error:', e);
@@ -1062,6 +1089,30 @@ class LocalDatabase {
     }
 
     this.saveToStorage();
+
+    if (isSupabaseConfigured()) {
+      const attUUID = ensureUUID(att.id);
+      const oppUUID = ensureUUID(opportunityId);
+      const volUUID = ensureUUID(volunteerId);
+
+      supabase
+        .from('attendance')
+        .upsert([
+          {
+            id: attUUID,
+            opportunity_id: oppUUID,
+            volunteer_id: volUUID,
+            status,
+            hours_awarded: hoursAwarded,
+            is_verified_org_at_completion: isVerified,
+            marked_at: att.marked_at,
+          },
+        ])
+        .then(({ error }) => {
+          if (error) console.error('Supabase attendance upsert error:', error);
+        });
+    }
+
     return att;
   }
 
@@ -1103,13 +1154,17 @@ class LocalDatabase {
   }
 
   public calculateVolunteerTotalHours(volunteerId: string): number {
+    const volUUID = ensureUUID(volunteerId);
     return this.attendance
-      .filter((a) => a.volunteer_id === volunteerId && a.status === 'here')
+      .filter((a) => (a.volunteer_id === volunteerId || a.volunteer_id === volUUID) && a.status === 'here')
       .reduce((sum, a) => sum + (a.hours_awarded || 0), 0);
   }
 
   public calculateVolunteerCompletedShifts(volunteerId: string): number {
-    return this.attendance.filter((a) => a.volunteer_id === volunteerId && a.status === 'here').length;
+    const volUUID = ensureUUID(volunteerId);
+    return this.attendance.filter(
+      (a) => (a.volunteer_id === volunteerId || a.volunteer_id === volUUID) && a.status === 'here'
+    ).length;
   }
 
   public toggleSavedOpportunity(volunteerId: string, opportunityId: string): boolean {

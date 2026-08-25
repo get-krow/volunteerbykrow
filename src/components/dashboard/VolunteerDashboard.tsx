@@ -37,6 +37,7 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
 
   useEffect(() => {
     refreshData();
+    db.syncWithSupabase().then(() => refreshData());
   }, [currentUser]);
 
   const refreshData = () => {
