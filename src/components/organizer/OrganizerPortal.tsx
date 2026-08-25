@@ -910,7 +910,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
             {selectedOppForAttendance ? (
               <div className="space-y-3 pt-2">
                 {(() => {
-                  const registeredVolunteers = db.getVolunteerRegistrations(selectedOppForAttendance.id);
+                  const registeredVolunteers = db.getRegistrationsForOpportunity(selectedOppForAttendance.id);
                   if (registeredVolunteers.length === 0) {
                     return (
                       <div className="py-6 text-center text-xs text-gray-400">
@@ -921,7 +921,9 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
 
                   return registeredVolunteers.map((reg) => {
                     const volId = reg.volunteer_id;
-                    const volName = `Volunteer (${volId.slice(-4)})`;
+                    const volProfile = db.getProfile(volId);
+                    const volName = volProfile?.name || `Volunteer (${volId.slice(-4)})`;
+                    const volEmail = volProfile?.email || '';
                     const attList = db.getAttendanceForOpportunity(selectedOppForAttendance.id);
                     const currentAtt = attList.find((a) => a.volunteer_id === volId);
                     const currentStatus = currentAtt?.status || 'unmarked';
@@ -931,7 +933,10 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                         key={volId}
                         className="p-4 rounded-2xl border border-gray-200/80 flex items-center justify-between text-xs bg-gray-50/50"
                       >
-                        <span className="font-extrabold text-gray-900">{volName}</span>
+                        <div className="flex flex-col">
+                          <span className="font-extrabold text-gray-900">{volName}</span>
+                          {volEmail && <span className="text-[11px] text-gray-500 font-medium">{volEmail}</span>}
+                        </div>
 
                         {/* Section 36 Spec: Tap-Optimized Attendance Buttons */}
                         <div className="flex items-center gap-2">

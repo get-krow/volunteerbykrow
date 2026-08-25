@@ -53,6 +53,7 @@ class LocalDatabase {
   private organizers: OrganizerProfile[] = [];
   private opportunities: Opportunity[] = [];
   private currentUser: UserProfile | null = null;
+  private profiles: UserProfile[] = [];
   private registrations: Registration[] = [];
   private attendance: AttendanceRecord[] = [];
   private notifications: NotificationItem[] = [];
@@ -113,6 +114,53 @@ class LocalDatabase {
   public async syncWithSupabase(): Promise<void> {
     if (!isSupabaseConfigured()) return;
     try {
+      // 1. Sync Profiles
+      const { data: dbProfiles } = await supabase.from('profiles').select('*');
+      if (dbProfiles && dbProfiles.length > 0) {
+        dbProfiles.forEach((p: any) => {
+          const idx = this.profiles.findIndex((existing) => existing.id === p.id);
+          const mappedProfile: UserProfile = {
+            id: p.id,
+            role: p.role || 'volunteer',
+            email: p.email || '',
+            name: p.name || 'Volunteer',
+            dob: p.dob || undefined,
+            country: p.country || 'Canada',
+            province_state: p.province_state || 'BC',
+            city: p.city || 'Vancouver',
+            bio: p.bio || undefined,
+            avatar_url: p.avatar_url || undefined,
+            created_at: p.created_at || new Date().toISOString(),
+          };
+          if (idx >= 0) {
+            this.profiles[idx] = mappedProfile;
+          } else {
+            this.profiles.push(mappedProfile);
+          }
+        });
+      }
+
+      // 2. Sync Registrations
+      const { data: dbRegs } = await supabase.from('registrations').select('*');
+      if (dbRegs && dbRegs.length > 0) {
+        dbRegs.forEach((r: any) => {
+          const idx = this.registrations.findIndex((existing) => existing.id === r.id);
+          const mappedReg: Registration = {
+            id: r.id,
+            opportunity_id: r.opportunity_id,
+            volunteer_id: r.volunteer_id,
+            registered_at: r.registered_at || new Date().toISOString(),
+            status: r.status || 'registered',
+          };
+          if (idx >= 0) {
+            this.registrations[idx] = mappedReg;
+          } else {
+            this.registrations.push(mappedReg);
+          }
+        });
+      }
+
+      // 3. Sync Opportunities
       const { data: dbOpps } = await supabase.from('opportunities').select('*');
       if (dbOpps && dbOpps.length > 0) {
         dbOpps.forEach((sOpp: any) => {
@@ -145,9 +193,14 @@ class LocalDatabase {
             this.opportunities.unshift(mappedOpp);
           }
         });
-        this.saveToStorage();
       }
 
+      // 4. Update dynamic registered_count on all opportunities
+      this.opportunities.forEach((opp) => {
+        opp.registered_count = this.getRegisteredCount(opp.id);
+      });
+
+      // 5. Sync Organizers
       const { data: dbOrgs } = await supabase.from('organizer_profiles').select('*');
       if (dbOrgs && dbOrgs.length > 0) {
         dbOrgs.forEach((sOrg: any) => {
@@ -171,8 +224,8 @@ class LocalDatabase {
             this.organizers.push(mappedOrg);
           }
         });
-        this.saveToStorage();
       }
+      this.saveToStorage();
     } catch (e) {
       console.error('Supabase sync error:', e);
     }
@@ -667,7 +720,37 @@ class LocalDatabase {
     }
   }
 
+  // --- Profile Lookup Helpers ---
+  public getProfile(userId: string): UserProfile | null {
+    if (this.currentUser?.id === userId) return this.currentUser;
+    return this.profiles.find((p) => p.id === userId) || null;
+  }
+
   // --- Registration Logic ---
+  public getRegisteredCount(opportunityId: string): number {
+    return this.registrations.filter(
+      (r) => r.opportunity_id === opportunityId && r.status === 'registered'
+    ).length;
+  }
+
+  public getRegistrationsForOpportunity(opportunityId: string): Registration[] {
+    return this.registrations.filter(
+      (r) => r.opportunity_id === opportunityId && r.status === 'registered'
+    );
+  }
+
+  public getRegistrationsForVolunteer(volunteerId: string): Registration[] {
+    return this.registrations.filter(
+      (r) => r.volunteer_id === volunteerId && r.status === 'registered'
+    );
+  }
+
+  public getVolunteerRegistrations(id: string): Registration[] {
+    return this.registrations.filter(
+      (r) => (r.opportunity_id === id || r.volunteer_id === id) && r.status === 'registered'
+    );
+  }
+
   public registerForOpportunity(opportunityId: string, volunteerId: string): { success: boolean; message: string } {
     const opp = this.opportunities.find((o) => o.id === opportunityId);
     if (!opp) return { success: false, message: 'Opportunity not found' };
@@ -684,7 +767,7 @@ class LocalDatabase {
     }
 
     // Age calculation on event date
-    const user = this.currentUser?.id === volunteerId ? this.currentUser : null;
+    const user = this.getProfile(volunteerId);
     if (user && user.dob) {
       const dobYear = new Date(user.dob).getFullYear();
       const oppYear = new Date(opp.date).getFullYear();
@@ -705,14 +788,13 @@ class LocalDatabase {
     }
 
     // Capacity Check
-    const currentActiveRegs = this.registrations.filter(
-      (r) => r.opportunity_id === opportunityId && r.status === 'registered'
-    ).length;
+    const currentActiveRegs = this.getRegisteredCount(opportunityId);
 
     if (opp.max_volunteers !== null && opp.max_volunteers !== undefined && currentActiveRegs >= opp.max_volunteers) {
       return { success: false, message: 'This opportunity is full.' };
     }
 
+    let regId = 'reg-' + Date.now();
     const existing = this.registrations.find(
       (r) => r.opportunity_id === opportunityId && r.volunteer_id === volunteerId
     );
@@ -723,15 +805,19 @@ class LocalDatabase {
       }
       existing.status = 'registered';
       existing.registered_at = new Date().toISOString();
+      regId = existing.id;
     } else {
       this.registrations.push({
-        id: 'reg-' + Date.now(),
+        id: regId,
         opportunity_id: opportunityId,
         volunteer_id: volunteerId,
         registered_at: new Date().toISOString(),
         status: 'registered',
       });
     }
+
+    // Update dynamic registered_count on opportunity
+    opp.registered_count = this.getRegisteredCount(opportunityId);
 
     // Volunteer Notification
     this.addNotification({
@@ -752,6 +838,29 @@ class LocalDatabase {
     });
 
     this.saveToStorage();
+
+    // Sync Registration to Supabase PostgreSQL
+    if (isSupabaseConfigured()) {
+      const regUUID = ensureUUID(regId);
+      const oppUUID = ensureUUID(opportunityId);
+      const volUUID = ensureUUID(volunteerId);
+
+      supabase
+        .from('registrations')
+        .upsert([
+          {
+            id: regUUID,
+            opportunity_id: oppUUID,
+            volunteer_id: volUUID,
+            status: 'registered',
+            registered_at: new Date().toISOString(),
+          },
+        ])
+        .then(({ error }) => {
+          if (error) console.error('Supabase registration upsert error:', error);
+        });
+    }
+
     return { success: true, message: 'Registration confirmed!' };
   }
 
@@ -772,6 +881,7 @@ class LocalDatabase {
     reg.status = 'unsigned';
 
     if (opp) {
+      opp.registered_count = this.getRegisteredCount(opportunityId);
       this.addNotification({
         user_id: opp.org_id,
         title: 'Volunteer Unsigned',
@@ -782,11 +892,20 @@ class LocalDatabase {
     }
 
     this.saveToStorage();
-    return { success: true, message: 'You have unsigned from this opportunity.' };
-  }
 
-  public getVolunteerRegistrations(volunteerId: string): Registration[] {
-    return this.registrations.filter((r) => r.volunteer_id === volunteerId && r.status === 'registered');
+    // Sync Unsign to Supabase PostgreSQL
+    if (isSupabaseConfigured()) {
+      const regUUID = ensureUUID(reg.id);
+      supabase
+        .from('registrations')
+        .update({ status: 'unsigned' })
+        .eq('id', regUUID)
+        .then(({ error }) => {
+          if (error) console.error('Supabase unsign error:', error);
+        });
+    }
+
+    return { success: true, message: 'You have unsigned from this opportunity.' };
   }
 
   // --- Attendance & Hours Logic ---
