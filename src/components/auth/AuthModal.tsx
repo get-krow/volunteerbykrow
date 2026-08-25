@@ -22,6 +22,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [mode, setMode] = useState<'login' | 'signup'>('signup');
   const [role, setRole] = useState<SystemRole>(initialRole);
 
+  React.useEffect(() => {
+    setRole(initialRole);
+  }, [initialRole, isOpen]);
+
   // Multi-step Signup Wizard State (Section 15 & 16 Spec)
   const [step, setStep] = useState<number>(1);
   const [email, setEmail] = useState('');

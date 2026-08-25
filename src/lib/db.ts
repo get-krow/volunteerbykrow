@@ -281,6 +281,21 @@ class LocalDatabase {
         .then(({ error }) => {
           if (error) console.error('Supabase profile upsert error:', error);
         });
+
+      if (user.role === 'organizer') {
+        const existingOrg = this.getOrganizer(user.id);
+        const orgToSave: OrganizerProfile = existingOrg || {
+          id: user.id,
+          org_name: user.name,
+          hq_country: user.country || 'Canada',
+          hq_province_state: user.province_state || 'BC',
+          hq_city: user.city || 'Vancouver',
+          no_hq: false,
+          verification_status: 'verified',
+          created_at: new Date().toISOString(),
+        };
+        this.saveOrganizer(orgToSave);
+      }
     }
   }
 
