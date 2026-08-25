@@ -91,7 +91,7 @@ export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, o
   // Filter & Sort Pipeline
   const filteredOpportunities = useMemo(() => {
     return opportunities
-      .filter((opp) => opp.status === 'published')
+      .filter((opp) => opp.status === 'published' || opp.status === 'ended')
       .filter((opp) => {
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();

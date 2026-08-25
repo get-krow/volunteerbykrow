@@ -625,15 +625,17 @@ class LocalDatabase {
 
   public getOpportunities(): Opportunity[] {
     this.autoPurgeExpiredOpportunities();
-    return this.opportunities.map((opp) => {
-      const activeRegs = this.registrations.filter(
-        (r) => (r.opportunity_id === opp.id || r.opportunity_id === ensureUUID(opp.id)) && r.status === 'registered'
-      ).length;
-      return {
-        ...opp,
-        registered_count: activeRegs,
-      };
-    });
+    return this.opportunities
+      .filter((opp) => opp.status !== 'archived')
+      .map((opp) => {
+        const activeRegs = this.registrations.filter(
+          (r) => (r.opportunity_id === opp.id || r.opportunity_id === ensureUUID(opp.id)) && r.status === 'registered'
+        ).length;
+        return {
+          ...opp,
+          registered_count: activeRegs,
+        };
+      });
   }
 
   public getOpportunity(id: string): Opportunity | undefined {
@@ -778,21 +780,20 @@ class LocalDatabase {
 
   public async deleteOpportunity(id: string): Promise<void> {
     const oppUUID = ensureUUID(id);
+    const opp = this.opportunities.find((o) => o.id === id || o.id === oppUUID);
+    if (opp) {
+      opp.status = 'archived';
+    }
 
-    // Note: Do NOT delete attendance records! Volunteer awarded hours must be preserved permanently even if opportunity post is deleted.
+    // Do NOT delete attendance records! Volunteer awarded hours must be preserved permanently even if opportunity post is archived.
     this.opportunities = this.opportunities.filter((o) => o.id !== id && o.id !== oppUUID);
-    this.registrations = this.registrations.filter((r) => r.opportunity_id !== id && r.opportunity_id !== oppUUID);
     this.saveToStorage();
 
     if (isSupabaseConfigured()) {
       try {
-        await supabase.from('registrations').delete().or(`opportunity_id.eq.${id},opportunity_id.eq.${oppUUID}`);
-        const { error } = await supabase.from('opportunities').delete().or(`id.eq.${id},id.eq.${oppUUID}`);
-        if (error) {
-          console.error('Supabase opportunity delete error:', error);
-        }
+        await supabase.from('opportunities').update({ status: 'archived' }).or(`id.eq.${id},id.eq.${oppUUID}`);
       } catch (err) {
-        console.error('Supabase opportunity delete exception:', err);
+        console.error('Supabase opportunity archive error:', err);
       }
     }
   }
@@ -806,19 +807,23 @@ class LocalDatabase {
         .map((o) => o.id)
     );
 
-    // Note: Do NOT delete attendance records! Volunteer awarded hours must be preserved permanently even if opportunity post is deleted.
+    this.opportunities.forEach((opp) => {
+      if (pastOppIds.has(opp.id)) {
+        opp.status = 'archived';
+      }
+    });
+
+    // Do NOT delete attendance records! Volunteer awarded hours must be preserved permanently even if opportunity post is archived.
     this.opportunities = this.opportunities.filter((o) => !pastOppIds.has(o.id));
-    this.registrations = this.registrations.filter((r) => !pastOppIds.has(r.opportunity_id));
     this.saveToStorage();
 
     if (isSupabaseConfigured()) {
       try {
         for (const oppId of Array.from(pastOppIds)) {
           const oppUUID = ensureUUID(oppId);
-          await supabase.from('registrations').delete().or(`opportunity_id.eq.${oppId},opportunity_id.eq.${oppUUID}`);
-          await supabase.from('opportunities').delete().or(`id.eq.${oppId},id.eq.${oppUUID}`);
+          await supabase.from('opportunities').update({ status: 'archived' }).or(`id.eq.${oppId},id.eq.${oppUUID}`);
         }
-        await supabase.from('opportunities').delete().or(`org_id.eq.${orgId},org_id.eq.${orgUUID}`).in('status', ['ended', 'cancelled']);
+        await supabase.from('opportunities').update({ status: 'archived' }).or(`org_id.eq.${orgId},org_id.eq.${orgUUID}`).in('status', ['ended', 'cancelled']);
       } catch (err) {
         console.error('Supabase clear past opportunities error:', err);
       }
