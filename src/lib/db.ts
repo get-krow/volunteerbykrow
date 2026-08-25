@@ -779,15 +779,14 @@ class LocalDatabase {
   public async deleteOpportunity(id: string): Promise<void> {
     const oppUUID = ensureUUID(id);
 
+    // Note: Do NOT delete attendance records! Volunteer awarded hours must be preserved permanently even if opportunity post is deleted.
     this.opportunities = this.opportunities.filter((o) => o.id !== id && o.id !== oppUUID);
     this.registrations = this.registrations.filter((r) => r.opportunity_id !== id && r.opportunity_id !== oppUUID);
-    this.attendance = this.attendance.filter((a) => a.opportunity_id !== id && a.opportunity_id !== oppUUID);
     this.saveToStorage();
 
     if (isSupabaseConfigured()) {
       try {
         await supabase.from('registrations').delete().or(`opportunity_id.eq.${id},opportunity_id.eq.${oppUUID}`);
-        await supabase.from('attendance').delete().or(`opportunity_id.eq.${id},opportunity_id.eq.${oppUUID}`);
         const { error } = await supabase.from('opportunities').delete().or(`id.eq.${id},id.eq.${oppUUID}`);
         if (error) {
           console.error('Supabase opportunity delete error:', error);
@@ -807,9 +806,9 @@ class LocalDatabase {
         .map((o) => o.id)
     );
 
+    // Note: Do NOT delete attendance records! Volunteer awarded hours must be preserved permanently even if opportunity post is deleted.
     this.opportunities = this.opportunities.filter((o) => !pastOppIds.has(o.id));
     this.registrations = this.registrations.filter((r) => !pastOppIds.has(r.opportunity_id));
-    this.attendance = this.attendance.filter((a) => !pastOppIds.has(a.opportunity_id));
     this.saveToStorage();
 
     if (isSupabaseConfigured()) {
@@ -817,7 +816,6 @@ class LocalDatabase {
         for (const oppId of Array.from(pastOppIds)) {
           const oppUUID = ensureUUID(oppId);
           await supabase.from('registrations').delete().or(`opportunity_id.eq.${oppId},opportunity_id.eq.${oppUUID}`);
-          await supabase.from('attendance').delete().or(`opportunity_id.eq.${oppId},opportunity_id.eq.${oppUUID}`);
           await supabase.from('opportunities').delete().or(`id.eq.${oppId},id.eq.${oppUUID}`);
         }
         await supabase.from('opportunities').delete().or(`org_id.eq.${orgId},org_id.eq.${orgUUID}`).in('status', ['ended', 'cancelled']);

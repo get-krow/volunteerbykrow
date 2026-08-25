@@ -294,10 +294,17 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
     setTab('opportunities');
   };
 
-  const handleSoftDelete = (oppId: string) => {
-    if (confirm('Are you sure you want to cancel this opportunity? Registered volunteers will be notified.')) {
-      db.cancelOpportunity(oppId);
+  const handleEndEvent = (oppId: string) => {
+    if (confirm('End this event? Unmarked volunteers will automatically be marked Not Here, and attendance will be finalized.')) {
+      db.endEvent(oppId);
       refreshData();
+      if (selectedOppForAttendance && selectedOppForAttendance.id === oppId) {
+        setSelectedOppForAttendance({
+          ...selectedOppForAttendance,
+          status: 'ended',
+          ended_at: new Date().toISOString(),
+        });
+      }
     }
   };
 
@@ -334,13 +341,6 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   const handleMarkAttendance = (oppId: string, volId: string, status: 'here' | 'not_here') => {
     db.markAttendance(oppId, volId, status);
     refreshData();
-  };
-
-  const handleEndEvent = (oppId: string) => {
-    if (confirm('End this event? Unmarked volunteers will automatically be marked Not Here, and attendance will be finalized.')) {
-      db.endEvent(oppId);
-      refreshData();
-    }
   };
 
   return (
@@ -920,14 +920,17 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
             <h2 className="font-extrabold text-base text-gray-900">Attendance Sheet</h2>
             {selectedOppForAttendance && (
               selectedOppForAttendance.status === 'ended' ? (
-                <div className="px-3.5 py-1.5 bg-red-50 text-red-700 border border-red-200/80 rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-2xs">
-                  <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
+                <button
+                  disabled
+                  className="px-3.5 py-1.5 bg-red-600/90 text-white rounded-xl text-xs font-extrabold cursor-not-allowed shadow-xs flex items-center gap-1.5 uppercase tracking-wider"
+                >
+                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
                   Event Ended
-                </div>
+                </button>
               ) : (
                 <button
                   onClick={() => handleEndEvent(selectedOppForAttendance.id)}
-                  className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
+                  className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors uppercase tracking-wider"
                 >
                   End Event
                 </button>
