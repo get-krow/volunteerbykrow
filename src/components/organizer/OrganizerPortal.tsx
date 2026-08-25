@@ -230,9 +230,33 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
     return opportunities.filter((o) => o.org_id === org.id && (o.status === 'ended' || o.status === 'cancelled'));
   }, [opportunities, org.id]);
 
+  const validateFutureDate = (dateStr: string, startTimeStr: string): boolean => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (dateStr < todayStr) {
+      alert('Opportunity date must be today or in the future.');
+      return false;
+    }
+    if (dateStr === todayStr) {
+      const now = new Date();
+      const [sH, sM] = startTimeStr.split(':').map(Number);
+      const startMinutes = sH * 60 + sM;
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      if (startMinutes <= currentMinutes) {
+        alert('Opportunity start time must be in the future.');
+        return false;
+      }
+    }
+    return true;
+  };
+
   const handlePostOpportunity = () => {
     if (!title.trim()) {
       alert('Please enter an opportunity title.');
+      return;
+    }
+
+    if (!validateFutureDate(date, startTime)) {
+      setWizardStep(2);
       return;
     }
 
@@ -728,9 +752,12 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                   <span>Calculated Duration:</span>
                   <span className="font-black text-sm text-[#635BFF]">{calculatedDuration} Hours</span>
                 </div>
-
                 <button
-                  onClick={() => setWizardStep(3)}
+                  onClick={() => {
+                    if (validateFutureDate(date, startTime)) {
+                      setWizardStep(3);
+                    }
+                  }}
                   className="w-full py-3 bg-[#635BFF] text-white font-bold text-xs rounded-xl shadow-xs hover:bg-[#5046E5] transition-all"
                 >
                   Continue
@@ -759,7 +786,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                     type="text"
                     value={locationAddress}
                     onChange={(e) => setLocationAddress(e.target.value)}
-                    placeholder="Enter street address or Google Maps location"
+                    placeholder="e.g. 100 W 49th Ave, Vancouver, BC"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
                   />
                 )}
@@ -767,7 +794,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
 
               <button
                 onClick={() => setWizardStep(4)}
-                className="w-full py-3 bg-[#635BFF] text-white font-bold text-xs rounded-xl shadow-xs"
+                className="w-full py-3 bg-[#635BFF] text-white font-bold text-xs rounded-xl shadow-xs hover:bg-[#5046E5] transition-all"
               >
                 Continue
               </button>
@@ -892,12 +919,19 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
           <div className="border-b border-gray-100 pb-3 flex items-center justify-between">
             <h2 className="font-extrabold text-base text-gray-900">Attendance Sheet</h2>
             {selectedOppForAttendance && (
-              <button
-                onClick={() => handleEndEvent(selectedOppForAttendance.id)}
-                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
-              >
-                End Event
-              </button>
+              selectedOppForAttendance.status === 'ended' ? (
+                <div className="px-3.5 py-1.5 bg-red-50 text-red-700 border border-red-200/80 rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
+                  Event Ended
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleEndEvent(selectedOppForAttendance.id)}
+                  className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
+                >
+                  End Event
+                </button>
+              )
             )}
           </div>
 

@@ -68,6 +68,7 @@ export interface Opportunity {
   recurrence_series_id?: string;
   status: OpportunityStatus;
   registered_count?: number;
+  ended_at?: string;
   created_at: string;
 }
 

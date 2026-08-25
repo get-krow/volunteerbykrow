@@ -32,13 +32,15 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
   const currentCount = opp.registered_count || 0;
   const spotsLeft = max !== null && max !== undefined ? Math.max(0, max - currentCount) : null;
   const isFull = spotsLeft !== null && spotsLeft <= 0;
+  const todayStr = new Date().toISOString().split('T')[0];
+  const isEnded = opp.status === 'ended' || opp.date < todayStr;
 
   const handleActionClick = () => {
     if (!currentUser) {
       onOpenAuth();
       return;
     }
-    if (isFull || isRegistered) return;
+    if (isFull || isRegistered || isEnded) return;
     onRegister(opp.id);
   };
 
@@ -205,7 +207,14 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
 
                 {/* Primary Action Button */}
                 <div className="pt-2">
-                  {isRegistered ? (
+                  {isEnded ? (
+                    <button
+                      disabled
+                      className="w-full py-3.5 bg-gray-100 border border-gray-200 text-gray-500 font-extrabold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-not-allowed uppercase tracking-wider"
+                    >
+                      Event Closed
+                    </button>
+                  ) : isRegistered ? (
                     <div className="space-y-2">
                       <div className="w-full py-3 bg-emerald-50 text-emerald-700 font-bold text-xs rounded-xl flex items-center justify-center gap-2 border border-emerald-200">
                         <CheckCircle2 className="w-4 h-4" /> You are Registered

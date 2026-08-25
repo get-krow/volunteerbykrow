@@ -164,40 +164,7 @@ class LocalDatabase {
         });
       }
 
-      // 3. Sync Opportunities
-      const { data: dbOpps } = await supabase.from('opportunities').select('*');
-      if (dbOpps) {
-        const mappedOpps: Opportunity[] = dbOpps.map((sOpp: any) => ({
-          id: sOpp.id,
-          org_id: sOpp.org_id,
-          org_name: sOpp.org_name || 'Organization',
-          org_verification_status: 'verified',
-          title: sOpp.title,
-          description: sOpp.description,
-          instructions: sOpp.instructions,
-          category_id: sOpp.category_id || 'community',
-          banner_url: sOpp.banner_url,
-          date: sOpp.date,
-          start_time: sOpp.start_time,
-          end_time: sOpp.end_time,
-          duration_hours: sOpp.duration_hours || 2,
-          location_type: sOpp.location_type || 'physical',
-          location_address: sOpp.location_address,
-          min_age: sOpp.min_age,
-          max_age: sOpp.max_age,
-          max_volunteers: sOpp.max_volunteers,
-          status: sOpp.status || 'published',
-          created_at: sOpp.created_at || new Date().toISOString(),
-        }));
-        this.opportunities = mappedOpps;
-      }
-
-      // 4. Update dynamic registered_count on all opportunities
-      this.opportunities.forEach((opp) => {
-        opp.registered_count = this.getRegisteredCount(opp.id);
-      });
-
-      // 5. Sync Organizers
+      // 3. Sync Organizers
       const { data: dbOrgs } = await supabase.from('organizer_profiles').select('*');
       if (dbOrgs && dbOrgs.length > 0) {
         dbOrgs.forEach((sOrg: any) => {
@@ -222,6 +189,55 @@ class LocalDatabase {
           }
         });
       }
+
+      // 4. Sync Opportunities
+      const { data: dbOpps } = await supabase.from('opportunities').select('*');
+      if (dbOpps) {
+        const mappedOpps: Opportunity[] = dbOpps.map((sOpp: any) => {
+          const matchOrg = this.organizers.find((o) => o.id === sOpp.org_id || o.id === ensureUUID(sOpp.org_id));
+          const resolvedOrgName =
+            sOpp.org_name && sOpp.org_name !== 'Organization'
+              ? sOpp.org_name
+              : matchOrg?.org_name || this.currentUser?.name || 'Organization';
+
+          return {
+            id: sOpp.id,
+            org_id: sOpp.org_id,
+            org_name: resolvedOrgName,
+            org_verification_status: sOpp.org_verification_status || matchOrg?.verification_status || 'verified',
+            org_logo_url: sOpp.org_logo_url || matchOrg?.logo_url || undefined,
+            title: sOpp.title,
+            description: sOpp.description,
+            instructions: sOpp.instructions,
+            category_id: sOpp.category_id || 'community',
+            banner_url: sOpp.banner_url,
+            date: sOpp.date,
+            start_time: sOpp.start_time,
+            end_time: sOpp.end_time,
+            duration_hours: sOpp.duration_hours || 2,
+            location_type: sOpp.location_type || 'physical',
+            location_address: sOpp.location_address,
+            min_age: sOpp.min_age,
+            max_age: sOpp.max_age,
+            max_volunteers: sOpp.max_volunteers,
+            status: sOpp.status || 'published',
+            ended_at: sOpp.ended_at || undefined,
+            created_at: sOpp.created_at || new Date().toISOString(),
+          };
+        });
+        this.opportunities = mappedOpps;
+      }
+
+      // 5. Update dynamic registered_count and resolve org_name fallback
+      this.opportunities.forEach((opp) => {
+        opp.registered_count = this.getRegisteredCount(opp.id);
+        if (!opp.org_name || opp.org_name === 'Organization') {
+          const matchOrg = this.organizers.find((o) => o.id === opp.org_id || o.id === ensureUUID(opp.org_id));
+          if (matchOrg && matchOrg.org_name && matchOrg.org_name !== 'Organization') {
+            opp.org_name = matchOrg.org_name;
+          }
+        }
+      });
       this.saveToStorage();
     } catch (e) {
       console.error('Supabase sync error:', e);
@@ -542,10 +558,37 @@ class LocalDatabase {
   }
 
   // --- Opportunities ---
+  public autoPurgeExpiredOpportunities(): void {
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    const now = Date.now();
+    const expiredOppIds: string[] = [];
+
+    this.opportunities.forEach((opp) => {
+      // 1. Purge if ended_at timestamp is > 1 hour ago
+      if (opp.status === 'ended' && opp.ended_at) {
+        const endedMs = new Date(opp.ended_at).getTime();
+        if (now - endedMs >= ONE_HOUR_MS) {
+          expiredOppIds.push(opp.id);
+        }
+      } else if (opp.status === 'ended' && !opp.ended_at) {
+        // Fallback: Purge ended opps past their event date
+        const oppDateMs = new Date(opp.date + 'T23:59:59').getTime();
+        if (now - oppDateMs >= ONE_HOUR_MS) {
+          expiredOppIds.push(opp.id);
+        }
+      }
+    });
+
+    expiredOppIds.forEach((id) => {
+      this.deleteOpportunity(id);
+    });
+  }
+
   public getOpportunities(): Opportunity[] {
+    this.autoPurgeExpiredOpportunities();
     return this.opportunities.map((opp) => {
       const activeRegs = this.registrations.filter(
-        (r) => r.opportunity_id === opp.id && r.status === 'registered'
+        (r) => (r.opportunity_id === opp.id || r.opportunity_id === ensureUUID(opp.id)) && r.status === 'registered'
       ).length;
       return {
         ...opp,
@@ -1023,16 +1066,22 @@ class LocalDatabase {
   }
 
   public endEvent(opportunityId: string) {
-    const opp = this.opportunities.find((o) => o.id === opportunityId);
+    const oppUUID = ensureUUID(opportunityId);
+    const opp = this.opportunities.find((o) => o.id === opportunityId || o.id === oppUUID);
     if (!opp) return;
 
     opp.status = 'ended';
+    opp.ended_at = new Date().toISOString();
 
-    const regs = this.registrations.filter((r) => r.opportunity_id === opportunityId && r.status === 'registered');
+    const regs = this.registrations.filter(
+      (r) => (r.opportunity_id === opportunityId || r.opportunity_id === oppUUID) && r.status === 'registered'
+    );
 
     regs.forEach((reg) => {
       const existing = this.attendance.find(
-        (a) => a.opportunity_id === opportunityId && a.volunteer_id === reg.volunteer_id
+        (a) =>
+          (a.opportunity_id === opportunityId || a.opportunity_id === oppUUID) &&
+          a.volunteer_id === reg.volunteer_id
       );
 
       if (!existing || existing.status === 'unmarked') {
@@ -1041,6 +1090,16 @@ class LocalDatabase {
     });
 
     this.saveToStorage();
+
+    if (isSupabaseConfigured()) {
+      supabase
+        .from('opportunities')
+        .update({ status: 'ended', ended_at: opp.ended_at })
+        .or(`id.eq.${opportunityId},id.eq.${oppUUID}`)
+        .then(({ error }) => {
+          if (error) console.error('Supabase end event error:', error);
+        });
+    }
   }
 
   public calculateVolunteerTotalHours(volunteerId: string): number {

@@ -27,6 +27,8 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
   const currentCount = opp.registered_count || 0;
   const spotsLeft = max !== null && max !== undefined ? Math.max(0, max - currentCount) : null;
   const isFull = spotsLeft !== null && spotsLeft <= 0;
+  const todayStr = new Date().toISOString().split('T')[0];
+  const isEnded = opp.status === 'ended' || opp.date < todayStr;
 
   const handleActionClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -34,7 +36,7 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
       onOpenAuth();
       return;
     }
-    if (isFull || isRegistered) return;
+    if (isFull || isRegistered || isEnded) return;
     onRegister(opp.id);
   };
 
@@ -83,14 +85,22 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
             </div>
           )}
 
-          {/* Role & Age Badges */}
+          {/* Role & Age & Closed Badges */}
           <div className="absolute top-3 left-3 flex items-center gap-1.5 z-10">
-            <span className="bg-white/95 backdrop-blur-sm border border-gray-200/80 text-gray-900 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-2xs">
-              {opp.custom_role || 'General'}
-            </span>
-            <span className="bg-white/95 backdrop-blur-sm border border-gray-200/80 text-gray-900 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-2xs">
-              {opp.min_age ? `${opp.min_age}+` : 'All Ages'}
-            </span>
+            {isEnded ? (
+              <span className="bg-red-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs uppercase tracking-wider">
+                Closed
+              </span>
+            ) : (
+              <>
+                <span className="bg-white/95 backdrop-blur-sm border border-gray-200/80 text-gray-900 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-2xs">
+                  {opp.custom_role || 'General'}
+                </span>
+                <span className="bg-white/95 backdrop-blur-sm border border-gray-200/80 text-gray-900 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-2xs">
+                  {opp.min_age ? `${opp.min_age}+` : 'All Ages'}
+                </span>
+              </>
+            )}
           </div>
         </div>
 
@@ -143,7 +153,14 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
 
       {/* Primary Action Button */}
       <div className="p-4 pt-0">
-        {isRegistered ? (
+        {isEnded ? (
+          <button
+            disabled
+            className="w-full py-2.5 bg-gray-100 text-gray-500 font-extrabold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-gray-200 cursor-not-allowed uppercase tracking-wider"
+          >
+            Event Closed
+          </button>
+        ) : isRegistered ? (
           <div className="flex items-center gap-2">
             <div className="flex-1 py-2.5 bg-emerald-50 text-emerald-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1 border border-emerald-200">
               <CheckCircle2 className="w-3.5 h-3.5" /> Signed Up
