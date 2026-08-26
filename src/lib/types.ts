@@ -2,7 +2,7 @@ export type SystemRole = 'volunteer' | 'organizer' | 'krow_admin';
 export type VerificationStatus = 'pending' | 'verified';
 export type LocationType = 'physical' | 'online' | 'tbd';
 export type OpportunityStatus = 'published' | 'cancelled' | 'ended' | 'archived';
-export type RegistrationStatus = 'registered' | 'unsigned' | 'cancelled';
+export type RegistrationStatus = 'registered' | 'unsigned' | 'cancelled' | 'completed';
 export type AttendanceStatus = 'unmarked' | 'here' | 'not_here';
 export type RecurrenceType = 'same_volunteers' | 'different_volunteers';
 

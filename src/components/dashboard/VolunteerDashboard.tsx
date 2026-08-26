@@ -59,9 +59,11 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
   const badgeInfo = useMemo(() => getNextBadgeInfo(totalHours), [totalHours]);
 
   const upcomingRegisteredOpps = useMemo(() => {
-    const regSet = new Set(registrations.map((r) => r.opportunity_id));
+    const activeRegs = registrations.filter((r) => r.status === 'registered');
+    const regSet = new Set(activeRegs.map((r) => r.opportunity_id));
+    const todayStr = new Date().toISOString().split('T')[0];
     return opportunities
-      .filter((o) => regSet.has(o.id) && o.status === 'published')
+      .filter((o) => regSet.has(o.id) && o.status === 'published' && o.date >= todayStr)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [opportunities, registrations]);
 

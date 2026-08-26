@@ -1139,10 +1139,12 @@ class LocalDatabase {
     opp.ended_at = new Date().toISOString();
 
     const regs = this.registrations.filter(
-      (r) => (r.opportunity_id === opportunityId || r.opportunity_id === oppUUID) && r.status === 'registered'
+      (r) => (r.opportunity_id === opportunityId || r.opportunity_id === oppUUID)
     );
 
     regs.forEach((reg) => {
+      reg.status = 'completed';
+
       const existing = this.attendance.find(
         (a) =>
           (a.opportunity_id === opportunityId || a.opportunity_id === oppUUID) &&
@@ -1151,6 +1153,11 @@ class LocalDatabase {
 
       if (!existing || existing.status === 'unmarked') {
         this.markAttendance(opportunityId, reg.volunteer_id, 'not_here');
+      }
+
+      if (isSupabaseConfigured()) {
+        const regUUID = ensureUUID(reg.id);
+        supabase.from('registrations').update({ status: 'completed' }).eq('id', regUUID);
       }
     });
 
