@@ -294,16 +294,12 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
     setTab('opportunities');
   };
 
-  const handleEndEvent = (oppId: string) => {
+  const handleEndEvent = async (oppId: string) => {
     if (confirm('End this event? Unmarked volunteers will automatically be marked Not Here, and attendance will be finalized.')) {
-      db.endEvent(oppId);
+      await db.endEvent(oppId);
       refreshData();
       if (selectedOppForAttendance && selectedOppForAttendance.id === oppId) {
-        setSelectedOppForAttendance({
-          ...selectedOppForAttendance,
-          status: 'ended',
-          ended_at: new Date().toISOString(),
-        });
+        setSelectedOppForAttendance(null);
       }
     }
   };

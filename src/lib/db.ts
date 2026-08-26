@@ -1131,7 +1131,7 @@ class LocalDatabase {
     return att;
   }
 
-  public endEvent(opportunityId: string) {
+  public async endEvent(opportunityId: string): Promise<void> {
     const oppUUID = ensureUUID(opportunityId);
     const opp = this.opportunities.find((o) => o.id === opportunityId || o.id === oppUUID);
     if (!opp) return;
@@ -1155,24 +1155,12 @@ class LocalDatabase {
       if (!existing || existing.status === 'unmarked') {
         this.markAttendance(opportunityId, reg.volunteer_id, 'not_here');
       }
-
-      if (isSupabaseConfigured()) {
-        const regUUID = ensureUUID(reg.id);
-        supabase.from('registrations').update({ status: 'completed' }).eq('id', regUUID);
-      }
     });
 
     this.saveToStorage();
 
-    if (isSupabaseConfigured()) {
-      supabase
-        .from('opportunities')
-        .update({ status: 'ended', ended_at: opp.ended_at })
-        .eq('id', oppUUID)
-        .then(({ error }) => {
-          if (error) console.error('Supabase end event error:', error);
-        });
-    }
+    // Delete opportunity from Supabase PostgreSQL & local feeds while preserving volunteer hours
+    await this.deleteOpportunity(opportunityId);
   }
 
   public calculateVolunteerTotalHours(volunteerId: string): number {
