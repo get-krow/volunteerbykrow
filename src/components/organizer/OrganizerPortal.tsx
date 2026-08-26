@@ -231,6 +231,36 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
     return opportunities.filter((o) => o.org_id === org.id && (o.status === 'ended' || o.status === 'cancelled'));
   }, [opportunities, org.id]);
 
+  const [expandedCardIds, setExpandedCardIds] = useState<string[]>([]);
+
+  const toggleExpandCard = (oppId: string) => {
+    setExpandedCardIds((prev) =>
+      prev.includes(oppId) ? prev.filter((id) => id !== oppId) : [...prev, oppId]
+    );
+  };
+
+  const calculateAge = (dobString?: string | null): string => {
+    if (!dobString) return 'N/A';
+    const birthDate = new Date(dobString);
+    if (isNaN(birthDate.getTime())) return 'N/A';
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age > 0 ? `${age} yrs` : 'N/A';
+  };
+
+  const sortedAttendanceOpportunities = useMemo(() => {
+    const orgOpps = opportunities.filter((o) => o.org_id === org.id);
+    return [...orgOpps].sort((a, b) => {
+      const dateTimeA = new Date(`${a.date}T${a.start_time || '00:00'}`).getTime();
+      const dateTimeB = new Date(`${b.date}T${b.start_time || '00:00'}`).getTime();
+      return dateTimeA - dateTimeB;
+    });
+  }, [opportunities, org.id]);
+
   const validateFutureDate = (dateStr: string, startTimeStr: string): boolean => {
     const todayStr = new Date().toISOString().split('T')[0];
     if (dateStr < todayStr) {
@@ -866,111 +896,207 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
         </div>
       )}
 
-      {/* TAB 3: ATTENDANCE TAP SHEET (Section 35 & 36 Spec) */}
+      {/* TAB 3: ATTENDANCE TAP SHEET & CARDS */}
       {tab === 'attendance' && (
         <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-2xs space-y-6">
           <div className="border-b border-gray-100 pb-3 flex items-center justify-between">
-            <h2 className="font-extrabold text-base text-gray-900">Attendance Sheet</h2>
-            {selectedOppForAttendance && (
-              selectedOppForAttendance.status === 'ended' ? (
-                <button
-                  disabled
-                  className="px-3.5 py-1.5 bg-red-600/90 text-white rounded-xl text-xs font-extrabold cursor-not-allowed shadow-xs flex items-center gap-1.5 uppercase tracking-wider"
-                >
-                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                  Event Ended
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleEndEvent(selectedOppForAttendance.id)}
-                  className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors uppercase tracking-wider"
-                >
-                  End Event
-                </button>
-              )
-            )}
+            <div>
+              <h2 className="font-extrabold text-base text-gray-900">Attendance Sheet & Event Cards</h2>
+              <p className="text-xs text-gray-500 font-medium">Select an active event from the dropdown or expand an opportunity card below sorted by date & time.</p>
+            </div>
           </div>
 
-          <div className="space-y-4">
-            <label className="block text-xs font-bold text-gray-700">Select Event:</label>
+          {/* Top Event Select Dropdown */}
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-gray-700">Quick Select Active Event Dropdown:</label>
             <select
               value={selectedOppForAttendance?.id || ''}
               onChange={(e) => {
                 const found = opportunities.find((o) => o.id === e.target.value);
                 setSelectedOppForAttendance(found || null);
+                if (found && !expandedCardIds.includes(found.id)) {
+                  setExpandedCardIds((prev) => [...prev, found.id]);
+                }
               }}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-[#635BFF]"
             >
               <option value="">Select active event...</option>
               {activeOpportunities.map((o) => (
                 <option key={o.id} value={o.id}>
-                  {o.title} — {o.date}
+                  {o.title} — {o.date} ({o.start_time} - {o.end_time})
                 </option>
               ))}
             </select>
+          </div>
 
-            {selectedOppForAttendance ? (
-              <div className="space-y-3 pt-2">
-                {(() => {
-                  const registeredVolunteers = db.getRegistrationsForOpportunity(selectedOppForAttendance.id);
-                  if (registeredVolunteers.length === 0) {
-                    return (
-                      <div className="py-6 text-center text-xs text-gray-400">
-                        No volunteers registered for this event yet.
-                      </div>
-                    );
-                  }
+          {/* Cards for Each Opportunity (Sorted by Time & Date) */}
+          <div className="space-y-4 pt-4 border-t border-gray-100">
+            <div className="flex items-center justify-between">
+              <h3 className="font-extrabold text-sm text-gray-900">
+                Opportunity Cards (Sorted by Date & Time)
+              </h3>
+              <span className="text-xs text-gray-400 font-semibold">{sortedAttendanceOpportunities.length} Total Events</span>
+            </div>
 
-                  return registeredVolunteers.map((reg) => {
-                    const volId = reg.volunteer_id;
-                    const volProfile = db.getProfile(volId);
-                    const volName = volProfile?.name || `Volunteer (${volId.slice(-4)})`;
-                    const volEmail = volProfile?.email || '';
-                    const attList = db.getAttendanceForOpportunity(selectedOppForAttendance.id);
-                    const currentAtt = attList.find((a) => a.volunteer_id === volId);
-                    const currentStatus = currentAtt?.status || 'unmarked';
-
-                    return (
-                      <div
-                        key={volId}
-                        className="p-4 rounded-2xl border border-gray-200/80 flex items-center justify-between text-xs bg-gray-50/50"
-                      >
-                        <div className="flex flex-col">
-                          <span className="font-extrabold text-gray-900">{volName}</span>
-                          {volEmail && <span className="text-[11px] text-gray-500 font-medium">{volEmail}</span>}
-                        </div>
-
-                        {/* Section 36 Spec: Tap-Optimized Attendance Buttons */}
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleMarkAttendance(selectedOppForAttendance.id, volId, 'here')}
-                            className={`px-4 py-2 rounded-xl font-extrabold text-xs transition-all ${
-                              currentStatus === 'here'
-                                ? 'bg-emerald-600 text-white shadow-xs'
-                                : 'bg-white border border-gray-200 text-gray-700 hover:bg-emerald-50'
-                            }`}
-                          >
-                            {currentStatus === 'here' ? '✓ HERE' : 'HERE'}
-                          </button>
-                          <button
-                            onClick={() => handleMarkAttendance(selectedOppForAttendance.id, volId, 'not_here')}
-                            className={`px-4 py-2 rounded-xl font-extrabold text-xs transition-all ${
-                              currentStatus === 'not_here'
-                                ? 'bg-red-600 text-white shadow-xs'
-                                : 'bg-white border border-gray-200 text-gray-700 hover:bg-red-50'
-                            }`}
-                          >
-                            NOT HERE
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  });
-                })()}
+            {sortedAttendanceOpportunities.length === 0 ? (
+              <div className="py-8 text-center text-xs text-gray-400">
+                No opportunities created yet.
               </div>
             ) : (
-              <div className="py-6 text-center text-xs text-gray-400">
-                Select an event above to take volunteer attendance.
+              <div className="space-y-4">
+                {sortedAttendanceOpportunities.map((opp) => {
+                  const registeredVolunteers = db.getRegistrationsForOpportunity(opp.id);
+                  const isExpanded = expandedCardIds.includes(opp.id) || selectedOppForAttendance?.id === opp.id;
+                  const capacityText = `${registeredVolunteers.length} / ${opp.max_volunteers || 'Unlimited'} filled`;
+
+                  return (
+                    <div
+                      key={opp.id}
+                      className={`rounded-2xl border transition-all overflow-hidden ${
+                        isExpanded
+                          ? 'border-[#635BFF] bg-white ring-2 ring-[#635BFF]/10 shadow-md'
+                          : 'border-gray-200/90 bg-white hover:border-purple-200 shadow-2xs'
+                      }`}
+                    >
+                      {/* Card Header Info */}
+                      <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-gradient-to-r from-gray-50/80 via-white to-purple-50/20">
+                        <div className="space-y-1.5 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#635BFF] bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
+                              {opp.category_id.replace('_', ' ')}
+                            </span>
+                            <span
+                              className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                                opp.status === 'ended'
+                                  ? 'bg-red-50 text-red-700 border border-red-200'
+                                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              }`}
+                            >
+                              {opp.status === 'ended' ? 'Ended' : 'Active'}
+                            </span>
+                          </div>
+
+                          <h4 className="font-black text-base text-gray-900">{opp.title}</h4>
+
+                          <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap font-medium">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3.5 h-3.5 text-[#635BFF]" /> {opp.date}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-[#635BFF]" /> {opp.start_time} - {opp.end_time} ({opp.duration_hours} hrs)
+                            </span>
+                            <span className="flex items-center gap-1 font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-100">
+                              <Users className="w-3.5 h-3.5 text-[#635BFF]" /> {capacityText}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Card Action Buttons */}
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                          {opp.status !== 'ended' && (
+                            <button
+                              onClick={() => handleEndEvent(opp.id)}
+                              className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-bold transition-colors"
+                            >
+                              End Event
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => {
+                              setSelectedOppForAttendance(opp);
+                              toggleExpandCard(opp.id);
+                            }}
+                            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 shadow-2xs ${
+                              isExpanded
+                                ? 'bg-[#635BFF] text-white hover:bg-[#5046E5]'
+                                : 'bg-purple-50 text-[#635BFF] hover:bg-purple-100 border border-purple-100'
+                            }`}
+                          >
+                            <span>{isExpanded ? 'Hide Attendance' : 'Show Attendance'}</span>
+                            <ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Expanded Volunteer Attendance List */}
+                      {isExpanded && (
+                        <div className="p-4 sm:p-5 border-t border-gray-100 bg-slate-50/50 space-y-3">
+                          <div className="flex items-center justify-between border-b border-gray-200/60 pb-2">
+                            <h5 className="font-extrabold text-xs text-gray-900">
+                              Registered Volunteers for {opp.title} ({registeredVolunteers.length})
+                            </h5>
+                            <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+                              Standard Award: +{opp.duration_hours} hrs/shift
+                            </span>
+                          </div>
+
+                          {registeredVolunteers.length === 0 ? (
+                            <div className="py-6 text-center text-xs text-gray-400 bg-white rounded-xl border border-gray-100">
+                              No volunteers have registered for this opportunity yet.
+                            </div>
+                          ) : (
+                            <div className="space-y-2.5">
+                              {registeredVolunteers.map((reg) => {
+                                const volId = reg.volunteer_id;
+                                const volProfile = db.getProfile(volId);
+                                const volName = volProfile?.name || `Volunteer (${volId.slice(-4)})`;
+                                const volEmail = volProfile?.email || 'N/A';
+                                const volAge = calculateAge(volProfile?.dob);
+                                const attList = db.getAttendanceForOpportunity(opp.id);
+                                const currentAtt = attList.find((a) => a.volunteer_id === volId);
+                                const currentStatus = currentAtt?.status || 'unmarked';
+
+                                return (
+                                  <div
+                                    key={volId}
+                                    className="p-3.5 bg-white rounded-xl border border-gray-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                                  >
+                                    <div className="space-y-0.5">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-extrabold text-xs text-gray-900">{volName}</span>
+                                        <span className="px-2 py-0.5 bg-purple-50 text-[#635BFF] text-[10px] font-extrabold rounded-md border border-purple-100">
+                                          Age: {volAge}
+                                        </span>
+                                      </div>
+                                      <div className="text-[11px] text-gray-500 font-medium">
+                                        Email: {volEmail}
+                                      </div>
+                                    </div>
+
+                                    {/* Tap Attendance Buttons */}
+                                    <div className="flex items-center gap-2 justify-end">
+                                      <button
+                                        onClick={() => handleMarkAttendance(opp.id, volId, 'here')}
+                                        className={`px-4 py-2 rounded-xl font-black text-xs transition-all flex items-center gap-1 ${
+                                          currentStatus === 'here'
+                                            ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-600/20'
+                                            : 'bg-gray-100 border border-gray-200 text-gray-700 hover:bg-emerald-50 hover:text-emerald-700'
+                                        }`}
+                                      >
+                                        {currentStatus === 'here' ? `✓ HERE (+${opp.duration_hours}h)` : `HERE (+${opp.duration_hours}h)`}
+                                      </button>
+                                      <button
+                                        onClick={() => handleMarkAttendance(opp.id, volId, 'not_here')}
+                                        className={`px-4 py-2 rounded-xl font-black text-xs transition-all ${
+                                          currentStatus === 'not_here'
+                                            ? 'bg-red-600 text-white shadow-sm ring-2 ring-red-600/20'
+                                            : 'bg-gray-100 border border-gray-200 text-gray-700 hover:bg-red-50 hover:text-red-700'
+                                        }`}
+                                      >
+                                        NOT HERE
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
