@@ -1281,6 +1281,13 @@ class LocalDatabase {
     return this.hourAuditLogs;
   }
 
+  public getVolunteerAttendance(volunteerId: string): AttendanceRecord[] {
+    const volUUID = ensureUUID(volunteerId);
+    return this.attendance.filter(
+      (a) => a.volunteer_id === volunteerId || a.volunteer_id === volUUID
+    );
+  }
+
   public getAllAttendanceRecords(): AttendanceRecord[] {
     return this.attendance;
   }

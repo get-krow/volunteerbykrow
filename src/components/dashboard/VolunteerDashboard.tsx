@@ -44,7 +44,7 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
     setRegistrations(db.getVolunteerRegistrations(currentUser.id));
     setOpportunities(db.getOpportunities());
     setSavedIds(db.getSavedOpportunityIds());
-    setAttendance(db.getAllAttendanceRecords());
+    setAttendance(db.getVolunteerAttendance(currentUser.id));
   };
 
   const totalHours = useMemo(() => {
