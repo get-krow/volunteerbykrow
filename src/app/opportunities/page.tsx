@@ -13,7 +13,11 @@ export default function OpportunitiesPage() {
   const [authRole, setAuthRole] = useState<SystemRole>('volunteer');
 
   useEffect(() => {
-    setCurrentUser(db.getCurrentUser());
+    const u = db.getCurrentUser();
+    setCurrentUser(u);
+    if (u?.role === 'organizer') {
+      window.location.href = '/organizer/opportunities';
+    }
   }, []);
 
   const handleOpenAuth = (role: SystemRole = 'volunteer') => {
@@ -23,6 +27,9 @@ export default function OpportunitiesPage() {
 
   const handleLoginSuccess = (user: UserProfile) => {
     setCurrentUser(user);
+    if (user.role === 'organizer') {
+      window.location.href = '/organizer/opportunities';
+    }
   };
 
   return (

@@ -86,7 +86,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       <div>
         {/* Brand Header: Exact Image 1 "volunteer by krow" style + Image 2 Purple K Logo */}
         <div className="h-16 px-5 flex items-center gap-3 border-b border-gray-50">
-          <Link href="/" className="flex items-center gap-2.5 group">
+          <Link href={isOrganizer ? '/organizer/opportunities' : '/'} className="flex items-center gap-2.5 group">
             {/* Image 2: Purple K Logo Icon */}
             <div className="w-8 h-8 rounded-xl bg-[#635BFF] flex items-center justify-center text-white shadow-md shadow-purple-500/20 flex-shrink-0 overflow-hidden">
               <img src="/logo.jpg" alt="KROW" className="w-full h-full object-cover" />

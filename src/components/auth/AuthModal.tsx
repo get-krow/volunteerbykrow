@@ -135,6 +135,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         verification_status: 'pending',
         created_at: new Date().toISOString(),
       });
+      window.location.href = '/organizer/opportunities';
+      return;
     }
 
     onLoginSuccess(user);
@@ -179,6 +181,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     db.setCurrentUser(loggedInUser);
+
+    if (loggedInUser.role === 'organizer') {
+      window.location.href = '/organizer/opportunities';
+      return;
+    }
+
     onLoginSuccess(loggedInUser);
   };
 

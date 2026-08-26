@@ -42,7 +42,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const handleLoginSuccess = (user: UserProfile) => {
     setCurrentUser(user);
     setIsAuthModalOpen(false);
-    window.location.reload();
+    if (user.role === 'organizer') {
+      window.location.href = '/organizer/opportunities';
+    } else {
+      window.location.reload();
+    }
   };
 
   return (

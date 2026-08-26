@@ -56,7 +56,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, onOpenAuth, onLogou
         {(() => {
           const isOrganizer = currentUser?.role === 'organizer' || pathname?.startsWith('/organizer');
           return (
-            <Link href="/" className="flex items-center gap-2 group">
+            <Link href={isOrganizer ? '/organizer/opportunities' : '/'} className="flex items-center gap-2 group">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-700 via-brand-600 to-purple-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20 group-hover:scale-105 transition-transform duration-200">
                 <Sparkles className="w-5 h-5" />
               </div>

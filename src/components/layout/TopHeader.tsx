@@ -86,7 +86,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   return (
     <header className="h-16 bg-white/95 backdrop-blur-md border-b border-gray-100 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
       {/* Brand Header Left: Image 1 "volunteer by krow" style + Image 2 Purple K Logo */}
-      <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
+      <Link href={isOrganizer ? '/organizer/opportunities' : '/'} className="flex items-center gap-2.5 group flex-shrink-0">
         <div className="w-8 h-8 rounded-xl bg-[#635BFF] flex items-center justify-center text-white shadow-md shadow-purple-500/20 overflow-hidden">
           <img src="/logo.jpg" alt="KROW" className="w-full h-full object-cover" />
         </div>
