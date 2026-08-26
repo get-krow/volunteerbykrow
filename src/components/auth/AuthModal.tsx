@@ -132,7 +132,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         hq_province_state: provinceState,
         hq_city: city,
         no_hq: false,
-        verification_status: 'verified',
+        verification_status: 'pending',
         created_at: new Date().toISOString(),
       });
     }

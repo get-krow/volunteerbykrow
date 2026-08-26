@@ -426,7 +426,7 @@ class LocalDatabase {
           hq_province_state: user.province_state || 'BC',
           hq_city: user.city || 'Vancouver',
           no_hq: false,
-          verification_status: 'verified',
+          verification_status: 'pending',
           created_at: new Date().toISOString(),
         };
         this.saveOrganizer(orgToSave);
@@ -489,7 +489,7 @@ class LocalDatabase {
             hq_province_state: p.province_state || 'BC',
             hq_city: p.city || 'Vancouver',
             no_hq: false,
-            verification_status: 'verified',
+            verification_status: 'pending',
             created_at: p.created_at || new Date().toISOString(),
           });
         }
