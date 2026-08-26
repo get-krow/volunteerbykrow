@@ -43,7 +43,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
     }
   }, [currentUser]);
 
-  const isOrganizer = isMounted && currentUser?.role === 'organizer';
+  const isOrganizer = isMounted && (currentUser?.role === 'organizer' || pathname?.startsWith('/organizer'));
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   const handleToggleNotifications = () => {
@@ -92,7 +92,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         </div>
         <div className="flex items-center gap-1.5">
           <span className="font-black text-lg text-gray-900 tracking-tight leading-none">
-            volunteer
+            {isOrganizer ? 'organizer' : 'volunteer'}
           </span>
           <span className="px-2 py-0.5 rounded-full bg-[#EEECFF] border border-[#D9D3FF] text-[#635BFF] font-extrabold text-[11px] leading-none shadow-2xs">
             by krow

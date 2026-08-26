@@ -38,7 +38,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
     setIsMounted(true);
   }, []);
 
-  const isOrganizer = isMounted && currentUser?.role === 'organizer';
+  const isOrganizer = isMounted && (currentUser?.role === 'organizer' || pathname?.startsWith('/organizer'));
 
   // Section 11 & Section 30 Spec: Exactly 4 Primary Tabs for Volunteer, 4 for Organizer
   const volunteerNavItems = [
@@ -94,10 +94,10 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
             {!isCollapsed && (
               <div className="flex flex-col">
-                {/* Image 1 Style: "volunteer" in bold dark text + "by krow" in light purple pill badge */}
+                {/* Image 1 Style: "volunteer" / "organizer" in bold dark text + "by krow" in light purple pill badge */}
                 <div className="flex items-center gap-1.5">
                   <span className="font-black text-lg text-gray-900 tracking-tight leading-none">
-                    volunteer
+                    {isOrganizer ? 'organizer' : 'volunteer'}
                   </span>
                   <span className="px-2 py-0.5 rounded-full bg-[#EEECFF] border border-[#D9D3FF] text-[#635BFF] font-extrabold text-[11px] leading-none shadow-2xs">
                     by krow

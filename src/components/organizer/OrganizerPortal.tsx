@@ -22,6 +22,7 @@ import {
   ArrowLeft,
   Upload,
   Image,
+  HelpCircle,
 } from 'lucide-react';
 import { Opportunity, OrganizerProfile, UserProfile, AttendanceRecord } from '@/lib/types';
 import { db } from '@/lib/db';
@@ -1117,6 +1118,26 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
               Save Organization Settings
             </button>
           </form>
+
+          {/* Help & Support / Contact Us Section */}
+          <div className="pt-4 border-t border-purple-100">
+            <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="font-extrabold text-xs text-gray-900 flex items-center gap-1.5">
+                  <HelpCircle className="w-4 h-4 text-[#635BFF]" /> Need Assistance or Verification Support?
+                </h4>
+                <p className="text-[11px] text-gray-500 font-medium mt-0.5">
+                  Contact Krow support regarding organization verification requests, account help, or general inquiries.
+                </p>
+              </div>
+              <a
+                href="/contact"
+                className="px-4 py-2 bg-[#635BFF] hover:bg-[#5046E5] text-white rounded-xl text-xs font-bold shadow-2xs transition-all flex items-center gap-1 flex-shrink-0"
+              >
+                Contact Us →
+              </a>
+            </div>
+          </div>
 
           {/* Section 50 & 39 Spec: Delete Account Button */}
           <div className="pt-4 border-t border-gray-100 space-y-2">

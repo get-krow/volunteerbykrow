@@ -53,19 +53,24 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, onOpenAuth, onLogou
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Brand Logo */}
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-700 via-brand-600 to-purple-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20 group-hover:scale-105 transition-transform duration-200">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <div className="flex flex-col">
-            <span className="font-bold text-lg leading-none tracking-tight text-gray-900">
-              VOLUNTEER <span className="text-brand-600">BY KROW</span>
-            </span>
-            <span className="text-[10px] text-gray-400 font-medium tracking-wide uppercase">
-              Discovery & Management
-            </span>
-          </div>
-        </Link>
+        {(() => {
+          const isOrganizer = currentUser?.role === 'organizer' || pathname?.startsWith('/organizer');
+          return (
+            <Link href="/" className="flex items-center gap-2 group">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-700 via-brand-600 to-purple-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20 group-hover:scale-105 transition-transform duration-200">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-bold text-lg leading-none tracking-tight text-gray-900">
+                  {isOrganizer ? 'ORGANIZER' : 'VOLUNTEER'} <span className="text-brand-600">BY KROW</span>
+                </span>
+                <span className="text-[10px] text-gray-400 font-medium tracking-wide uppercase">
+                  {isOrganizer ? 'Organizer Portal' : 'Discovery & Management'}
+                </span>
+              </div>
+            </Link>
+          );
+        })()}
 
         {/* Dynamic Role Navigation Tabs */}
         {currentUser?.role === 'volunteer' && (
