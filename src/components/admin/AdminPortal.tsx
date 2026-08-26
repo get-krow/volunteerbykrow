@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Shield, CheckCircle2, AlertCircle, Search, Edit3, Lock, RefreshCw, Plus, Trash2 } from 'lucide-react';
-import { OrganizerProfile, UserProfile, AttendanceRecord, HourAuditLog, Category } from '@/lib/types';
+import { Shield, CheckCircle2, AlertCircle, Search, Edit3, Lock, RefreshCw, Plus, Trash2, MessageSquare, Mail, Clock, Building2, HelpCircle } from 'lucide-react';
+import { OrganizerProfile, UserProfile, AttendanceRecord, HourAuditLog, Category, ContactMessage } from '@/lib/types';
 import { db } from '@/lib/db';
 
 export const AdminPortal: React.FC = () => {
@@ -10,7 +10,7 @@ export const AdminPortal: React.FC = () => {
   const [adminPass, setAdminPass] = useState('');
   const [passError, setPassError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'verify' | 'hours' | 'categories'>('verify');
+  const [activeTab, setActiveTab] = useState<'verify' | 'hours' | 'categories' | 'messages'>('verify');
 
   // State
   const [organizers, setOrganizers] = useState<OrganizerProfile[]>(() => db.getOrganizers());
@@ -28,10 +28,15 @@ export const AdminPortal: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>(() => db.getCategories());
   const [newCategoryName, setNewCategoryName] = useState('');
 
+  // Messages State
+  const [messages, setMessages] = useState<ContactMessage[]>(() => db.getContactMessages());
+  const [msgSearch, setMsgSearch] = useState('');
+
   const refreshData = () => {
     setOrganizers([...db.getOrganizers()]);
     setCategories([...db.getCategories()]);
     setVolunteers([...db.getVolunteers()]);
+    setMessages([...db.getContactMessages()]);
   };
 
   useEffect(() => {
@@ -181,11 +186,11 @@ export const AdminPortal: React.FC = () => {
         </div>
 
         {/* Tab selector */}
-        <div className="flex items-center gap-1 bg-gray-800 p-1 rounded-2xl">
+        <div className="flex items-center gap-1 bg-gray-800 p-1 rounded-2xl flex-wrap">
           <button
             onClick={() => setActiveTab('verify')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'verify' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'
+              activeTab === 'verify' ? 'bg-[#635BFF] text-white shadow-sm' : 'text-gray-400 hover:text-white'
             }`}
           >
             Verify Organizations
@@ -193,7 +198,7 @@ export const AdminPortal: React.FC = () => {
           <button
             onClick={() => setActiveTab('hours')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'hours' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'
+              activeTab === 'hours' ? 'bg-[#635BFF] text-white shadow-sm' : 'text-gray-400 hover:text-white'
             }`}
           >
             Edit Volunteer Hours
@@ -201,10 +206,23 @@ export const AdminPortal: React.FC = () => {
           <button
             onClick={() => setActiveTab('categories')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'categories' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'
+              activeTab === 'categories' ? 'bg-[#635BFF] text-white shadow-sm' : 'text-gray-400 hover:text-white'
             }`}
           >
             Categories
+          </button>
+          <button
+            onClick={() => setActiveTab('messages')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeTab === 'messages' ? 'bg-[#635BFF] text-white shadow-sm' : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            Messages
+            {messages.length > 0 && (
+              <span className="px-1.5 py-0.5 text-[10px] bg-white/20 text-white font-extrabold rounded-full">
+                {messages.length}
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -446,6 +464,120 @@ export const AdminPortal: React.FC = () => {
                 {cat.name} {cat.is_custom && <span className="text-[10px] text-brand-500">(Custom)</span>}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* FEATURE 4: CONTACT MESSAGES */}
+      {activeTab === 'messages' && (
+        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-card space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
+            <div>
+              <h2 className="font-bold text-gray-900 text-base flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-[#635BFF]" /> User Contact Messages
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Inquiries submitted by volunteers and organizers regarding hours, org verification, or general feedback.
+              </p>
+            </div>
+
+            {messages.length > 0 && (
+              <button
+                onClick={async () => {
+                  if (confirm('Are you sure you want to delete ALL contact messages? This cannot be undone.')) {
+                    await db.deleteAllContactMessages();
+                    refreshData();
+                  }
+                }}
+                className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
+              >
+                <Trash2 className="w-4 h-4" /> Delete All Messages
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            {messages.length > 0 && (
+              <div className="max-w-md">
+                <input
+                  type="text"
+                  value={msgSearch}
+                  onChange={(e) => setMsgSearch(e.target.value)}
+                  placeholder="Search by name, email, subject..."
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-[#635BFF]"
+                />
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {messages.length === 0 ? (
+                <div className="py-12 text-center text-xs text-gray-400 space-y-2">
+                  <Mail className="w-8 h-8 text-gray-300 mx-auto" />
+                  <div>No contact messages in your inbox.</div>
+                </div>
+              ) : (
+                messages
+                  .filter((m) => {
+                    if (!msgSearch.trim()) return true;
+                    const q = msgSearch.toLowerCase();
+                    return (
+                      m.user_name.toLowerCase().includes(q) ||
+                      m.user_email.toLowerCase().includes(q) ||
+                      m.subject.toLowerCase().includes(q) ||
+                      m.message.toLowerCase().includes(q)
+                    );
+                  })
+                  .map((msg) => {
+                    const getCategoryBadge = (cat: string) => {
+                      switch (cat) {
+                        case 'hours_inquiry':
+                          return <span className="px-2 py-0.5 bg-amber-50 text-amber-700 font-bold rounded-md text-[10px]">Hours Inquiry</span>;
+                        case 'org_verification':
+                          return <span className="px-2 py-0.5 bg-purple-50 text-purple-700 font-bold rounded-md text-[10px]">Org Verification</span>;
+                        case 'general':
+                          return <span className="px-2 py-0.5 bg-blue-50 text-blue-700 font-bold rounded-md text-[10px]">General</span>;
+                        default:
+                          return <span className="px-2 py-0.5 bg-gray-100 text-gray-600 font-bold rounded-md text-[10px]">Other</span>;
+                      }
+                    };
+
+                    return (
+                      <div key={msg.id} className="p-4 bg-gray-50/70 hover:bg-gray-50 rounded-2xl border border-gray-200/80 space-y-2 relative transition-all">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {getCategoryBadge(msg.category)}
+                              <span className="font-extrabold text-xs text-gray-900">{msg.user_name}</span>
+                              <span className="text-[11px] text-gray-500 font-medium">({msg.user_email})</span>
+                            </div>
+                            <h4 className="font-bold text-xs text-gray-900">{msg.subject}</h4>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-gray-400 font-medium">
+                              {new Date(msg.created_at).toLocaleString()}
+                            </span>
+                            <button
+                              onClick={async () => {
+                                await db.deleteContactMessage(msg.id);
+                                refreshData();
+                              }}
+                              title="Delete Message"
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-gray-600 leading-relaxed bg-white p-3 rounded-xl border border-gray-100 whitespace-pre-wrap">
+                          {msg.message}
+                        </p>
+                      </div>
+                    );
+                  })
+              )}
+            </div>
           </div>
         </div>
       )}

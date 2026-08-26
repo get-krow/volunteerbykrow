@@ -126,3 +126,15 @@ export interface HourAuditLog {
   reason?: string;
   created_at: string;
 }
+
+export interface ContactMessage {
+  id: string;
+  user_id?: string;
+  user_name: string;
+  user_email: string;
+  category: 'hours_inquiry' | 'org_verification' | 'general' | 'other' | string;
+  subject: string;
+  message: string;
+  is_read?: boolean;
+  created_at: string;
+}

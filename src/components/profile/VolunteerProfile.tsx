@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { User, MapPin, Calendar, Mail, Save, LogOut, Trash2, Camera, ShieldAlert } from 'lucide-react';
+import { User, MapPin, Calendar, Mail, Save, LogOut, Trash2, Camera, ShieldAlert, HelpCircle } from 'lucide-react';
 import { UserProfile } from '@/lib/types';
 import { db } from '@/lib/db';
 import { DeleteAccountModal } from '../auth/DeleteAccountModal';
@@ -161,6 +161,26 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
             <Save className="w-4 h-4" /> Save Profile Changes
           </button>
         </form>
+
+        {/* Help & Support / Contact Us Section */}
+        <div className="pt-6 border-t border-purple-100">
+          <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <h4 className="font-extrabold text-xs text-gray-900 flex items-center gap-1.5">
+                <HelpCircle className="w-4 h-4 text-[#635BFF]" /> Have Questions or Issues with Hours?
+              </h4>
+              <p className="text-[11px] text-gray-500 font-medium mt-0.5">
+                Contact Krow support regarding wrong hours, organization verification requests, or general inquiries.
+              </p>
+            </div>
+            <a
+              href="/contact"
+              className="px-4 py-2 bg-[#635BFF] hover:bg-[#5046E5] text-white rounded-xl text-xs font-bold shadow-2xs transition-all flex items-center gap-1 flex-shrink-0"
+            >
+              Contact Us →
+            </a>
+          </div>
+        </div>
 
         {/* Section 50 Spec: Danger Zone Delete Account */}
         <div className="pt-6 border-t border-red-100">

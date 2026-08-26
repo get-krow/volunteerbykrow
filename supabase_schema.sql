@@ -136,6 +136,19 @@ CREATE TABLE IF NOT EXISTS public.saved_opportunities (
   CONSTRAINT unique_volunteer_saved UNIQUE (volunteer_id, opportunity_id)
 );
 
+-- 9. Contact Messages Table
+CREATE TABLE IF NOT EXISTS public.contact_messages (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  user_name TEXT NOT NULL,
+  user_email TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'general',
+  subject TEXT NOT NULL,
+  message TEXT NOT NULL,
+  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- 9. Notifications Table
 CREATE TABLE IF NOT EXISTS public.notifications (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

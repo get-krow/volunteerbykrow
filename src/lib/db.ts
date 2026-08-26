@@ -9,6 +9,7 @@ import {
   NotificationItem,
   BadgeDefinition,
   HourAuditLog,
+  ContactMessage,
   VerificationStatus,
   RecurrenceType,
 } from './types';
@@ -59,6 +60,7 @@ class LocalDatabase {
   private notifications: NotificationItem[] = [];
   private savedOpportunityIds: string[] = [];
   private hourAuditLogs: HourAuditLog[] = [];
+  private contactMessages: ContactMessage[] = [];
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -267,6 +269,30 @@ class LocalDatabase {
         });
       }
 
+      // 7. Sync Contact Messages from Supabase PostgreSQL
+      const { data: dbMsgs } = await supabase.from('contact_messages').select('*').order('created_at', { ascending: false });
+      if (dbMsgs && dbMsgs.length > 0) {
+        dbMsgs.forEach((m: any) => {
+          const idx = this.contactMessages.findIndex((existing) => existing.id === m.id);
+          const mappedMsg: ContactMessage = {
+            id: m.id,
+            user_id: m.user_id || undefined,
+            user_name: m.user_name || 'User',
+            user_email: m.user_email || '',
+            category: m.category || 'general',
+            subject: m.subject || '',
+            message: m.message || '',
+            is_read: m.is_read ?? false,
+            created_at: m.created_at || new Date().toISOString(),
+          };
+          if (idx >= 0) {
+            this.contactMessages[idx] = mappedMsg;
+          } else {
+            this.contactMessages.push(mappedMsg);
+          }
+        });
+      }
+
       this.saveToStorage();
     } catch (e) {
       console.error('Supabase sync error:', e);
@@ -285,6 +311,7 @@ class LocalDatabase {
       localStorage.setItem('krow_notifications', JSON.stringify(this.notifications));
       localStorage.setItem('krow_saved', JSON.stringify(this.savedOpportunityIds));
       localStorage.setItem('krow_audit', JSON.stringify(this.hourAuditLogs));
+      localStorage.setItem('krow_contact_messages', JSON.stringify(this.contactMessages));
     } catch (e) {
       console.error('Storage save error', e);
     }
@@ -349,6 +376,9 @@ class LocalDatabase {
 
       const storedAudit = localStorage.getItem('krow_audit');
       if (storedAudit) this.hourAuditLogs = JSON.parse(storedAudit);
+
+      const storedMsgs = localStorage.getItem('krow_contact_messages');
+      if (storedMsgs) this.contactMessages = JSON.parse(storedMsgs);
     } catch (e) {
       console.error('Storage load error', e);
     }
@@ -1508,6 +1538,84 @@ class LocalDatabase {
 
   public getAllAttendanceRecords(): AttendanceRecord[] {
     return this.attendance;
+  }
+
+  // --- Contact Messages ---
+  public submitContactMessage(data: Omit<ContactMessage, 'id' | 'created_at'>): ContactMessage {
+    const msgId = ensureUUID('msg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6));
+    const newMsg: ContactMessage = {
+      ...data,
+      id: msgId,
+      created_at: new Date().toISOString(),
+    };
+    this.contactMessages.unshift(newMsg);
+
+    // Add confirmation notification to the user
+    if (data.user_id) {
+      this.addNotification({
+        user_id: data.user_id,
+        title: 'Message Received',
+        message: `Your inquiry "${data.subject}" has been received by Krow Support. We will review it shortly.`,
+        type: 'contact_sent',
+        link: '/profile',
+      });
+    }
+
+    this.saveToStorage();
+
+    if (isSupabaseConfigured()) {
+      supabase
+        .from('contact_messages')
+        .upsert([
+          {
+            id: msgId,
+            user_id: data.user_id ? ensureUUID(data.user_id) : null,
+            user_name: data.user_name,
+            user_email: data.user_email,
+            category: data.category,
+            subject: data.subject,
+            message: data.message,
+            is_read: false,
+            created_at: newMsg.created_at,
+          },
+        ])
+        .then(({ error }) => {
+          if (error) console.error('Supabase contact message upsert error:', error);
+        });
+    }
+
+    return newMsg;
+  }
+
+  public getContactMessages(): ContactMessage[] {
+    return [...this.contactMessages];
+  }
+
+  public async deleteContactMessage(id: string): Promise<void> {
+    const msgUUID = ensureUUID(id);
+    this.contactMessages = this.contactMessages.filter((m) => m.id !== id && m.id !== msgUUID);
+    this.saveToStorage();
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('contact_messages').delete().or(`id.eq.${id},id.eq.${msgUUID}`);
+      } catch (err) {
+        console.error('Supabase delete contact message error:', err);
+      }
+    }
+  }
+
+  public async deleteAllContactMessages(): Promise<void> {
+    this.contactMessages = [];
+    this.saveToStorage();
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('contact_messages').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      } catch (err) {
+        console.error('Supabase delete all contact messages error:', err);
+      }
+    }
   }
 }
 
