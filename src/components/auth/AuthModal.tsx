@@ -89,7 +89,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const handleCompleteSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return alert('Please enter your name');
+    if (!name.trim()) return alert(role === 'organizer' ? 'Please enter your organization name' : 'Please enter your full name');
 
     let userId = 'usr_' + Date.now();
     try {
@@ -410,18 +410,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             )}
 
-            {/* Step 2: Personal Info */}
+            {/* Step 2: Personal / Organization Info */}
             {step === 2 && (
               <div className="space-y-4">
                 <div>
-                  <label className="block font-bold text-gray-700 mb-1">Full Name</label>
+                  <label className="block font-bold text-gray-700 mb-1">
+                    {role === 'organizer' ? 'Organization Name' : 'Full Name'}
+                  </label>
                   <input
                     type="text"
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Zachary Tan"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
+                    placeholder={role === 'organizer' ? 'e.g. Vancouver Food Bank' : 'e.g. Zachary Tan'}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-[#635BFF]"
                   />
                 </div>
 
@@ -433,7 +435,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       required
                       value={dateOfBirth}
                       onChange={(e) => setDateOfBirth(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-[#635BFF]"
                     />
                   </div>
                 )}
@@ -441,7 +443,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    if (!name.trim()) return alert('Please enter your name');
+                    if (!name.trim()) return alert(role === 'organizer' ? 'Please enter your organization name' : 'Please enter your full name');
                     setStep(3);
                   }}
                   className="w-full py-3 bg-[#635BFF] text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1"
