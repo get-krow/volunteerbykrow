@@ -791,7 +791,7 @@ class LocalDatabase {
 
     if (isSupabaseConfigured()) {
       try {
-        await supabase.from('opportunities').update({ status: 'archived' }).or(`id.eq.${id},id.eq.${oppUUID}`);
+        await supabase.from('opportunities').update({ status: 'archived' }).eq('id', oppUUID);
       } catch (err) {
         console.error('Supabase opportunity archive error:', err);
       }
@@ -821,9 +821,8 @@ class LocalDatabase {
       try {
         for (const oppId of Array.from(pastOppIds)) {
           const oppUUID = ensureUUID(oppId);
-          await supabase.from('opportunities').update({ status: 'archived' }).or(`id.eq.${oppId},id.eq.${oppUUID}`);
+          await supabase.from('opportunities').update({ status: 'archived' }).eq('id', oppUUID);
         }
-        await supabase.from('opportunities').update({ status: 'archived' }).or(`org_id.eq.${orgId},org_id.eq.${orgUUID}`).in('status', ['ended', 'cancelled']);
       } catch (err) {
         console.error('Supabase clear past opportunities error:', err);
       }
@@ -1161,7 +1160,7 @@ class LocalDatabase {
       supabase
         .from('opportunities')
         .update({ status: 'ended', ended_at: opp.ended_at })
-        .or(`id.eq.${opportunityId},id.eq.${oppUUID}`)
+        .eq('id', oppUUID)
         .then(({ error }) => {
           if (error) console.error('Supabase end event error:', error);
         });

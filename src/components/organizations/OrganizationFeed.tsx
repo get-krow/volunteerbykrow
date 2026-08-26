@@ -27,9 +27,14 @@ export const OrganizationFeed: React.FC<OrganizationFeedProps> = ({ currentUser,
 
   useEffect(() => {
     refreshData();
+    const interval = setInterval(() => {
+      refreshData();
+    }, 5000);
+    return () => clearInterval(interval);
   }, [currentUser]);
 
-  const refreshData = () => {
+  const refreshData = async () => {
+    await db.syncWithSupabase();
     setOrganizers(db.getOrganizers());
     setOpportunities(db.getOpportunities());
     if (currentUser) {
