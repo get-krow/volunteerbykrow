@@ -261,10 +261,11 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {attendance.map((att) => {
                 const opp = opportunities.find((o) => o.id === att.opportunity_id);
+                const title = att.opportunity_title || opp?.title || 'Volunteer Shift';
                 return (
                   <div key={att.id} className="p-3 rounded-xl border border-gray-100 flex items-center justify-between text-xs">
                     <div>
-                      <div className="font-bold text-gray-900">{opp?.title || 'Volunteer Shift'}</div>
+                      <div className="font-bold text-gray-900">{title}</div>
                       <div className="text-gray-500">{att.marked_at ? att.marked_at.split('T')[0] : 'Past'}</div>
                     </div>
                     <div className="text-right">

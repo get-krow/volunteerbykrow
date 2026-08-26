@@ -308,27 +308,30 @@ export const AdminPortal: React.FC = () => {
             />
 
             <div className="divide-y divide-gray-100">
-              {db.getAllAttendanceRecords().map((att) => (
-                <div key={att.id} className="py-3 flex items-center justify-between text-xs">
-                  <div>
-                    <div className="font-bold text-gray-900">Volunteer Shift #{att.id}</div>
-                    <div className="text-gray-500">
-                      Status: <strong className="capitalize">{att.status}</strong> • Awarded Hours:{' '}
-                      <strong className="text-brand-600">{att.hours_awarded} hrs</strong>
+              {db.getAllAttendanceRecords().map((att) => {
+                const title = att.opportunity_title || db.getOpportunity(att.opportunity_id)?.title || 'Volunteer Shift';
+                return (
+                  <div key={att.id} className="py-3 flex items-center justify-between text-xs">
+                    <div>
+                      <div className="font-bold text-gray-900">{title}</div>
+                      <div className="text-gray-500">
+                        Status: <strong className="capitalize">{att.status}</strong> • Awarded Hours:{' '}
+                        <strong className="text-brand-600">{att.hours_awarded} hrs</strong>
+                      </div>
                     </div>
-                  </div>
 
-                  <button
-                    onClick={() => {
-                      setSelectedAttendance(att);
-                      setNewHoursInput(att.hours_awarded.toString());
-                    }}
-                    className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-brand-700 font-bold rounded-xl text-xs flex items-center gap-1"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" /> Edit Hours
-                  </button>
-                </div>
-              ))}
+                    <button
+                      onClick={() => {
+                        setSelectedAttendance(att);
+                        setNewHoursInput(att.hours_awarded.toString());
+                      }}
+                      className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-brand-700 font-bold rounded-xl text-xs flex items-center gap-1"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" /> Edit Hours
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
 

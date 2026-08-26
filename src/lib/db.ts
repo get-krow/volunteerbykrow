@@ -248,9 +248,11 @@ class LocalDatabase {
               existing.id === a.id ||
               (existing.opportunity_id === a.opportunity_id && existing.volunteer_id === a.volunteer_id)
           );
+          const opp = this.opportunities.find((o) => o.id === a.opportunity_id || o.id === ensureUUID(a.opportunity_id));
           const mappedAtt: AttendanceRecord = {
             id: a.id,
             opportunity_id: a.opportunity_id,
+            opportunity_title: a.opportunity_title || opp?.title || (idx >= 0 ? this.attendance[idx].opportunity_title : undefined),
             volunteer_id: a.volunteer_id,
             status: a.status || 'unmarked',
             hours_awarded: a.hours_awarded || 0,
@@ -328,6 +330,16 @@ class LocalDatabase {
 
       const storedAtt = localStorage.getItem('krow_attendance');
       if (storedAtt) this.attendance = JSON.parse(storedAtt);
+
+      // Backfill missing opportunity_title on local attendance records if opportunity is present
+      this.attendance.forEach((att) => {
+        if (!att.opportunity_title) {
+          const opp = this.opportunities.find((o) => o.id === att.opportunity_id || o.id === ensureUUID(att.opportunity_id));
+          if (opp?.title) {
+            att.opportunity_title = opp.title;
+          }
+        }
+      });
 
       const storedNotifs = localStorage.getItem('krow_notifications');
       if (storedNotifs) this.notifications = JSON.parse(storedNotifs);
@@ -780,19 +792,29 @@ class LocalDatabase {
 
   public async deleteOpportunity(id: string): Promise<void> {
     const oppUUID = ensureUUID(id);
+    const opp = this.opportunities.find((o) => o.id === id || o.id === oppUUID);
 
-    // Filter out opportunity & registrations from local state, but keep attendance intact!
+    // Preserve opportunity title on attendance records before deleting opportunity
+    if (opp?.title) {
+      this.attendance.forEach((att) => {
+        if (att.opportunity_id === id || att.opportunity_id === oppUUID) {
+          if (!att.opportunity_title) {
+            att.opportunity_title = opp.title;
+          }
+        }
+      });
+    }
+
+    // Filter out opportunity & registrations from local state, BUT KEEP ATTENDANCE INTACT!
     this.opportunities = this.opportunities.filter((o) => o.id !== id && o.id !== oppUUID);
     this.registrations = this.registrations.filter((r) => r.opportunity_id !== id && r.opportunity_id !== oppUUID);
     this.saveToStorage();
 
     if (isSupabaseConfigured()) {
       try {
-        // 1. Unlink opportunity_id in Supabase attendance table so CASCADE DELETE does not erase volunteer hours
-        await supabase.from('attendance').update({ opportunity_id: null }).eq('opportunity_id', oppUUID);
-        // 2. Delete registrations for this opportunity
+        // Delete registrations for this opportunity from Supabase
         await supabase.from('registrations').delete().eq('opportunity_id', oppUUID);
-        // 3. Delete opportunity post row from Supabase
+        // Delete opportunity post row from Supabase (attendance records are preserved permanently in Supabase)
         const { error } = await supabase.from('opportunities').delete().eq('id', oppUUID);
         if (error) {
           console.error('Supabase opportunity delete error:', error);
@@ -812,6 +834,20 @@ class LocalDatabase {
         .map((o) => o.id)
     );
 
+    // Preserve opportunity titles on attendance records before clearing
+    pastOppIds.forEach((oppId) => {
+      const opp = this.opportunities.find((o) => o.id === oppId);
+      if (opp?.title) {
+        this.attendance.forEach((att) => {
+          if (att.opportunity_id === oppId) {
+            if (!att.opportunity_title) {
+              att.opportunity_title = opp.title;
+            }
+          }
+        });
+      }
+    });
+
     this.opportunities = this.opportunities.filter((o) => !pastOppIds.has(o.id));
     this.registrations = this.registrations.filter((r) => !pastOppIds.has(r.opportunity_id));
     this.saveToStorage();
@@ -820,7 +856,6 @@ class LocalDatabase {
       try {
         for (const oppId of Array.from(pastOppIds)) {
           const oppUUID = ensureUUID(oppId);
-          await supabase.from('attendance').update({ opportunity_id: null }).eq('opportunity_id', oppUUID);
           await supabase.from('registrations').delete().eq('opportunity_id', oppUUID);
           await supabase.from('opportunities').delete().eq('id', oppUUID);
         }
@@ -1055,6 +1090,7 @@ class LocalDatabase {
     status: 'here' | 'not_here'
   ): AttendanceRecord {
     const opp = this.opportunities.find((o) => o.id === opportunityId || o.id === ensureUUID(opportunityId));
+    const oppTitle = opp?.title;
     const org = this.organizers.find(
       (o) => o.id === opp?.org_id || (opp?.org_id && ensureUUID(o.id) === ensureUUID(opp.org_id))
     );
@@ -1072,11 +1108,13 @@ class LocalDatabase {
       att.status = status;
       att.hours_awarded = hoursAwarded;
       att.is_verified_org_at_completion = isVerified;
+      if (oppTitle) att.opportunity_title = oppTitle;
       att.marked_at = new Date().toISOString();
     } else {
       att = {
         id: 'att-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
         opportunity_id: opportunityId,
+        opportunity_title: oppTitle,
         volunteer_id: volunteerId,
         status,
         hours_awarded: hoursAwarded,
