@@ -780,20 +780,25 @@ class LocalDatabase {
 
   public async deleteOpportunity(id: string): Promise<void> {
     const oppUUID = ensureUUID(id);
-    const opp = this.opportunities.find((o) => o.id === id || o.id === oppUUID);
-    if (opp) {
-      opp.status = 'archived';
-    }
 
-    // Do NOT delete attendance records! Volunteer awarded hours must be preserved permanently even if opportunity post is archived.
+    // Filter out opportunity & registrations from local state, but keep attendance intact!
     this.opportunities = this.opportunities.filter((o) => o.id !== id && o.id !== oppUUID);
+    this.registrations = this.registrations.filter((r) => r.opportunity_id !== id && r.opportunity_id !== oppUUID);
     this.saveToStorage();
 
     if (isSupabaseConfigured()) {
       try {
-        await supabase.from('opportunities').update({ status: 'archived' }).eq('id', oppUUID);
+        // 1. Unlink opportunity_id in Supabase attendance table so CASCADE DELETE does not erase volunteer hours
+        await supabase.from('attendance').update({ opportunity_id: null }).eq('opportunity_id', oppUUID);
+        // 2. Delete registrations for this opportunity
+        await supabase.from('registrations').delete().eq('opportunity_id', oppUUID);
+        // 3. Delete opportunity post row from Supabase
+        const { error } = await supabase.from('opportunities').delete().eq('id', oppUUID);
+        if (error) {
+          console.error('Supabase opportunity delete error:', error);
+        }
       } catch (err) {
-        console.error('Supabase opportunity archive error:', err);
+        console.error('Supabase opportunity delete exception:', err);
       }
     }
   }
@@ -807,21 +812,17 @@ class LocalDatabase {
         .map((o) => o.id)
     );
 
-    this.opportunities.forEach((opp) => {
-      if (pastOppIds.has(opp.id)) {
-        opp.status = 'archived';
-      }
-    });
-
-    // Do NOT delete attendance records! Volunteer awarded hours must be preserved permanently even if opportunity post is archived.
     this.opportunities = this.opportunities.filter((o) => !pastOppIds.has(o.id));
+    this.registrations = this.registrations.filter((r) => !pastOppIds.has(r.opportunity_id));
     this.saveToStorage();
 
     if (isSupabaseConfigured()) {
       try {
         for (const oppId of Array.from(pastOppIds)) {
           const oppUUID = ensureUUID(oppId);
-          await supabase.from('opportunities').update({ status: 'archived' }).eq('id', oppUUID);
+          await supabase.from('attendance').update({ opportunity_id: null }).eq('opportunity_id', oppUUID);
+          await supabase.from('registrations').delete().eq('opportunity_id', oppUUID);
+          await supabase.from('opportunities').delete().eq('id', oppUUID);
         }
       } catch (err) {
         console.error('Supabase clear past opportunities error:', err);

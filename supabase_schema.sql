@@ -101,10 +101,10 @@ CREATE TABLE IF NOT EXISTS public.registrations (
   CONSTRAINT unique_active_registration UNIQUE (opportunity_id, volunteer_id)
 );
 
--- 6. Attendance Table
+-- 6. Attendance Table (Preserves volunteer hours permanently even when opportunities are deleted)
 CREATE TABLE IF NOT EXISTS public.attendance (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  opportunity_id UUID NOT NULL REFERENCES public.opportunities(id) ON DELETE CASCADE,
+  opportunity_id UUID REFERENCES public.opportunities(id) ON DELETE SET NULL,
   volunteer_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'unmarked' CHECK (status IN ('unmarked', 'here', 'not_here')),
   hours_awarded NUMERIC NOT NULL DEFAULT 0,

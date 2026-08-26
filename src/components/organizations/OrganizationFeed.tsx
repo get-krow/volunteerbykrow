@@ -76,7 +76,7 @@ export const OrganizationFeed: React.FC<OrganizationFeedProps> = ({ currentUser,
   const orgOppMap = useMemo(() => {
     const map = new Map<string, Opportunity[]>();
     opportunities.forEach((opp) => {
-      if (opp.status === 'published' || opp.status === 'ended') {
+      if (opp.status === 'published') {
         const existing = map.get(opp.org_id) || [];
         existing.push(opp);
         map.set(opp.org_id, existing);
