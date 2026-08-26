@@ -446,23 +446,61 @@ class LocalDatabase {
 
   // --- Organizers & Verification ---
   public getOrganizers(): OrganizerProfile[] {
-    return this.organizers;
+    // Auto-sync any profiles with role === 'organizer' into this.organizers
+    this.profiles.forEach((p) => {
+      if (p.role === 'organizer') {
+        const pUUID = ensureUUID(p.id);
+        const exists = this.organizers.some((o) => o.id === p.id || o.id === pUUID || ensureUUID(o.id) === pUUID);
+        if (!exists) {
+          this.organizers.push({
+            id: p.id,
+            org_name: p.name || 'Organization',
+            hq_country: p.country || 'Canada',
+            hq_province_state: p.province_state || 'BC',
+            hq_city: p.city || 'Vancouver',
+            no_hq: false,
+            verification_status: 'verified',
+            created_at: p.created_at || new Date().toISOString(),
+          });
+        }
+      }
+    });
+    return [...this.organizers];
   }
 
   public getOrganizer(id: string): OrganizerProfile | undefined {
-    return this.organizers.find((o) => o.id === id);
+    const orgUUID = ensureUUID(id);
+    return this.organizers.find((o) => o.id === id || o.id === orgUUID || ensureUUID(o.id) === orgUUID);
   }
 
-  public updateOrganizerVerification(orgId: string, status: VerificationStatus) {
+  public async updateOrganizerVerification(orgId: string, status: VerificationStatus): Promise<void> {
     const orgUUID = ensureUUID(orgId);
-    const org = this.organizers.find((o) => o.id === orgId || o.id === orgUUID);
+    let org = this.organizers.find((o) => o.id === orgId || o.id === orgUUID || ensureUUID(o.id) === orgUUID);
+    if (!org) {
+      // Fallback lookup in profiles
+      const prof = this.profiles.find((p) => p.id === orgId || p.id === orgUUID || ensureUUID(p.id) === orgUUID);
+      if (prof) {
+        org = {
+          id: prof.id,
+          org_name: prof.name || 'Organization',
+          hq_country: prof.country || 'Canada',
+          hq_province_state: prof.province_state || 'BC',
+          hq_city: prof.city || 'Vancouver',
+          no_hq: false,
+          verification_status: status,
+          created_at: prof.created_at || new Date().toISOString(),
+        };
+        this.organizers.push(org);
+      }
+    }
+
     if (!org) return;
 
     org.verification_status = status;
 
     // Update opportunities org_verification_status
     this.opportunities.forEach((opp) => {
-      if (opp.org_id === orgId || opp.org_id === orgUUID) {
+      if (opp.org_id === orgId || opp.org_id === orgUUID || ensureUUID(opp.org_id) === orgUUID) {
         opp.org_verification_status = status;
       }
     });
@@ -470,7 +508,7 @@ class LocalDatabase {
     // Retroactively update attendance hours for this organization's opportunities
     const orgOppIds = new Set(
       this.opportunities
-        .filter((o) => o.org_id === orgId || o.org_id === orgUUID)
+        .filter((o) => o.org_id === orgId || o.org_id === orgUUID || ensureUUID(o.org_id) === orgUUID)
         .map((o) => o.id)
     );
     this.attendance.forEach((att) => {
@@ -498,13 +536,31 @@ class LocalDatabase {
     this.saveToStorage();
 
     if (isSupabaseConfigured()) {
-      supabase
-        .from('organizer_profiles')
-        .update({ verification_status: status })
-        .or(`id.eq.${orgId},id.eq.${orgUUID}`)
-        .then(({ error }) => {
-          if (error) console.error('Supabase update verification status error:', error);
-        });
+      try {
+        await supabase
+          .from('organizer_profiles')
+          .upsert([
+            {
+              id: orgUUID,
+              org_name: org.org_name,
+              hq_country: org.hq_country || 'Canada',
+              hq_province_state: org.hq_province_state || 'BC',
+              hq_city: org.hq_city || 'Vancouver',
+              hq_address: org.hq_address || null,
+              no_hq: org.no_hq || false,
+              bio: org.bio || null,
+              logo_url: org.logo_url || null,
+              verification_status: status,
+            },
+          ]);
+
+        await supabase
+          .from('opportunities')
+          .update({ org_verification_status: status })
+          .eq('org_id', orgUUID);
+      } catch (err) {
+        console.error('Supabase update verification status error:', err);
+      }
     }
   }
 

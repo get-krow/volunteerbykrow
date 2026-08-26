@@ -28,8 +28,8 @@ export const AdminPortal: React.FC = () => {
   const [newCategoryName, setNewCategoryName] = useState('');
 
   const refreshData = () => {
-    setOrganizers(db.getOrganizers());
-    setCategories(db.getCategories());
+    setOrganizers([...db.getOrganizers()]);
+    setCategories([...db.getCategories()]);
   };
 
   useEffect(() => {
