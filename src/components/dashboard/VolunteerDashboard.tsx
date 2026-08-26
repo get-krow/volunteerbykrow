@@ -255,32 +255,36 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
           <h2 className="font-extrabold text-base text-gray-900 border-b border-gray-100 pb-3">
             Shift History
           </h2>
-          {attendance.length === 0 ? (
-            <div className="py-6 text-center text-xs text-gray-400">No shift history recorded yet.</div>
-          ) : (
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {attendance.map((att) => {
-                const opp = opportunities.find((o) => o.id === att.opportunity_id);
-                const title = att.opportunity_title || opp?.title || 'Volunteer Shift';
-                return (
-                  <div key={att.id} className="p-3 rounded-xl border border-gray-100 flex items-center justify-between text-xs">
-                    <div>
-                      <div className="font-bold text-gray-900">{title}</div>
-                      <div className="text-gray-500">{att.marked_at ? att.marked_at.split('T')[0] : 'Past'}</div>
+          {(() => {
+            const shiftHistoryList = attendance.filter((a) => a.opportunity_id !== 'admin-adjustment');
+            if (shiftHistoryList.length === 0) {
+              return <div className="py-6 text-center text-xs text-gray-400">No shift history recorded yet.</div>;
+            }
+            return (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {shiftHistoryList.map((att) => {
+                  const opp = opportunities.find((o) => o.id === att.opportunity_id);
+                  const title = att.opportunity_title || opp?.title || 'Volunteer Shift';
+                  return (
+                    <div key={att.id} className="p-3 rounded-xl border border-gray-100 flex items-center justify-between text-xs">
+                      <div>
+                        <div className="font-bold text-gray-900">{title}</div>
+                        <div className="text-gray-500">{att.marked_at ? att.marked_at.split('T')[0] : 'Past'}</div>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-extrabold text-emerald-600 block">
+                          {att.status === 'here' ? `+${att.hours_awarded} hrs` : 'Did Not Attend'}
+                        </span>
+                        <span className="text-[10px] text-gray-400">
+                          {att.is_verified_org_at_completion ? 'Verified Org' : 'Pending Org (0 hrs)'}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <span className="font-extrabold text-emerald-600 block">
-                        {att.status === 'here' ? `+${att.hours_awarded} hrs` : 'Did Not Attend'}
-                      </span>
-                      <span className="text-[10px] text-gray-400">
-                        {att.is_verified_org_at_completion ? 'Verified Org' : 'Pending Org (0 hrs)'}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>

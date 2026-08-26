@@ -174,25 +174,27 @@ export function generateVolunteerHoursReport(
             </tr>
           </thead>
           <tbody>
-            ${
-              attendanceRecords.length === 0
-                ? `<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 20px;">No completed shift records found.</td></tr>`
-                : attendanceRecords
-                    .map(
-                      (rec) => `
+            ${(() => {
+              const validRecs = attendanceRecords.filter((rec) => rec.opportunity_id !== 'admin-adjustment');
+              if (validRecs.length === 0) {
+                return `<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 20px;">No completed shift records found.</td></tr>`;
+              }
+              return validRecs
+                .map(
+                  (rec) => `
               <tr>
                 <td>${rec.opportunity?.date || new Date(rec.marked_at).toISOString().split('T')[0]}</td>
-                <td><strong>${rec.opportunity?.title || 'Community Event'}</strong></td>
+                <td><strong>${rec.opportunity_title || rec.opportunity?.title || 'Community Event'}</strong></td>
                 <td>${rec.opportunity?.org_name || 'Organization'}</td>
                 <td><span style="color: ${rec.is_verified_org_at_completion ? '#10b981' : '#f59e0b'}; font-weight: 700;">${
-                        rec.is_verified_org_at_completion ? 'Verified Org' : 'Pending Org'
-                      }</span></td>
+                    rec.is_verified_org_at_completion ? 'Verified Org' : 'Pending Org'
+                  }</span></td>
                 <td><strong>${rec.hours_awarded} hrs</strong></td>
               </tr>
             `
-                    )
-                    .join('')
-            }
+                )
+                .join('');
+            })()}
           </tbody>
         </table>
 

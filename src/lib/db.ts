@@ -1267,7 +1267,10 @@ class LocalDatabase {
   public calculateVolunteerCompletedShifts(volunteerId: string): number {
     const volUUID = ensureUUID(volunteerId);
     return this.attendance.filter(
-      (a) => (a.volunteer_id === volunteerId || a.volunteer_id === volUUID) && a.status === 'here'
+      (a) =>
+        (a.volunteer_id === volunteerId || a.volunteer_id === volUUID) &&
+        a.status === 'here' &&
+        a.opportunity_id !== 'admin-adjustment'
     ).length;
   }
 
