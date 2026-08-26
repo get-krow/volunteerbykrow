@@ -18,8 +18,9 @@ export const AdminPortal: React.FC = () => {
   const [orgFilter, setOrgFilter] = useState<'all' | 'pending' | 'verified'>('all');
 
   // Volunteer Hours Editor State
+  const [volunteers, setVolunteers] = useState<UserProfile[]>(() => db.getVolunteers());
   const [volSearch, setVolSearch] = useState('');
-  const [selectedAttendance, setSelectedAttendance] = useState<AttendanceRecord | null>(null);
+  const [selectedVolunteer, setSelectedVolunteer] = useState<UserProfile | null>(null);
   const [newHoursInput, setNewHoursInput] = useState('');
   const [auditReason, setAuditReason] = useState('');
 
@@ -30,6 +31,7 @@ export const AdminPortal: React.FC = () => {
   const refreshData = () => {
     setOrganizers([...db.getOrganizers()]);
     setCategories([...db.getCategories()]);
+    setVolunteers([...db.getVolunteers()]);
   };
 
   useEffect(() => {
@@ -68,6 +70,15 @@ export const AdminPortal: React.FC = () => {
     });
   }, [organizers, orgSearch, orgFilter]);
 
+  // Filtered Volunteers list
+  const filteredVolunteers = useMemo(() => {
+    return volunteers.filter((vol) => {
+      if (!volSearch.trim()) return true;
+      const q = volSearch.toLowerCase();
+      return (vol.name || '').toLowerCase().includes(q) || (vol.email || '').toLowerCase().includes(q);
+    });
+  }, [volunteers, volSearch]);
+
   const handleToggleVerification = async (orgId: string, currentStatus: string) => {
     const nextStatus = currentStatus === 'verified' ? 'pending' : 'verified';
     await db.updateOrganizerVerification(orgId, nextStatus);
@@ -83,17 +94,17 @@ export const AdminPortal: React.FC = () => {
 
   const handleSaveHoursCorrection = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedAttendance) return;
+    if (!selectedVolunteer) return;
     const num = parseFloat(newHoursInput);
     if (isNaN(num) || num < 0) {
       alert('Please enter a valid non-negative hours value.');
       return;
     }
 
-    const res = db.adminEditShiftHours(selectedAttendance.id, num, 'admin-user-id', auditReason);
+    const res = db.adminEditVolunteerHours(selectedVolunteer.id, num, 'admin-user-id', auditReason);
     if (res.success) {
-      alert('Shift hours updated and audit log entry recorded!');
-      setSelectedAttendance(null);
+      alert(`Volunteer total hours updated to ${num} hrs!`);
+      setSelectedVolunteer(null);
       setNewHoursInput('');
       setAuditReason('');
       refreshData();
@@ -291,14 +302,14 @@ export const AdminPortal: React.FC = () => {
       {activeTab === 'hours' && (
         <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-card space-y-6">
           <div className="border-b border-gray-100 pb-3">
-            <h2 className="font-bold text-gray-900 text-base">Edit Volunteer Shift Hours (Audited)</h2>
+            <h2 className="font-bold text-gray-900 text-base">Edit Volunteer Total Hours</h2>
             <p className="text-xs text-gray-500">
-              Shift hours are edited individually. Volunteer total hours are automatically derived from shift records.
+              Adjust a volunteer's total awarded hours directly. Individual past shift history items will remain unchanged.
             </p>
           </div>
 
           <div className="space-y-4">
-            <label className="block text-xs font-semibold text-gray-700">Search Volunteer Shift Records:</label>
+            <label className="block text-xs font-semibold text-gray-700">Search Volunteer Accounts:</label>
             <input
               type="text"
               value={volSearch}
@@ -308,58 +319,74 @@ export const AdminPortal: React.FC = () => {
             />
 
             <div className="divide-y divide-gray-100">
-              {db.getAllAttendanceRecords().map((att) => {
-                const title = att.opportunity_title || db.getOpportunity(att.opportunity_id)?.title || 'Volunteer Shift';
-                return (
-                  <div key={att.id} className="py-3 flex items-center justify-between text-xs">
-                    <div>
-                      <div className="font-bold text-gray-900">{title}</div>
-                      <div className="text-gray-500">
-                        Status: <strong className="capitalize">{att.status}</strong> • Awarded Hours:{' '}
-                        <strong className="text-brand-600">{att.hours_awarded} hrs</strong>
+              {filteredVolunteers.length === 0 ? (
+                <div className="py-6 text-center text-xs text-gray-400">No volunteer accounts found.</div>
+              ) : (
+                filteredVolunteers.map((vol) => {
+                  const volTotalHours = db.calculateVolunteerTotalHours(vol.id);
+                  const volShiftsCount = db.calculateVolunteerCompletedShifts(vol.id);
+
+                  return (
+                    <div key={vol.id} className="py-3 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-purple-100 text-[#635BFF] flex items-center justify-center font-bold text-xs">
+                          {vol.name ? vol.name.charAt(0) : 'V'}
+                        </div>
+                        <div>
+                          <div className="font-bold text-gray-900">{vol.name}</div>
+                          <div className="text-gray-500 text-[11px] font-medium">{vol.email}</div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <span className="font-extrabold text-[#635BFF] text-sm block">{volTotalHours} Total Hours</span>
+                          <span className="text-[10px] text-gray-400 font-medium">{volShiftsCount} Completed Shifts</span>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setSelectedVolunteer(vol);
+                            setNewHoursInput(volTotalHours.toString());
+                          }}
+                          className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-[#635BFF] font-bold rounded-xl text-xs flex items-center gap-1 transition-colors"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" /> Edit Hours
+                        </button>
                       </div>
                     </div>
-
-                    <button
-                      onClick={() => {
-                        setSelectedAttendance(att);
-                        setNewHoursInput(att.hours_awarded.toString());
-                      }}
-                      className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-brand-700 font-bold rounded-xl text-xs flex items-center gap-1"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" /> Edit Hours
-                    </button>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
 
           {/* Edit Hours Modal */}
-          {selectedAttendance && (
+          {selectedVolunteer && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
               <div className="bg-white rounded-3xl p-6 max-w-md w-full space-y-4 relative shadow-2xl">
                 <button
-                  onClick={() => setSelectedAttendance(null)}
+                  onClick={() => setSelectedVolunteer(null)}
                   className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
                 >
                   ✕
                 </button>
-                <h3 className="font-bold text-gray-900 text-base">Adjust Shift Hours</h3>
+                <h3 className="font-bold text-gray-900 text-base">Adjust Hours for {selectedVolunteer.name}</h3>
                 <p className="text-xs text-gray-500">
-                  Original Hours: {selectedAttendance.hours_awarded} hrs. An audit trail record will be saved.
+                  Current Total: <strong>{db.calculateVolunteerTotalHours(selectedVolunteer.id)} hrs</strong>. Individual past shift history items will remain unchanged.
                 </p>
 
                 <form onSubmit={handleSaveHoursCorrection} className="space-y-3">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">New Hours Value</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">New Total Volunteer Hours</label>
                     <input
                       type="number"
                       step="0.5"
+                      min="0"
                       required
                       value={newHoursInput}
                       onChange={(e) => setNewHoursInput(e.target.value)}
-                      className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
+                      className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-bold focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
 
@@ -370,14 +397,14 @@ export const AdminPortal: React.FC = () => {
                       required
                       value={auditReason}
                       onChange={(e) => setAuditReason(e.target.value)}
-                      placeholder="e.g. Corrected overtime hours approved by organizer"
+                      placeholder="e.g. Corrected volunteer total hours"
                       className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-2xl text-xs shadow-md"
+                    className="w-full py-2.5 bg-[#635BFF] hover:bg-[#5046E5] text-white font-bold rounded-2xl text-xs shadow-md transition-colors"
                   >
                     Save & Create Audit Record
                   </button>

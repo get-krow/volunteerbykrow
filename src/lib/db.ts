@@ -1321,6 +1321,139 @@ class LocalDatabase {
     this.saveToStorage();
   }
 
+  public getVolunteers(): UserProfile[] {
+    const list: UserProfile[] = [];
+    const seen = new Set<string>();
+
+    if (this.currentUser && (this.currentUser.role === 'volunteer' || !this.currentUser.role)) {
+      list.push(this.currentUser);
+      seen.add(this.currentUser.id);
+    }
+
+    this.profiles.forEach((p) => {
+      if (!seen.has(p.id) && (p.role === 'volunteer' || !p.role)) {
+        seen.add(p.id);
+        list.push(p);
+      }
+    });
+
+    // Include volunteers from attendance records
+    this.attendance.forEach((att) => {
+      if (!seen.has(att.volunteer_id)) {
+        seen.add(att.volunteer_id);
+        const prof = this.getProfile(att.volunteer_id);
+        list.push(
+          prof || {
+            id: att.volunteer_id,
+            role: 'volunteer',
+            email: 'volunteer@gmail.com',
+            name: att.volunteer_name || `Volunteer (${att.volunteer_id.slice(-4)})`,
+            country: 'Canada',
+            province_state: 'BC',
+            city: 'Vancouver',
+            created_at: new Date().toISOString(),
+          }
+        );
+      }
+    });
+
+    return [...list];
+  }
+
+  public adminEditVolunteerHours(
+    volunteerId: string,
+    newTotalHours: number,
+    adminId: string,
+    reason?: string
+  ): { success: boolean; message: string } {
+    const volUUID = ensureUUID(volunteerId);
+
+    // Sum of regular shift hours (excluding any admin adjustment record)
+    const regularShiftHours = this.attendance
+      .filter(
+        (a) =>
+          (a.volunteer_id === volunteerId || a.volunteer_id === volUUID) &&
+          a.status === 'here' &&
+          a.opportunity_id !== 'admin-adjustment'
+      )
+      .reduce((sum, a) => sum + (a.hours_awarded || 0), 0);
+
+    const adjustmentNeeded = newTotalHours - regularShiftHours;
+
+    let adjAtt = this.attendance.find(
+      (a) =>
+        (a.volunteer_id === volunteerId || a.volunteer_id === volUUID) &&
+        a.opportunity_id === 'admin-adjustment'
+    );
+
+    const originalTotal = this.calculateVolunteerTotalHours(volunteerId);
+
+    if (adjAtt) {
+      adjAtt.hours_awarded = adjustmentNeeded;
+      adjAtt.status = adjustmentNeeded !== 0 ? 'here' : 'unmarked';
+      adjAtt.marked_at = new Date().toISOString();
+    } else if (adjustmentNeeded !== 0) {
+      adjAtt = {
+        id: 'att-adj-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+        opportunity_id: 'admin-adjustment',
+        opportunity_title: 'Admin Hours Adjustment',
+        volunteer_id: volunteerId,
+        status: 'here',
+        hours_awarded: adjustmentNeeded,
+        is_verified_org_at_completion: true,
+        marked_at: new Date().toISOString(),
+      };
+      this.attendance.push(adjAtt);
+    }
+
+    const auditLog: HourAuditLog = {
+      id: 'audit-' + Date.now(),
+      attendance_id: adjAtt?.id || 'admin-adj',
+      volunteer_id: volunteerId,
+      opportunity_id: 'admin-adjustment',
+      original_hours: originalTotal,
+      new_hours: newTotalHours,
+      edited_by: adminId,
+      reason: reason || 'Krow Admin total volunteer hours correction',
+      created_at: new Date().toISOString(),
+    };
+
+    this.hourAuditLogs.unshift(auditLog);
+
+    this.addNotification({
+      user_id: volunteerId,
+      title: 'Volunteer Hours Adjusted',
+      message: `Krow Admin adjusted your total volunteer hours to ${newTotalHours}h.`,
+      type: 'admin_hours_edited',
+      link: '/dashboard',
+    });
+
+    this.saveToStorage();
+
+    if (isSupabaseConfigured() && adjAtt) {
+      const attUUID = ensureUUID(adjAtt.id);
+      supabase
+        .from('attendance')
+        .upsert([
+          {
+            id: attUUID,
+            opportunity_id: ensureUUID('admin-adjustment'),
+            opportunity_title: 'Admin Hours Adjustment',
+            volunteer_id: volUUID,
+            status: adjAtt.status,
+            hours_awarded: adjAtt.hours_awarded,
+            is_verified_org_at_completion: true,
+            marked_at: adjAtt.marked_at,
+          },
+        ])
+        .then(({ error }) => {
+          if (error) console.error('Supabase admin adjustment error:', error);
+        });
+    }
+
+    return { success: true, message: `Volunteer total hours updated to ${newTotalHours} hrs!` };
+  }
+
   public adminEditShiftHours(
     attendanceId: string,
     newHours: number,
