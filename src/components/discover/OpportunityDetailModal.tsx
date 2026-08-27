@@ -4,6 +4,7 @@ import React from 'react';
 import { X, Calendar, Clock, MapPin, Building2, CheckCircle2, ShieldCheck, Users, UserMinus } from 'lucide-react';
 import { Opportunity, UserProfile } from '@/lib/types';
 import { createGoogleCalendarUrl } from '@/lib/google-calendar';
+import { formatAgeRange } from '@/lib/badges';
 
 interface OpportunityDetailModalProps {
   opportunity: Opportunity | null;
@@ -34,6 +35,8 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
   const isFull = spotsLeft !== null && spotsLeft <= 0;
   const todayStr = new Date().toISOString().split('T')[0];
   const isEnded = opp.status === 'ended' || opp.date < todayStr;
+
+  const recCount = opp.recurrence_count || opp.occurrence_dates?.length || 1;
 
   const handleActionClick = () => {
     if (!currentUser) {
@@ -118,7 +121,7 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                   {opp.is_recurring && (
                     <span className="text-xs font-black uppercase tracking-wider text-purple-900 bg-purple-100 px-3 py-1 rounded-full">
                       {opp.recurrence_type === 'same_volunteers'
-                        ? `Recurring Commitment (${opp.recurrence_count || 8} Occurrences)`
+                        ? `Recurring Commitment (${recCount} Occurrences)`
                         : 'Recurring Opportunity'}
                     </span>
                   )}
@@ -142,14 +145,14 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                   <div className="p-4 bg-purple-50 rounded-2xl border border-purple-200/80 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="font-black text-xs text-[#635BFF] uppercase tracking-wider">
-                        Full Commitment Required ({opp.recurrence_count || 8} Occurrences)
+                        Full Commitment Required ({recCount} Occurrences)
                       </span>
                       <span className="text-xs font-black text-purple-900 bg-white px-2.5 py-0.5 rounded-full border border-purple-200">
-                        {opp.total_series_hours || opp.duration_hours * (opp.recurrence_count || 8)} Total Hours
+                        {opp.total_series_hours || opp.duration_hours * recCount} Total Hours
                       </span>
                     </div>
                     <p className="text-xs text-gray-700 font-medium">
-                      By signing up, you commit to attending all {opp.recurrence_count || 8} scheduled dates below. Hours are awarded per occurrence attended (+{opp.duration_hours} hrs/occurrence).
+                      By signing up, you commit to attending all {recCount} scheduled dates below. Hours are awarded per occurrence attended (+{opp.duration_hours} hrs/occurrence).
                     </p>
                     {opp.occurrence_dates && opp.occurrence_dates.length > 0 && (
                       <div className="pt-2 border-t border-purple-200/60">
@@ -215,7 +218,7 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                     <span className="text-gray-500">Awarded Hours</span>
                     <span className="font-extrabold text-gray-900 bg-purple-50 px-2.5 py-1 rounded-lg text-brand-700">
                       {opp.recurrence_type === 'same_volunteers'
-                        ? `${opp.total_series_hours || opp.duration_hours * 8} Total Hours (${opp.duration_hours}h / shift)`
+                        ? `${opp.total_series_hours || opp.duration_hours * recCount} Total Hours (${opp.duration_hours}h / shift)`
                         : `${opp.duration_hours} Hours`}
                     </span>
                   </div>
@@ -223,7 +226,7 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                   <div className="pt-3 flex items-center justify-between">
                     <span className="text-gray-500">Age Requirement</span>
                     <span className="font-bold text-gray-900">
-                      {opp.min_age ? `${opp.min_age}+` : 'All Ages'}
+                      {formatAgeRange(opp.min_age, opp.max_age)}
                     </span>
                   </div>
 
@@ -261,7 +264,7 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                         <button
                           onClick={() => {
                             const promptMsg = opp.recurrence_type === 'same_volunteers'
-                              ? `Leave recurring opportunity?\n\nThis will remove you from all ${opp.recurrence_count || 8} occurrences of this opportunity.`
+                              ? `Leave recurring opportunity?\n\nThis will remove you from all ${recCount} occurrences of this opportunity.`
                               : `Leave "${opp.title}"? Your registration will be permanently removed.`;
                             if (confirm(promptMsg)) {
                               onUnsign(opp.id);
@@ -288,7 +291,7 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                       {isFull
                         ? 'Opportunity Full'
                         : opp.recurrence_type === 'same_volunteers'
-                        ? `Sign Up for All ${opp.recurrence_count || 8} Occurrences`
+                        ? `Sign Up for All ${recCount} Occurrences`
                         : 'Register Now'}
                     </button>
                   )}

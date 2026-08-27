@@ -206,7 +206,7 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
                   {Array.from(seriesMap.entries()).map(([seriesId, seriesOpps]) => {
                     const mainOpp = seriesOpps.find((o) => o.occurrence_number === undefined) || seriesOpps[0];
                     const allChildOpps = opportunities.filter((o) => o.recurrence_series_id === seriesId && o.occurrence_number !== undefined);
-                    const totalOccurrences = mainOpp.recurrence_count || allChildOpps.length || 8;
+                    const totalOccurrences = mainOpp.recurrence_count || allChildOpps.length || 1;
                     const completedOccurrences = allChildOpps.filter((o) => {
                       const att = attendance.find((a) => a.opportunity_id === o.id && a.status === 'here');
                       return !!att;

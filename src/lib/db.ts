@@ -788,7 +788,7 @@ class LocalDatabase {
     const isRecurring = !!oppData.is_recurring;
     const recurrenceType = isRecurring ? (oppData.recurrence_type || 'different_volunteers') : undefined;
     const recurrenceFrequency = isRecurring ? (oppData.recurrence_frequency || 'every_week') : undefined;
-    const recurrenceCount = isRecurring ? Math.max(2, oppData.recurrence_count || 8) : undefined;
+    const recurrenceCount = isRecurring ? Math.max(2, oppData.recurrence_count || 3) : undefined;
     const seriesId = isRecurring ? (oppData.recurrence_series_id || ensureUUID('series-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4))) : undefined;
 
     const calcDate = (baseDateStr: string, idx: number, freq?: RecurrenceFrequency): string => {
@@ -1243,6 +1243,37 @@ class LocalDatabase {
       return { success: false, message: 'Registration has closed for past opportunities.' };
     }
 
+    // Strict Age Eligibility Verification (accounting for exact month/day on event date)
+    const user = this.getProfile(volunteerId);
+    if (!user || !user.dob) {
+      return {
+        success: false,
+        message: 'Please enter your Date of Birth in Profile Settings before signing up.',
+      };
+    }
+
+    const birthDate = new Date(user.dob);
+    const eventDate = new Date(opp.date);
+    let ageOnEvent = eventDate.getFullYear() - birthDate.getFullYear();
+    const m = eventDate.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && eventDate.getDate() < birthDate.getDate())) {
+      ageOnEvent--;
+    }
+
+    if (opp.min_age !== null && opp.min_age !== undefined && ageOnEvent < opp.min_age) {
+      return {
+        success: false,
+        message: `Age requirement not met. Minimum age for this opportunity is ${opp.min_age}+ (Your age on event date is ${ageOnEvent}).`,
+      };
+    }
+
+    if (opp.max_age !== null && opp.max_age !== undefined && ageOnEvent > opp.max_age) {
+      return {
+        success: false,
+        message: `Age requirement not met. Maximum age for this opportunity is ${opp.max_age} (Your age on event date is ${ageOnEvent}).`,
+      };
+    }
+
     // Handle Recurring — Same Volunteer registration for ALL occurrences in series
     if (opp.is_recurring && opp.recurrence_type === 'same_volunteers' && opp.recurrence_series_id) {
       const seriesOpps = this.opportunities.filter((o) => o.recurrence_series_id === opp.recurrence_series_id);
@@ -1289,11 +1320,11 @@ class LocalDatabase {
         });
       }
 
-      const user = this.getProfile(volunteerId);
+      const recCount = opp.recurrence_count || seriesOpps.length || 1;
       this.addNotification({
         user_id: volunteerId,
         title: 'Recurring Registration Confirmed!',
-        message: `You're signed up! ${opp.title} (${opp.recurrence_count || 8} occurrences). You are registered for all dates.`,
+        message: `You're signed up! ${opp.title} (${recCount} occurrences). You are registered for all dates.`,
         type: 'registration_confirmed',
         link: '/dashboard',
       });
@@ -1301,34 +1332,13 @@ class LocalDatabase {
       this.addNotification({
         user_id: opp.org_id,
         title: 'New Recurring Volunteer Sign-Up',
-        message: `${user?.name || 'A volunteer'} registered for all ${opp.recurrence_count || 8} occurrences of "${opp.title}".`,
+        message: `${user?.name || 'A volunteer'} registered for all ${recCount} occurrences of "${opp.title}".`,
         type: 'volunteer_signed_up',
         link: '/organizer',
       });
 
       this.saveToStorage();
-      return { success: true, message: `You are confirmed for all ${opp.recurrence_count || 8} occurrences of ${opp.title}!` };
-    }
-
-    // Age calculation on event date
-    const user = this.getProfile(volunteerId);
-    if (user && user.dob) {
-      const dobYear = new Date(user.dob).getFullYear();
-      const oppYear = new Date(opp.date).getFullYear();
-      const ageOnEvent = oppYear - dobYear;
-
-      if (opp.min_age !== null && opp.min_age !== undefined && ageOnEvent < opp.min_age) {
-        return {
-          success: false,
-          message: `Age requirement not met. Minimum age for this event date is ${opp.min_age} (Your age on event date: ${ageOnEvent}).`,
-        };
-      }
-      if (opp.max_age !== null && opp.max_age !== undefined && ageOnEvent > opp.max_age) {
-        return {
-          success: false,
-          message: `Age requirement not met. Maximum age for this event date is ${opp.max_age}.`,
-        };
-      }
+      return { success: true, message: `You are confirmed for all ${recCount} occurrences of ${opp.title}!` };
     }
 
     // Capacity Check

@@ -3,6 +3,7 @@
 import React from 'react';
 import { Calendar, Clock, MapPin, CheckCircle2, Building2, UserMinus } from 'lucide-react';
 import { Opportunity, UserProfile } from '@/lib/types';
+import { formatAgeRange } from '@/lib/badges';
 
 interface OpportunityCardProps {
   opportunity: Opportunity;
@@ -105,7 +106,7 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
                     {opp.recurrence_type === 'same_volunteers'
                       ? opp.occurrence_number !== undefined
                         ? `Occurrence #${opp.occurrence_number} of ${opp.recurrence_count}`
-                        : `Recurring Series (${opp.recurrence_count || 8} Occurrences)`
+                        : `Recurring Series (${opp.recurrence_count || opp.occurrence_dates?.length || 1} Occurrences)`
                       : 'Recurring'}
                   </span>
                 )}
@@ -113,7 +114,7 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
                   {opp.custom_role || 'General'}
                 </span>
                 <span className="bg-white/95 backdrop-blur-sm border border-gray-200/80 text-gray-900 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-2xs">
-                  {opp.min_age ? `${opp.min_age}+` : 'All Ages'}
+                  {formatAgeRange(opp.min_age, opp.max_age)}
                 </span>
               </>
             )}
@@ -153,8 +154,8 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
             <Clock className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
             <span>
               {opp.recurrence_type === 'same_volunteers'
-                ? `${opp.total_series_hours || opp.duration_hours * 8} total hours (${opp.duration_hours} hrs/shift)`
-                : `${opp.duration_hours} hours · ${opp.min_age ? `Ages ${opp.min_age}+` : 'All Ages'}`}
+                ? `${opp.total_series_hours || opp.duration_hours * (opp.recurrence_count || 1)} total hours (${opp.duration_hours} hrs/shift) · ${formatAgeRange(opp.min_age, opp.max_age)}`
+                : `${opp.duration_hours} hours · ${formatAgeRange(opp.min_age, opp.max_age)}`}
             </span>
           </div>
 

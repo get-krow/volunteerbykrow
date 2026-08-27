@@ -59,6 +59,19 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
   },
 ];
 
+export function formatAgeRange(minAge?: number | null, maxAge?: number | null): string {
+  if (minAge && maxAge) {
+    return minAge === maxAge ? `Age ${minAge} Only` : `Ages ${minAge}–${maxAge}`;
+  }
+  if (minAge) {
+    return `Ages ${minAge}+`;
+  }
+  if (maxAge) {
+    return `Max Age ${maxAge}`;
+  }
+  return 'All Ages';
+}
+
 export function getBadgeForHours(hours: number): BadgeDefinition {
   const sorted = [...BADGE_DEFINITIONS].sort((a, b) => b.min_hours - a.min_hours);
   const found = sorted.find((b) => hours >= b.min_hours);

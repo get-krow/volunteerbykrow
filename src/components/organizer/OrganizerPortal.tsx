@@ -202,7 +202,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceType, setRecurrenceType] = useState<'same_volunteers' | 'different_volunteers'>('different_volunteers');
   const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>('every_week');
-  const [recurrenceCount, setRecurrenceCount] = useState<string>('8');
+  const [recurrenceCount, setRecurrenceCount] = useState<string>('3');
   const [description, setDescription] = useState('');
   const [instructions, setInstructions] = useState('');
 
@@ -340,7 +340,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
       is_recurring: isRecurring,
       recurrence_type: isRecurring ? recurrenceType : undefined,
       recurrence_frequency: isRecurring ? recurrenceFrequency : undefined,
-      recurrence_count: isRecurring ? parseInt(recurrenceCount || '8') : undefined,
+      recurrence_count: isRecurring ? parseInt(recurrenceCount || '3') : undefined,
     });
 
     alert('Opportunity posted successfully!');
@@ -544,7 +544,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                           </span>
                           {opp.is_recurring && (
                             <span className="text-[10px] font-extrabold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-100">
-                              Recurring Series ({opp.recurrence_count || 8} Occurrences)
+                              Recurring Series ({opp.recurrence_count || opp.occurrence_dates?.length || 1} Occurrences)
                             </span>
                           )}
                         </div>
