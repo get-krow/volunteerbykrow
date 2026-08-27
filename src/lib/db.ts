@@ -742,7 +742,6 @@ class LocalDatabase {
   }
 
   public createOpportunity(oppData: Omit<Opportunity, 'id' | 'created_at' | 'status'> & Partial<Opportunity>): Opportunity {
-    const oppId = ensureUUID('opp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4));
     const rawOrgId = oppData.org_id || this.currentUser?.id || 'org-krow';
     const orgId = ensureUUID(rawOrgId);
 
@@ -758,6 +757,172 @@ class LocalDatabase {
       this.organizers.push(org);
     }
 
+    const isRecurring = !!oppData.is_recurring;
+    const recurrenceType = isRecurring ? (oppData.recurrence_type || 'different_volunteers') : undefined;
+    const recurrenceCount = isRecurring ? Math.max(2, oppData.recurrence_count || 8) : undefined;
+    const seriesId = isRecurring ? (oppData.recurrence_series_id || ensureUUID('series-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4))) : undefined;
+
+    if (isRecurring && recurrenceType === 'different_volunteers' && recurrenceCount) {
+      // MODE 1: Different Volunteers = Generate N separate opportunities
+      const createdOpps: Opportunity[] = [];
+      const startDateObj = new Date(oppData.date + 'T00:00:00');
+
+      for (let i = 0; i < recurrenceCount; i++) {
+        const occDateObj = new Date(startDateObj);
+        occDateObj.setDate(occDateObj.getDate() + (i * 7));
+        const occDateStr = occDateObj.toISOString().split('T')[0];
+        const oppId = ensureUUID('opp-' + Date.now() + '-' + i + '-' + Math.random().toString(36).substr(2, 4));
+
+        const occOpp: Opportunity = {
+          ...oppData,
+          id: oppId,
+          org_id: orgId,
+          org_name: oppData.org_name || org?.org_name || 'Organization',
+          org_verification_status: oppData.org_verification_status || org?.verification_status || 'verified',
+          org_logo_url: oppData.org_logo_url || org?.logo_url || undefined,
+          date: occDateStr,
+          is_recurring: true,
+          recurrence_type: 'different_volunteers',
+          recurrence_series_id: seriesId,
+          recurrence_count: recurrenceCount,
+          occurrence_number: i + 1,
+          status: 'published',
+          registered_count: 0,
+          created_at: new Date().toISOString(),
+        };
+
+        this.opportunities.unshift(occOpp);
+        createdOpps.push(occOpp);
+
+        if (isSupabaseConfigured()) {
+          supabase.from('opportunities').upsert([{
+            id: oppId,
+            org_id: orgId,
+            title: occOpp.title,
+            description: occOpp.description || null,
+            instructions: occOpp.instructions || null,
+            category_id: occOpp.category_id || 'community',
+            banner_url: occOpp.banner_url || null,
+            date: occDateStr,
+            start_time: occOpp.start_time,
+            end_time: occOpp.end_time,
+            duration_hours: occOpp.duration_hours || 2,
+            location_type: occOpp.location_type || 'physical',
+            location_address: occOpp.location_address || null,
+            min_age: occOpp.min_age || null,
+            max_age: occOpp.max_age || null,
+            max_volunteers: occOpp.max_volunteers || null,
+            is_recurring: true,
+            recurrence_type: 'different_volunteers',
+            recurrence_series_id: seriesId,
+            status: 'published',
+          }]).then(({ error }) => {
+            if (error) console.error('Supabase opportunity upsert error:', error);
+          });
+        }
+      }
+
+      this.saveToStorage();
+      return createdOpps[0];
+    } else if (isRecurring && recurrenceType === 'same_volunteers' && recurrenceCount) {
+      // MODE 2: Same Volunteer = Create 1 main public opportunity listing + N child occurrence records
+      const occurrence_dates: string[] = [];
+      const startDateObj = new Date(oppData.date + 'T00:00:00');
+
+      for (let i = 0; i < recurrenceCount; i++) {
+        const d = new Date(startDateObj);
+        d.setDate(d.getDate() + (i * 7));
+        occurrence_dates.push(d.toISOString().split('T')[0]);
+      }
+
+      const series_start_date = occurrence_dates[0];
+      const series_end_date = occurrence_dates[occurrence_dates.length - 1];
+      const total_series_hours = (oppData.duration_hours || 2) * recurrenceCount;
+
+      const mainOppId = ensureUUID('opp-' + Date.now() + '-main-' + Math.random().toString(36).substr(2, 4));
+      const mainOpp: Opportunity = {
+        ...oppData,
+        id: mainOppId,
+        org_id: orgId,
+        org_name: oppData.org_name || org?.org_name || 'Organization',
+        org_verification_status: oppData.org_verification_status || org?.verification_status || 'verified',
+        org_logo_url: oppData.org_logo_url || org?.logo_url || undefined,
+        date: series_start_date,
+        is_recurring: true,
+        recurrence_type: 'same_volunteers',
+        recurrence_series_id: seriesId,
+        recurrence_count: recurrenceCount,
+        occurrence_dates,
+        series_start_date,
+        series_end_date,
+        total_series_hours,
+        status: 'published',
+        registered_count: 0,
+        created_at: new Date().toISOString(),
+      };
+
+      this.opportunities.unshift(mainOpp);
+
+      // Create child occurrence records for individual occurrence attendance tracking
+      for (let i = 0; i < recurrenceCount; i++) {
+        const childId = ensureUUID('opp-' + Date.now() + '-child-' + i + '-' + Math.random().toString(36).substr(2, 4));
+        const childOpp: Opportunity = {
+          ...oppData,
+          id: childId,
+          org_id: orgId,
+          org_name: oppData.org_name || org?.org_name || 'Organization',
+          org_verification_status: oppData.org_verification_status || org?.verification_status || 'verified',
+          org_logo_url: oppData.org_logo_url || org?.logo_url || undefined,
+          date: occurrence_dates[i],
+          is_recurring: true,
+          recurrence_type: 'same_volunteers',
+          recurrence_series_id: seriesId,
+          recurrence_count: recurrenceCount,
+          occurrence_number: i + 1,
+          series_start_date,
+          series_end_date,
+          total_series_hours,
+          status: 'published',
+          registered_count: 0,
+          created_at: new Date().toISOString(),
+        };
+        this.opportunities.push(childOpp);
+      }
+
+      this.saveToStorage();
+
+      if (isSupabaseConfigured()) {
+        supabase.from('opportunities').upsert([{
+          id: mainOppId,
+          org_id: orgId,
+          title: mainOpp.title,
+          description: mainOpp.description || null,
+          instructions: mainOpp.instructions || null,
+          category_id: mainOpp.category_id || 'community',
+          banner_url: mainOpp.banner_url || null,
+          date: mainOpp.date,
+          start_time: mainOpp.start_time,
+          end_time: mainOpp.end_time,
+          duration_hours: mainOpp.duration_hours || 2,
+          location_type: mainOpp.location_type || 'physical',
+          location_address: mainOpp.location_address || null,
+          min_age: mainOpp.min_age || null,
+          max_age: mainOpp.max_age || null,
+          max_volunteers: mainOpp.max_volunteers || null,
+          is_recurring: true,
+          recurrence_type: 'same_volunteers',
+          recurrence_series_id: seriesId,
+          status: 'published',
+        }]).then(({ error }) => {
+          if (error) console.error('Supabase opportunity upsert error:', error);
+        });
+      }
+
+      return mainOpp;
+    }
+
+    // Default One-Time Opportunity creation
+    const oppId = ensureUUID('opp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4));
     const newOpp: Opportunity = {
       ...oppData,
       id: oppId,
@@ -774,56 +939,27 @@ class LocalDatabase {
     this.saveToStorage();
 
     if (isSupabaseConfigured()) {
-      // Ensure parent profile & organizer profile rows exist before inserting opportunity into Supabase
-      supabase
-        .from('profiles')
-        .upsert([
-          {
-            id: orgId,
-            role: 'organizer',
-            email: `${(newOpp.org_name || 'org').toLowerCase().replace(/\s+/g, '')}@org.com`,
-            name: newOpp.org_name || 'Organization',
-          },
-        ])
-        .then(() => {
-          supabase
-            .from('organizer_profiles')
-            .upsert([
-              {
-                id: orgId,
-                org_name: newOpp.org_name || 'Organization',
-                verification_status: 'verified',
-              },
-            ])
-            .then(() => {
-              supabase
-                .from('opportunities')
-                .upsert([
-                  {
-                    id: oppId,
-                    org_id: orgId,
-                    title: newOpp.title,
-                    description: newOpp.description || null,
-                    instructions: newOpp.instructions || null,
-                    category_id: newOpp.category_id || 'community',
-                    banner_url: newOpp.banner_url || null,
-                    date: newOpp.date,
-                    start_time: newOpp.start_time,
-                    end_time: newOpp.end_time,
-                    duration_hours: newOpp.duration_hours || 2,
-                    location_type: newOpp.location_type || 'physical',
-                    location_address: newOpp.location_address || null,
-                    min_age: newOpp.min_age || null,
-                    max_age: newOpp.max_age || null,
-                    max_volunteers: newOpp.max_volunteers || null,
-                    status: newOpp.status || 'published',
-                  },
-                ])
-                .then(({ error: oppErr }) => {
-                  if (oppErr) console.error('Supabase opportunity upsert error:', oppErr);
-                });
-            });
-        });
+      supabase.from('opportunities').upsert([{
+        id: oppId,
+        org_id: orgId,
+        title: newOpp.title,
+        description: newOpp.description || null,
+        instructions: newOpp.instructions || null,
+        category_id: newOpp.category_id || 'community',
+        banner_url: newOpp.banner_url || null,
+        date: newOpp.date,
+        start_time: newOpp.start_time,
+        end_time: newOpp.end_time,
+        duration_hours: newOpp.duration_hours || 2,
+        location_type: newOpp.location_type || 'physical',
+        location_address: newOpp.location_address || null,
+        min_age: newOpp.min_age || null,
+        max_age: newOpp.max_age || null,
+        max_volunteers: newOpp.max_volunteers || null,
+        status: newOpp.status || 'published',
+      }]).then(({ error }) => {
+        if (error) console.error('Supabase opportunity upsert error:', error);
+      });
     }
 
     return newOpp;
@@ -1017,8 +1153,60 @@ class LocalDatabase {
     // Cutoff check
     const oppDateStr = opp.date;
     const nowStr = new Date().toISOString().split('T')[0];
-    if (nowStr > oppDateStr) {
+    if (nowStr > oppDateStr && (!opp.is_recurring || opp.recurrence_type !== 'same_volunteers')) {
       return { success: false, message: 'Registration has closed for past opportunities.' };
+    }
+
+    // Handle Recurring — Same Volunteer registration for ALL occurrences in series
+    if (opp.is_recurring && opp.recurrence_type === 'same_volunteers' && opp.recurrence_series_id) {
+      const seriesOpps = this.opportunities.filter((o) => o.recurrence_series_id === opp.recurrence_series_id);
+
+      // Capacity check on main series
+      const currentActiveRegs = this.getRegisteredCount(opp.id);
+      if (opp.max_volunteers !== null && opp.max_volunteers !== undefined && currentActiveRegs >= opp.max_volunteers) {
+        return { success: false, message: 'This recurring opportunity series is full.' };
+      }
+
+      // Register volunteer for ALL occurrences in series
+      seriesOpps.forEach((sOpp) => {
+        const existing = this.registrations.find(
+          (r) => (r.opportunity_id === sOpp.id || r.opportunity_id === ensureUUID(sOpp.id)) && r.volunteer_id === volunteerId
+        );
+        if (!existing) {
+          const regId = ensureUUID('reg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7));
+          this.registrations.push({
+            id: regId,
+            opportunity_id: sOpp.id,
+            volunteer_id: volunteerId,
+            registered_at: new Date().toISOString(),
+            status: 'registered',
+          });
+        } else {
+          existing.status = 'registered';
+          existing.registered_at = new Date().toISOString();
+        }
+        sOpp.registered_count = this.getRegisteredCount(sOpp.id);
+      });
+
+      const user = this.getProfile(volunteerId);
+      this.addNotification({
+        user_id: volunteerId,
+        title: 'Recurring Registration Confirmed!',
+        message: `You're signed up! ${opp.title} (${opp.recurrence_count || 8} occurrences). You are registered for all dates.`,
+        type: 'registration_confirmed',
+        link: '/dashboard',
+      });
+
+      this.addNotification({
+        user_id: opp.org_id,
+        title: 'New Recurring Volunteer Sign-Up',
+        message: `${user?.name || 'A volunteer'} registered for all ${opp.recurrence_count || 8} occurrences of "${opp.title}".`,
+        type: 'volunteer_signed_up',
+        link: '/organizer',
+      });
+
+      this.saveToStorage();
+      return { success: true, message: `You are confirmed for all ${opp.recurrence_count || 8} occurrences of ${opp.title}!` };
     }
 
     // Age calculation on event date
@@ -1123,6 +1311,33 @@ class LocalDatabase {
 
   public unsignFromOpportunity(opportunityId: string, volunteerId: string): { success: boolean; message: string } {
     const opp = this.opportunities.find((o) => o.id === opportunityId);
+    if (!opp) return { success: false, message: 'Opportunity not found' };
+
+    if (opp.is_recurring && opp.recurrence_type === 'same_volunteers' && opp.recurrence_series_id) {
+      // Unregister volunteer from ALL occurrences in series
+      const seriesOpps = this.opportunities.filter((o) => o.recurrence_series_id === opp.recurrence_series_id);
+      seriesOpps.forEach((sOpp) => {
+        const reg = this.registrations.find(
+          (r) => (r.opportunity_id === sOpp.id || r.opportunity_id === ensureUUID(sOpp.id)) && r.volunteer_id === volunteerId && r.status === 'registered'
+        );
+        if (reg) {
+          reg.status = 'unsigned';
+        }
+        sOpp.registered_count = this.getRegisteredCount(sOpp.id);
+      });
+
+      this.addNotification({
+        user_id: opp.org_id,
+        title: 'Volunteer Unsigned from Series',
+        message: `${this.currentUser?.name || 'A volunteer'} left the recurring commitment "${opp.title}". Spots are now available for all occurrences.`,
+        type: 'volunteer_unsigned',
+        link: '/organizer',
+      });
+
+      this.saveToStorage();
+      return { success: true, message: `You have left all occurrences of ${opp.title}.` };
+    }
+
     const reg = this.registrations.find(
       (r) => r.opportunity_id === opportunityId && r.volunteer_id === volunteerId && r.status === 'registered'
     );

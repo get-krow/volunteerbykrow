@@ -86,13 +86,20 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
           )}
 
           {/* Role & Age & Closed Badges */}
-          <div className="absolute top-3 left-3 flex items-center gap-1.5 z-10">
+          <div className="absolute top-3 left-3 flex items-center gap-1.5 z-10 flex-wrap">
             {isEnded ? (
               <span className="bg-red-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs uppercase tracking-wider">
                 Closed
               </span>
             ) : (
               <>
+                {opp.is_recurring && (
+                  <span className="bg-purple-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-md">
+                    {opp.recurrence_type === 'same_volunteers'
+                      ? `Recurring Series (${opp.recurrence_count || 8} Occurrences)`
+                      : 'Recurring'}
+                  </span>
+                )}
                 <span className="bg-white/95 backdrop-blur-sm border border-gray-200/80 text-gray-900 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-2xs">
                   {opp.custom_role || 'General'}
                 </span>
@@ -126,7 +133,9 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
           <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
             <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
             <span>
-              {formatDate(opp.date)} · {formatTime(opp.start_time)}
+              {opp.recurrence_type === 'same_volunteers'
+                ? `Every Week · ${formatDate(opp.series_start_date || opp.date)} – ${formatDate(opp.series_end_date || opp.date)}`
+                : `${formatDate(opp.date)} · ${formatTime(opp.start_time)}`}
             </span>
           </div>
 
@@ -134,7 +143,9 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
           <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
             <Clock className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
             <span>
-              {opp.duration_hours} hours · {opp.min_age ? `Ages ${opp.min_age}+` : 'All Ages'}
+              {opp.recurrence_type === 'same_volunteers'
+                ? `${opp.total_series_hours || opp.duration_hours * 8} total hours (${opp.duration_hours} hrs/shift)`
+                : `${opp.duration_hours} hours · ${opp.min_age ? `Ages ${opp.min_age}+` : 'All Ages'}`}
             </span>
           </div>
 

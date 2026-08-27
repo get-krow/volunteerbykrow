@@ -135,6 +135,37 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                 </p>
               </div>
 
+              {/* Recurring Series Commitment Box (for same_volunteers) */}
+              {opp.is_recurring && opp.recurrence_type === 'same_volunteers' && (
+                <div className="px-6 md:px-0 pt-2 space-y-2">
+                  <div className="p-4 bg-purple-50 rounded-2xl border border-purple-200/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-black text-xs text-[#635BFF] uppercase tracking-wider">
+                        Full Commitment Required ({opp.recurrence_count || 8} Occurrences)
+                      </span>
+                      <span className="text-xs font-black text-purple-900 bg-white px-2.5 py-0.5 rounded-full border border-purple-200">
+                        {opp.total_series_hours || opp.duration_hours * 8} Total Hours
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-700 font-medium">
+                      By signing up, you commit to attending all {opp.recurrence_count || 8} scheduled dates below. Hours are awarded per occurrence attended (+{opp.duration_hours} hrs/occurrence).
+                    </p>
+                    {opp.occurrence_dates && opp.occurrence_dates.length > 0 && (
+                      <div className="pt-2 border-t border-purple-200/60">
+                        <span className="text-[11px] font-bold text-gray-800 block mb-1">Scheduled Dates:</span>
+                        <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+                          {opp.occurrence_dates.map((dStr, idx) => (
+                            <span key={dStr} className="text-[10px] font-bold px-2 py-0.5 bg-white text-purple-900 rounded-md border border-purple-200 shadow-2xs">
+                              {idx + 1}. {formatDate(dStr)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Instructions Section */}
               {opp.instructions && (
                 <div className="px-6 md:px-0 space-y-3 pt-2">
@@ -170,7 +201,11 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                   <div className="pt-2 flex items-center gap-3">
                     <Calendar className="w-4 h-4 text-[#635BFF] flex-shrink-0" />
                     <div>
-                      <div className="font-bold text-gray-900">{formatDate(opp.date)}</div>
+                      <div className="font-bold text-gray-900">
+                        {opp.recurrence_type === 'same_volunteers'
+                          ? `Every Week · ${formatDate(opp.series_start_date || opp.date)} – ${formatDate(opp.series_end_date || opp.date)}`
+                          : formatDate(opp.date)}
+                      </div>
                       <div className="text-gray-500 text-[11px]">{formatTime(opp.start_time, opp.end_time)}</div>
                     </div>
                   </div>
@@ -186,7 +221,9 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                   <div className="pt-3 flex items-center justify-between">
                     <span className="text-gray-500">Awarded Hours</span>
                     <span className="font-extrabold text-gray-900 bg-purple-50 px-2.5 py-1 rounded-lg text-brand-700">
-                      {opp.duration_hours} Hours
+                      {opp.recurrence_type === 'same_volunteers'
+                        ? `${opp.total_series_hours || opp.duration_hours * 8} Total Hours (${opp.duration_hours}h / shift)`
+                        : `${opp.duration_hours} Hours`}
                     </span>
                   </div>
 
@@ -230,7 +267,10 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                       {onUnsign && (
                         <button
                           onClick={() => {
-                            if (confirm(`Leave "${opp.title}"? Your registration will be permanently removed.`)) {
+                            const promptMsg = opp.recurrence_type === 'same_volunteers'
+                              ? `Leave recurring opportunity?\n\nThis will remove you from all ${opp.recurrence_count || 8} occurrences of this opportunity.`
+                              : `Leave "${opp.title}"? Your registration will be permanently removed.`;
+                            if (confirm(promptMsg)) {
                               onUnsign(opp.id);
                               onClose();
                             }
@@ -238,7 +278,7 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                           className="w-full py-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-extrabold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-red-200 transition-colors shadow-2xs"
                         >
                           <UserMinus className="w-3.5 h-3.5" />
-                          <span>Leave Event</span>
+                          <span>{opp.recurrence_type === 'same_volunteers' ? 'Leave Recurring Series' : 'Leave Event'}</span>
                         </button>
                       )}
                     </div>
@@ -252,7 +292,11 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                           : 'bg-[#635BFF] hover:bg-[#5046E5] active:scale-[0.99] shadow-purple-500/20'
                       }`}
                     >
-                      {isFull ? 'Opportunity Full' : 'Register Now'}
+                      {isFull
+                        ? 'Opportunity Full'
+                        : opp.recurrence_type === 'same_volunteers'
+                        ? `Sign Up for All ${opp.recurrence_count || 8} Occurrences`
+                        : 'Register Now'}
                     </button>
                   )}
                 </div>

@@ -185,43 +185,160 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
             <p className="text-xs text-gray-500 font-medium">You have no upcoming volunteer shifts.</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {upcomingRegisteredOpps.map((opp) => (
-              <div
-                key={opp.id}
-                className="p-4 rounded-2xl border border-gray-200/80 bg-gray-50/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-purple-200 transition-all"
-              >
-                <div className="space-y-1 min-w-0">
-                  <div className="font-extrabold text-sm text-gray-900 truncate">{opp.title}</div>
-                  <div className="text-xs font-semibold text-gray-600">{opp.org_name}</div>
-                  <div className="flex items-center gap-3 text-xs text-gray-500">
-                    <span>{formatDate(opp.date)} · {opp.start_time}</span>
-                    <span>{opp.duration_hours} hours</span>
-                    <span className="truncate">{opp.location_address || 'Location TBD'}</span>
-                  </div>
-                </div>
+          <div className="space-y-4">
+            {(() => {
+              // Group same_volunteers series together
+              const seriesMap = new Map<string, Opportunity[]>();
+              const standaloneOpps: Opportunity[] = [];
 
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <a
-                    href={createGoogleCalendarUrl(opp)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-100 text-gray-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition-colors"
-                  >
-                    <Calendar className="w-3.5 h-3.5 text-[#635BFF]" />
-                    <span>Calendar</span>
-                  </a>
-                  <button
-                    onClick={() => handleUnsign(opp.id)}
-                    className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-extrabold text-xs rounded-xl border border-red-200 transition-colors flex items-center gap-1 shadow-2xs"
-                    title="Leave Event"
-                  >
-                    <UserMinus className="w-3.5 h-3.5" />
-                    <span>Leave Event</span>
-                  </button>
-                </div>
-              </div>
-            ))}
+              upcomingRegisteredOpps.forEach((opp) => {
+                if (opp.recurrence_type === 'same_volunteers' && opp.recurrence_series_id) {
+                  const existing = seriesMap.get(opp.recurrence_series_id) || [];
+                  seriesMap.set(opp.recurrence_series_id, [...existing, opp]);
+                } else if (opp.occurrence_number === undefined) {
+                  standaloneOpps.push(opp);
+                }
+              });
+
+              return (
+                <>
+                  {/* Recurring Series Group Cards */}
+                  {Array.from(seriesMap.entries()).map(([seriesId, seriesOpps]) => {
+                    const mainOpp = seriesOpps.find((o) => o.occurrence_number === undefined) || seriesOpps[0];
+                    const allChildOpps = opportunities.filter((o) => o.recurrence_series_id === seriesId && o.occurrence_number !== undefined);
+                    const totalOccurrences = mainOpp.recurrence_count || allChildOpps.length || 8;
+                    const completedOccurrences = allChildOpps.filter((o) => {
+                      const att = attendance.find((a) => a.opportunity_id === o.id && a.status === 'here');
+                      return !!att;
+                    }).length;
+
+                    return (
+                      <div
+                        key={seriesId}
+                        className="p-5 rounded-2xl border border-purple-200/90 bg-gradient-to-r from-purple-50/60 via-white to-purple-50/30 space-y-3 shadow-2xs"
+                      >
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-purple-100 pb-3">
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2.5 py-0.5 bg-purple-600 text-white font-extrabold text-[10px] rounded-full uppercase tracking-wider">
+                                Recurring Commitment
+                              </span>
+                              <span className="font-extrabold text-xs text-purple-900">
+                                {completedOccurrences} / {totalOccurrences} completed
+                              </span>
+                            </div>
+                            <h4 className="font-black text-base text-gray-900">{mainOpp.title}</h4>
+                            <p className="text-xs font-semibold text-gray-600">{mainOpp.org_name} · {formatDate(mainOpp.series_start_date || mainOpp.date)} – {formatDate(mainOpp.series_end_date || mainOpp.date)}</p>
+                          </div>
+
+                          <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <button
+                              onClick={() => handleUnsign(mainOpp.id)}
+                              className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-extrabold text-xs rounded-xl border border-red-200 transition-colors flex items-center gap-1 shadow-2xs"
+                            >
+                              <UserMinus className="w-3.5 h-3.5" />
+                              <span>Leave Series</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px] font-bold text-gray-700">
+                            <span>Series Progress</span>
+                            <span>{Math.round((completedOccurrences / totalOccurrences) * 100)}%</span>
+                          </div>
+                          <div className="w-full h-2 bg-purple-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-[#635BFF] to-purple-600 transition-all duration-300"
+                              style={{ width: `${Math.min(100, (completedOccurrences / totalOccurrences) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Expandable Occurrences Breakdown */}
+                        <div className="pt-2">
+                          <span className="text-[11px] font-bold text-gray-700 block mb-2">Scheduled Occurrences:</span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                            {allChildOpps.sort((a,b) => a.date.localeCompare(b.date)).map((cOpp, idx) => {
+                              const att = attendance.find((a) => a.opportunity_id === cOpp.id);
+                              const isHere = att?.status === 'here';
+                              const isNotHere = att?.status === 'not_here';
+
+                              return (
+                                <div
+                                  key={cOpp.id}
+                                  className="p-2.5 bg-white rounded-xl border border-gray-200/80 flex items-center justify-between text-xs shadow-2xs"
+                                >
+                                  <div>
+                                    <div className="font-extrabold text-gray-900">
+                                      #{idx + 1} · {formatDate(cOpp.date)}
+                                    </div>
+                                    <div className="text-[10px] text-gray-500">{cOpp.start_time} - {cOpp.end_time}</div>
+                                  </div>
+
+                                  {isHere ? (
+                                    <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                      ✓ Completed (+{cOpp.duration_hours}h)
+                                    </span>
+                                  ) : isNotHere ? (
+                                    <span className="text-[10px] font-extrabold text-red-700 bg-red-50 px-2 py-0.5 rounded-md border border-red-200">
+                                      Absent (0h)
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-extrabold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
+                                      Upcoming
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Standalone / Different Volunteers Cards */}
+                  {standaloneOpps.map((opp) => (
+                    <div
+                      key={opp.id}
+                      className="p-4 rounded-2xl border border-gray-200/80 bg-gray-50/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-purple-200 transition-all"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="font-extrabold text-sm text-gray-900 truncate">{opp.title}</div>
+                        <div className="text-xs font-semibold text-gray-600">{opp.org_name}</div>
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                          <span>{formatDate(opp.date)} · {opp.start_time}</span>
+                          <span>{opp.duration_hours} hours</span>
+                          <span className="truncate">{opp.location_address || 'Location TBD'}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <a
+                          href={createGoogleCalendarUrl(opp)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-100 text-gray-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition-colors"
+                        >
+                          <Calendar className="w-3.5 h-3.5 text-[#635BFF]" />
+                          <span>Calendar</span>
+                        </a>
+                        <button
+                          onClick={() => handleUnsign(opp.id)}
+                          className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-extrabold text-xs rounded-xl border border-red-200 transition-colors flex items-center gap-1 shadow-2xs"
+                          title="Leave Event"
+                        >
+                          <UserMinus className="w-3.5 h-3.5" />
+                          <span>Leave Event</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              );
+            })()}
           </div>
         )}
       </div>

@@ -97,6 +97,7 @@ export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, o
   const filteredOpportunities = useMemo(() => {
     return opportunities
       .filter((opp) => opp.status === 'published')
+      .filter((opp) => !(opp.recurrence_type === 'same_volunteers' && opp.occurrence_number !== undefined))
       .filter((opp) => {
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();

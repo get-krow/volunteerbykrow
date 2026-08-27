@@ -66,6 +66,12 @@ export interface Opportunity {
   is_recurring?: boolean;
   recurrence_type?: RecurrenceType;
   recurrence_series_id?: string;
+  recurrence_count?: number;
+  occurrence_number?: number;
+  occurrence_dates?: string[];
+  series_start_date?: string;
+  series_end_date?: string;
+  total_series_hours?: number;
   status: OpportunityStatus;
   registered_count?: number;
   ended_at?: string;

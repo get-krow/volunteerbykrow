@@ -197,6 +197,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   const [maxVolunteers, setMaxVolunteers] = useState<string>('10');
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceType, setRecurrenceType] = useState<'same_volunteers' | 'different_volunteers'>('different_volunteers');
+  const [recurrenceCount, setRecurrenceCount] = useState<string>('8');
   const [description, setDescription] = useState('');
   const [instructions, setInstructions] = useState('');
 
@@ -314,6 +315,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
       max_volunteers: maxVolunteers ? parseInt(maxVolunteers) : null,
       is_recurring: isRecurring,
       recurrence_type: isRecurring ? recurrenceType : undefined,
+      recurrence_count: isRecurring ? parseInt(recurrenceCount || '8') : undefined,
     });
 
     alert('Opportunity posted successfully!');
@@ -735,6 +737,87 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                   <span>Calculated Duration:</span>
                   <span className="font-black text-sm text-[#635BFF]">{calculatedDuration} Hours</span>
                 </div>
+
+                {/* Recurring Event Configuration Section */}
+                <div className="pt-3 border-t border-gray-100 space-y-3">
+                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={isRecurring}
+                      onChange={(e) => setIsRecurring(e.target.checked)}
+                      className="w-4 h-4 rounded text-[#635BFF] focus:ring-[#635BFF]"
+                    />
+                    <span className="text-xs font-bold text-gray-900">Make this a Recurring Opportunity</span>
+                  </label>
+
+                  {isRecurring && (
+                    <div className="p-4 bg-purple-50/70 border border-purple-200/80 rounded-2xl space-y-4 animate-in fade-in duration-200">
+                      <div>
+                        <label className="block text-xs font-extrabold text-purple-900 mb-1.5">
+                          Recurring Volunteer Structure
+                        </label>
+                        <div className="space-y-2">
+                          <label className="flex items-start gap-2.5 p-2.5 bg-white rounded-xl border border-purple-100 cursor-pointer hover:border-purple-300 transition-colors">
+                            <input
+                              type="radio"
+                              name="recurrence_type"
+                              value="different_volunteers"
+                              checked={recurrenceType === 'different_volunteers'}
+                              onChange={() => setRecurrenceType('different_volunteers')}
+                              className="mt-0.5 text-[#635BFF] focus:ring-[#635BFF]"
+                            />
+                            <div>
+                              <div className="text-xs font-extrabold text-gray-900">○ Different volunteers</div>
+                              <div className="text-[11px] text-gray-500 font-medium">Volunteers choose individual dates to sign up for. Generates separate opportunities.</div>
+                            </div>
+                          </label>
+
+                          <label className="flex items-start gap-2.5 p-2.5 bg-white rounded-xl border border-purple-100 cursor-pointer hover:border-purple-300 transition-colors">
+                            <input
+                              type="radio"
+                              name="recurrence_type"
+                              value="same_volunteers"
+                              checked={recurrenceType === 'same_volunteers'}
+                              onChange={() => setRecurrenceType('same_volunteers')}
+                              className="mt-0.5 text-[#635BFF] focus:ring-[#635BFF]"
+                            />
+                            <div>
+                              <div className="text-xs font-extrabold text-gray-900">○ Same volunteer</div>
+                              <div className="text-[11px] text-gray-500 font-medium">Volunteers commit to all occurrences when signing up for the series.</div>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Number of Occurrences</label>
+                          <input
+                            type="number"
+                            min="2"
+                            max="52"
+                            value={recurrenceCount}
+                            onChange={(e) => setRecurrenceCount(e.target.value)}
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs font-bold focus:ring-2 focus:ring-[#635BFF]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Repeat Frequency</label>
+                          <div className="px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-800">
+                            Every Week
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-[11px] font-bold text-purple-800 bg-white p-2.5 rounded-xl border border-purple-100">
+                        💡 {recurrenceType === 'different_volunteers'
+                          ? `Will generate ${recurrenceCount || 8} separate weekly opportunities starting on ${date}. Volunteers can choose individual dates.`
+                          : `Will generate 1 public recurring opportunity listing for ${recurrenceCount || 8} occurrences starting on ${date}. Volunteers commit to all dates.`}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <button
                   onClick={() => {
                     if (validateFutureDate(date, startTime)) {
