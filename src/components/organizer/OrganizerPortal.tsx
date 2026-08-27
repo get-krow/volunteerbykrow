@@ -25,7 +25,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { Opportunity, OrganizerProfile, UserProfile, AttendanceRecord, RecurrenceFrequency } from '@/lib/types';
-import { db } from '@/lib/db';
+import { db, ensureUUID } from '@/lib/db';
 import { getBadgeForHours } from '@/lib/badges';
 import { DeleteAccountModal } from '../auth/DeleteAccountModal';
 import { AppleWheelPicker, AppleWheelOption } from '../ui/AppleWheelPicker';
@@ -225,17 +225,33 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
     }
   }, [startTime, endTime]);
 
+  const isOrgMatch = (o: Opportunity) => {
+    if (!org?.id) return false;
+    const orgUUID = ensureUUID(org.id);
+    return (
+      o.org_id === org.id ||
+      o.org_id === orgUUID ||
+      ensureUUID(o.org_id) === orgUUID ||
+      (o.org_name && org.org_name && o.org_name.trim().toLowerCase() === org.org_name.trim().toLowerCase())
+    );
+  };
+
   const activeOpportunities = useMemo(() => {
-    const orgOpps = opportunities.filter((o) => o.org_id === org.id && o.status === 'published');
+    const orgOpps = opportunities.filter((o) => isOrgMatch(o) && o.status === 'published');
     return orgOpps.filter((o) => !(o.recurrence_type === 'same_volunteers' && o.occurrence_number === undefined));
-  }, [opportunities, org.id]);
+  }, [opportunities, org]);
 
   const endedOpportunities = useMemo(() => {
-    return opportunities.filter((o) => o.org_id === org.id && (o.status === 'ended' || o.status === 'cancelled'));
-  }, [opportunities, org.id]);
+    return opportunities.filter((o) => isOrgMatch(o) && (o.status === 'ended' || o.status === 'cancelled'));
+  }, [opportunities, org]);
+
+  const allPublishedOpportunities = useMemo(() => {
+    return opportunities.filter((o) => o.status === 'published' && !(o.recurrence_type === 'same_volunteers' && o.occurrence_number !== undefined));
+  }, [opportunities]);
 
   const [expandedCardIds, setExpandedCardIds] = useState<string[]>([]);
   const [selectedChildOccMap, setSelectedChildOccMap] = useState<Record<string, string>>({});
+  const [showAllPlatformPosts, setShowAllPlatformPosts] = useState(false);
 
   const toggleExpandCard = (oppId: string) => {
     setExpandedCardIds((prev) =>
@@ -257,14 +273,14 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   };
 
   const sortedAttendanceOpportunities = useMemo(() => {
-    const orgOpps = opportunities.filter((o) => o.org_id === org.id);
+    const orgOpps = opportunities.filter((o) => isOrgMatch(o));
     const occurrenceOpps = orgOpps.filter((o) => !(o.recurrence_type === 'same_volunteers' && o.occurrence_number === undefined));
     return [...occurrenceOpps].sort((a, b) => {
       const dateTimeA = new Date(`${a.date}T${a.start_time || '00:00'}`).getTime();
       const dateTimeB = new Date(`${b.date}T${b.start_time || '00:00'}`).getTime();
       return dateTimeA - dateTimeB;
     });
-  }, [opportunities, org.id]);
+  }, [opportunities, org]);
 
   const validateFutureDate = (dateStr: string, startTimeStr: string): boolean => {
     const todayStr = new Date().toISOString().split('T')[0];
@@ -483,6 +499,66 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+
+          {/* Platform-Wide Posts Manager & Cleanup Section */}
+          <div className="bg-slate-50/80 rounded-3xl p-6 border border-slate-200/80 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold text-sm text-gray-900 flex items-center gap-2">
+                  <span>🌐</span> All Published Opportunities on Volunteer Feed ({allPublishedOpportunities.length})
+                </h3>
+                <p className="text-xs text-gray-500 font-medium">
+                  Easily delete any unwanted, stray, or test opportunities showing up on the volunteer page.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAllPlatformPosts(!showAllPlatformPosts)}
+                className="px-3 py-1.5 bg-white border border-gray-200 hover:bg-purple-50 text-xs font-bold text-gray-700 rounded-xl transition-all"
+              >
+                {showAllPlatformPosts ? 'Hide Platform Posts' : 'Manage All Platform Posts'}
+              </button>
+            </div>
+
+            {showAllPlatformPosts && (
+              <div className="space-y-3 pt-2">
+                {allPublishedOpportunities.length === 0 ? (
+                  <div className="py-4 text-center text-xs text-gray-400">No active opportunities on platform.</div>
+                ) : (
+                  allPublishedOpportunities.map((opp) => (
+                    <div
+                      key={opp.id}
+                      className="p-3.5 bg-white rounded-2xl border border-gray-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-extrabold text-xs text-gray-900">{opp.title}</span>
+                          <span className="text-[10px] font-extrabold bg-purple-50 text-[#635BFF] px-2 py-0.5 rounded-full border border-purple-100">
+                            Org: {opp.org_name || opp.org_id}
+                          </span>
+                          {opp.is_recurring && (
+                            <span className="text-[10px] font-extrabold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-100">
+                              Recurring Series ({opp.recurrence_count || 8} Occurrences)
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-gray-500 font-medium">
+                          Date: {opp.date} ({opp.start_time} - {opp.end_time}) · ID: {opp.id}
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handlePermanentDeleteOpportunity(opp.id)}
+                        className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-700 font-extrabold text-xs rounded-xl border border-red-200 transition-colors flex items-center gap-1.5 self-end sm:self-center"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete Post</span>
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
             )}
           </div>
@@ -1091,7 +1167,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                           {opp.status !== 'ended' && (
                             <button
                               onClick={() => handleEndEvent(opp.id)}
-                              className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-bold transition-colors"
+                              className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-xl text-xs font-bold transition-colors border border-amber-200"
                             >
                               End Event
                             </button>
@@ -1099,8 +1175,15 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
 
                           <button
                             onClick={() => {
-                              setSelectedOppForAttendance(opp);
-                              toggleExpandCard(opp.id);
+                              if (isExpanded) {
+                                if (selectedOppForAttendance?.id === opp.id) {
+                                  setSelectedOppForAttendance(null);
+                                }
+                                setExpandedCardIds((prev) => prev.filter((id) => id !== opp.id));
+                              } else {
+                                setSelectedOppForAttendance(opp);
+                                setExpandedCardIds((prev) => [...prev, opp.id]);
+                              }
                             }}
                             className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 shadow-2xs ${
                               isExpanded
@@ -1110,6 +1193,14 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                           >
                             <span>{isExpanded ? 'Hide Attendance' : 'Show Attendance'}</span>
                             <ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                          </button>
+
+                          <button
+                            onClick={() => handlePermanentDeleteOpportunity(opp.id)}
+                            className="p-2 text-gray-400 hover:text-red-600 rounded-xl hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors"
+                            title="Delete Opportunity from System"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
