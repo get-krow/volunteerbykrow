@@ -1588,9 +1588,10 @@ class LocalDatabase {
 
   public calculateVolunteerTotalHours(volunteerId: string): number {
     const volUUID = ensureUUID(volunteerId);
-    return this.attendance
+    const total = this.attendance
       .filter((a) => (a.volunteer_id === volunteerId || a.volunteer_id === volUUID) && a.status === 'here')
       .reduce((sum, a) => sum + (a.hours_awarded || 0), 0);
+    return Math.round(total * 10) / 10;
   }
 
   public calculateVolunteerCompletedShifts(volunteerId: string): number {

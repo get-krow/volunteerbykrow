@@ -1203,7 +1203,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                                                     borderColor: (volBadge.color || '#635BFF') + '40',
                                                   }}
                                                 >
-                                                  <span>🎖️</span> {volBadge.name} ({volTotalHours}h)
+                                                  <span>🎖️</span> {volBadge.name} ({volTotalHours.toFixed(1).replace(/\.0$/, '')}h)
                                                 </span>
                                               </div>
                                               <div className="text-[11px] text-gray-500 font-medium">
@@ -1290,7 +1290,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                                                 borderColor: (volBadge.color || '#635BFF') + '40',
                                               }}
                                             >
-                                              <span>🎖️</span> {volBadge.name} ({volTotalHours}h)
+                                              <span>🎖️</span> {volBadge.name} ({volTotalHours.toFixed(1).replace(/\.0$/, '')}h)
                                             </span>
                                           </div>
                                           <div className="text-[11px] text-gray-500 font-medium">
