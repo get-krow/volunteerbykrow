@@ -1510,6 +1510,13 @@ class LocalDatabase {
     return this.attendance.filter((a) => a.opportunity_id === opportunityId);
   }
 
+  public getAttendanceForVolunteer(volunteerId: string): AttendanceRecord[] {
+    const volUUID = ensureUUID(volunteerId);
+    return this.attendance.filter(
+      (a) => a.volunteer_id === volunteerId || a.volunteer_id === volUUID || ensureUUID(a.volunteer_id) === volUUID
+    );
+  }
+
   public markAttendance(
     opportunityId: string,
     volunteerId: string,
