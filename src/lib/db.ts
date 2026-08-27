@@ -203,6 +203,7 @@ class LocalDatabase {
               ? sOpp.org_name
               : matchOrg?.org_name || this.currentUser?.name || 'Organization';
 
+          const localMatch = this.opportunities.find((l) => l.id === sOpp.id);
           return {
             id: sOpp.id,
             org_id: sOpp.org_id,
@@ -223,12 +224,25 @@ class LocalDatabase {
             min_age: sOpp.min_age,
             max_age: sOpp.max_age,
             max_volunteers: sOpp.max_volunteers,
+            is_recurring: sOpp.is_recurring ?? localMatch?.is_recurring ?? false,
+            recurrence_type: sOpp.recurrence_type || localMatch?.recurrence_type,
+            recurrence_frequency: sOpp.recurrence_frequency || localMatch?.recurrence_frequency,
+            recurrence_series_id: sOpp.recurrence_series_id || localMatch?.recurrence_series_id,
+            recurrence_count: sOpp.recurrence_count || localMatch?.recurrence_count,
+            occurrence_number: sOpp.occurrence_number ?? localMatch?.occurrence_number,
+            occurrence_dates: sOpp.occurrence_dates || localMatch?.occurrence_dates,
+            series_start_date: sOpp.series_start_date || localMatch?.series_start_date,
+            series_end_date: sOpp.series_end_date || localMatch?.series_end_date,
+            total_series_hours: sOpp.total_series_hours || localMatch?.total_series_hours,
             status: sOpp.status || 'published',
             ended_at: sOpp.ended_at || undefined,
             created_at: sOpp.created_at || new Date().toISOString(),
           };
         });
-        this.opportunities = mappedOpps;
+
+        const remoteIds = new Set(mappedOpps.map((o) => o.id));
+        const localOnlyOpps = this.opportunities.filter((l) => !remoteIds.has(l.id));
+        this.opportunities = [...mappedOpps, ...localOnlyOpps];
       }
 
       // 5. Update dynamic registered_count and resolve org_name fallback
@@ -905,28 +919,56 @@ class LocalDatabase {
       this.saveToStorage();
 
       if (isSupabaseConfigured()) {
-        supabase.from('opportunities').upsert([{
-          id: mainOppId,
-          org_id: orgId,
-          title: mainOpp.title,
-          description: mainOpp.description || null,
-          instructions: mainOpp.instructions || null,
-          category_id: mainOpp.category_id || 'community',
-          banner_url: mainOpp.banner_url || null,
-          date: mainOpp.date,
-          start_time: mainOpp.start_time,
-          end_time: mainOpp.end_time,
-          duration_hours: mainOpp.duration_hours || 2,
-          location_type: mainOpp.location_type || 'physical',
-          location_address: mainOpp.location_address || null,
-          min_age: mainOpp.min_age || null,
-          max_age: mainOpp.max_age || null,
-          max_volunteers: mainOpp.max_volunteers || null,
-          is_recurring: true,
-          recurrence_type: 'same_volunteers',
-          recurrence_series_id: seriesId,
-          status: 'published',
-        }]).then(({ error }) => {
+        const childUpsertList = this.opportunities
+          .filter((o) => o.recurrence_series_id === seriesId && o.occurrence_number !== undefined)
+          .map((cOpp) => ({
+            id: cOpp.id,
+            org_id: orgId,
+            title: cOpp.title,
+            description: cOpp.description || null,
+            instructions: cOpp.instructions || null,
+            category_id: cOpp.category_id || 'community',
+            banner_url: cOpp.banner_url || null,
+            date: cOpp.date,
+            start_time: cOpp.start_time,
+            end_time: cOpp.end_time,
+            duration_hours: cOpp.duration_hours || 2,
+            location_type: cOpp.location_type || 'physical',
+            location_address: cOpp.location_address || null,
+            min_age: cOpp.min_age || null,
+            max_age: cOpp.max_age || null,
+            max_volunteers: cOpp.max_volunteers || null,
+            is_recurring: true,
+            recurrence_type: 'same_volunteers',
+            recurrence_series_id: seriesId,
+            status: 'published',
+          }));
+
+        supabase.from('opportunities').upsert([
+          {
+            id: mainOppId,
+            org_id: orgId,
+            title: mainOpp.title,
+            description: mainOpp.description || null,
+            instructions: mainOpp.instructions || null,
+            category_id: mainOpp.category_id || 'community',
+            banner_url: mainOpp.banner_url || null,
+            date: mainOpp.date,
+            start_time: mainOpp.start_time,
+            end_time: mainOpp.end_time,
+            duration_hours: mainOpp.duration_hours || 2,
+            location_type: mainOpp.location_type || 'physical',
+            location_address: mainOpp.location_address || null,
+            min_age: mainOpp.min_age || null,
+            max_age: mainOpp.max_age || null,
+            max_volunteers: mainOpp.max_volunteers || null,
+            is_recurring: true,
+            recurrence_type: 'same_volunteers',
+            recurrence_series_id: seriesId,
+            status: 'published',
+          },
+          ...childUpsertList,
+        ]).then(({ error }) => {
           if (error) console.error('Supabase opportunity upsert error:', error);
         });
       }
@@ -1181,12 +1223,14 @@ class LocalDatabase {
       }
 
       // Register volunteer for ALL occurrences in series
+      const regsToUpsert: any[] = [];
       seriesOpps.forEach((sOpp) => {
         const existing = this.registrations.find(
           (r) => (r.opportunity_id === sOpp.id || r.opportunity_id === ensureUUID(sOpp.id)) && r.volunteer_id === volunteerId
         );
+        let regId = existing?.id;
         if (!existing) {
-          const regId = ensureUUID('reg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7));
+          regId = ensureUUID('reg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7));
           this.registrations.push({
             id: regId,
             opportunity_id: sOpp.id,
@@ -1198,8 +1242,21 @@ class LocalDatabase {
           existing.status = 'registered';
           existing.registered_at = new Date().toISOString();
         }
+        regsToUpsert.push({
+          id: ensureUUID(regId!),
+          opportunity_id: ensureUUID(sOpp.id),
+          volunteer_id: ensureUUID(volunteerId),
+          status: 'registered',
+          registered_at: new Date().toISOString(),
+        });
         sOpp.registered_count = this.getRegisteredCount(sOpp.id);
       });
+
+      if (isSupabaseConfigured() && regsToUpsert.length > 0) {
+        supabase.from('registrations').upsert(regsToUpsert).then(({ error }) => {
+          if (error) console.error('Supabase recurring registration upsert error:', error);
+        });
+      }
 
       const user = this.getProfile(volunteerId);
       this.addNotification({
@@ -1329,15 +1386,29 @@ class LocalDatabase {
     if (opp.is_recurring && opp.recurrence_type === 'same_volunteers' && opp.recurrence_series_id) {
       // Unregister volunteer from ALL occurrences in series
       const seriesOpps = this.opportunities.filter((o) => o.recurrence_series_id === opp.recurrence_series_id);
+      const regsToUpsert: any[] = [];
       seriesOpps.forEach((sOpp) => {
         const reg = this.registrations.find(
           (r) => (r.opportunity_id === sOpp.id || r.opportunity_id === ensureUUID(sOpp.id)) && r.volunteer_id === volunteerId && r.status === 'registered'
         );
         if (reg) {
           reg.status = 'unsigned';
+          regsToUpsert.push({
+            id: ensureUUID(reg.id),
+            opportunity_id: ensureUUID(sOpp.id),
+            volunteer_id: ensureUUID(volunteerId),
+            status: 'unsigned',
+            registered_at: reg.registered_at,
+          });
         }
         sOpp.registered_count = this.getRegisteredCount(sOpp.id);
       });
+
+      if (isSupabaseConfigured() && regsToUpsert.length > 0) {
+        supabase.from('registrations').upsert(regsToUpsert).then(({ error }) => {
+          if (error) console.error('Supabase series unsign upsert error:', error);
+        });
+      }
 
       this.addNotification({
         user_id: opp.org_id,
