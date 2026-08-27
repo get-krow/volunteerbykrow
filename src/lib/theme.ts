@@ -6,9 +6,6 @@ export function getInitialTheme(): 'light' | 'dark' {
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('krow_theme');
     if (saved === 'dark' || saved === 'light') return saved;
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark';
-    }
   }
   return 'light';
 }

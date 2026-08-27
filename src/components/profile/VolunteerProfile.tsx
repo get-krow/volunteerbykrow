@@ -59,9 +59,10 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
               type="button"
               onClick={toggleTheme}
               className="px-3.5 py-1.5 bg-purple-50 dark:bg-slate-800 hover:bg-purple-100 dark:hover:bg-slate-700 text-[#635BFF] dark:text-purple-300 rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors border border-purple-100 dark:border-slate-700"
+              title="Toggle Light/Dark Mode"
             >
-              {theme === 'dark' ? <Moon className="w-3.5 h-3.5 text-amber-400" /> : <Sun className="w-3.5 h-3.5 text-purple-600" />}
-              <span>{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
+              {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-purple-600" />}
+              <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
             </button>
 
             <button
