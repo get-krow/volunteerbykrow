@@ -143,14 +143,6 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
 
       {/* Action Icons Right */}
       <div className="flex items-center gap-2.5">
-        {/* Light/Dark Theme Toggle */}
-        <button
-          onClick={toggleTheme}
-          className="w-9 h-9 rounded-full border border-purple-200/80 bg-white text-purple-600 hover:bg-purple-50 flex items-center justify-center transition-colors"
-          title="Toggle Light/Dark Mode"
-        >
-          {theme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-        </button>
 
         {/* Persistent Notification Bell (Upper-Right across all tabs) */}
         <div className="relative">

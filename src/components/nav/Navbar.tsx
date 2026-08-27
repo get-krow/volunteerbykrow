@@ -192,15 +192,6 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, onOpenAuth, onLogou
             )}
           </div>
 
-          {/* Dark Mode Toggle */}
-          <button
-            onClick={toggleTheme}
-            className="p-2 text-gray-500 dark:text-amber-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-slate-800 rounded-full transition-colors"
-            title="Toggle Light/Dark Mode"
-          >
-            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-purple-600" />}
-          </button>
-
           {/* User Auth Buttons / Profile Indicator */}
           {currentUser ? (
             <div className="flex items-center gap-2">

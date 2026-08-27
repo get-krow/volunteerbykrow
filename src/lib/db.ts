@@ -398,7 +398,6 @@ class LocalDatabase {
     }
   }
 
-  // --- Auth / User State ---
   public getCurrentUser(): UserProfile | null {
     return this.currentUser;
   }
@@ -406,6 +405,12 @@ class LocalDatabase {
   public setCurrentUser(user: UserProfile | null) {
     if (user) {
       user.id = ensureUUID(user.id);
+      const pIdx = this.profiles.findIndex((p) => p.id === user.id || ensureUUID(p.id) === user.id);
+      if (pIdx >= 0) {
+        this.profiles[pIdx] = { ...this.profiles[pIdx], ...user };
+      } else {
+        this.profiles.push({ ...user });
+      }
     }
     this.currentUser = user;
     this.saveToStorage();
@@ -451,6 +456,15 @@ class LocalDatabase {
   public updateProfile(updates: Partial<UserProfile>) {
     if (!this.currentUser) return;
     this.currentUser = { ...this.currentUser, ...updates };
+
+    const pUUID = ensureUUID(this.currentUser.id);
+    const pIdx = this.profiles.findIndex((p) => p.id === this.currentUser?.id || p.id === pUUID || ensureUUID(p.id) === pUUID);
+    if (pIdx >= 0) {
+      this.profiles[pIdx] = { ...this.profiles[pIdx], ...updates };
+    } else {
+      this.profiles.push({ ...this.currentUser });
+    }
+
     this.saveToStorage();
 
     if (isSupabaseConfigured()) {
@@ -458,7 +472,7 @@ class LocalDatabase {
         .from('profiles')
         .update({
           name: updates.name,
-          dob: updates.dob,
+          dob: updates.dob || null,
           country: updates.country,
           province_state: updates.province_state,
           city: updates.city,
@@ -1157,8 +1171,12 @@ class LocalDatabase {
 
   // --- Profile Lookup Helpers ---
   public getProfile(userId: string): UserProfile | null {
-    if (this.currentUser?.id === userId) return this.currentUser;
-    return this.profiles.find((p) => p.id === userId) || null;
+    if (!userId) return null;
+    const uUUID = ensureUUID(userId);
+    if (this.currentUser && (this.currentUser.id === userId || this.currentUser.id === uUUID || ensureUUID(this.currentUser.id) === uUUID)) {
+      return this.currentUser;
+    }
+    return this.profiles.find((p) => p.id === userId || p.id === uUUID || ensureUUID(p.id) === uUUID) || null;
   }
 
   // --- Registration Logic ---
