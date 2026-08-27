@@ -233,6 +233,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   }, [opportunities, org.id]);
 
   const [expandedCardIds, setExpandedCardIds] = useState<string[]>([]);
+  const [selectedChildOccMap, setSelectedChildOccMap] = useState<Record<string, string>>({});
 
   const toggleExpandCard = (oppId: string) => {
     setExpandedCardIds((prev) =>
@@ -255,7 +256,8 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
 
   const sortedAttendanceOpportunities = useMemo(() => {
     const orgOpps = opportunities.filter((o) => o.org_id === org.id);
-    return [...orgOpps].sort((a, b) => {
+    const topLevelOpps = orgOpps.filter((o) => !(o.recurrence_type === 'same_volunteers' && o.occurrence_number !== undefined));
+    return [...topLevelOpps].sort((a, b) => {
       const dateTimeA = new Date(`${a.date}T${a.start_time || '00:00'}`).getTime();
       const dateTimeB = new Date(`${b.date}T${b.start_time || '00:00'}`).getTime();
       return dateTimeA - dateTimeB;
@@ -1105,75 +1107,192 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                       {/* Expanded Volunteer Attendance List */}
                       {isExpanded && (
                         <div className="p-4 sm:p-5 border-t border-gray-100 bg-slate-50/50 space-y-3">
-                          <div className="flex items-center justify-between border-b border-gray-200/60 pb-2">
-                            <h5 className="font-extrabold text-xs text-gray-900">
-                              Registered Volunteers for {opp.title} ({registeredVolunteers.length})
-                            </h5>
-                            <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                              Standard Award: +{opp.duration_hours} hrs/shift
-                            </span>
-                          </div>
+                          {opp.recurrence_type === 'same_volunteers' ? (
+                            (() => {
+                              const childOccurrences = opportunities
+                                .filter((o) => o.recurrence_series_id === opp.recurrence_series_id && o.occurrence_number !== undefined)
+                                .sort((a, b) => a.date.localeCompare(b.date));
 
-                          {registeredVolunteers.length === 0 ? (
-                            <div className="py-6 text-center text-xs text-gray-400 bg-white rounded-xl border border-gray-100">
-                              No volunteers have registered for this opportunity yet.
-                            </div>
-                          ) : (
-                            <div className="space-y-2.5">
-                              {registeredVolunteers.map((reg) => {
-                                const volId = reg.volunteer_id;
-                                const volProfile = db.getProfile(volId);
-                                const volName = volProfile?.name || `Volunteer (${volId.slice(-4)})`;
-                                const volEmail = volProfile?.email || 'N/A';
-                                const volAge = calculateAge(volProfile?.dob);
-                                const attList = db.getAttendanceForOpportunity(opp.id);
-                                const currentAtt = attList.find((a) => a.volunteer_id === volId);
-                                const currentStatus = currentAtt?.status || 'unmarked';
+                              const activeChildId = selectedChildOccMap[opp.id] || childOccurrences[0]?.id;
+                              const activeChildOpp = childOccurrences.find((c) => c.id === activeChildId) || childOccurrences[0];
 
-                                return (
-                                  <div
-                                    key={volId}
-                                    className="p-3.5 bg-white rounded-xl border border-gray-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                                  >
-                                    <div className="space-y-0.5">
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-extrabold text-xs text-gray-900">{volName}</span>
-                                        <span className="px-2 py-0.5 bg-purple-50 text-[#635BFF] text-[10px] font-extrabold rounded-md border border-purple-100">
-                                          Age: {volAge}
-                                        </span>
-                                      </div>
-                                      <div className="text-[11px] text-gray-500 font-medium">
-                                        Email: {volEmail}
-                                      </div>
-                                    </div>
-
-                                    {/* Tap Attendance Buttons */}
-                                    <div className="flex items-center gap-2 justify-end">
-                                      <button
-                                        onClick={() => handleMarkAttendance(opp.id, volId, 'here')}
-                                        className={`px-4 py-2 rounded-xl font-black text-xs transition-all flex items-center gap-1 ${
-                                          currentStatus === 'here'
-                                            ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-600/20'
-                                            : 'bg-gray-100 border border-gray-200 text-gray-700 hover:bg-emerald-50 hover:text-emerald-700'
-                                        }`}
-                                      >
-                                        {currentStatus === 'here' ? `✓ HERE (+${opp.duration_hours}h)` : `HERE (+${opp.duration_hours}h)`}
-                                      </button>
-                                      <button
-                                        onClick={() => handleMarkAttendance(opp.id, volId, 'not_here')}
-                                        className={`px-4 py-2 rounded-xl font-black text-xs transition-all ${
-                                          currentStatus === 'not_here'
-                                            ? 'bg-red-600 text-white shadow-sm ring-2 ring-red-600/20'
-                                            : 'bg-gray-100 border border-gray-200 text-gray-700 hover:bg-red-50 hover:text-red-700'
-                                        }`}
-                                      >
-                                        NOT HERE
-                                      </button>
-                                    </div>
+                              return (
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between border-b border-gray-200/60 pb-2">
+                                    <h5 className="font-extrabold text-xs text-gray-900">
+                                      Recurring Commitment Roster ({registeredVolunteers.length} Committed Volunteers)
+                                    </h5>
+                                    <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100">
+                                      {childOccurrences.length} Scheduled Occurrences
+                                    </span>
                                   </div>
-                                );
-                              })}
-                            </div>
+
+                                  {/* Occurrence Date Selector Tabs */}
+                                  <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-gray-200/60">
+                                    {childOccurrences.map((child, idx) => (
+                                      <button
+                                        key={child.id}
+                                        onClick={() => setSelectedChildOccMap((prev) => ({ ...prev, [opp.id]: child.id }))}
+                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                                          (activeChildOpp?.id === child.id)
+                                            ? 'bg-[#635BFF] text-white shadow-xs'
+                                            : 'bg-white border border-gray-200 text-gray-700 hover:bg-purple-50'
+                                        }`}
+                                      >
+                                        #{idx + 1} · {child.date}
+                                      </button>
+                                    ))}
+                                  </div>
+
+                                  {activeChildOpp && (
+                                    <div className="p-3 bg-purple-50/70 rounded-xl border border-purple-100 flex items-center justify-between text-xs">
+                                      <span className="font-extrabold text-purple-900">
+                                        Managing Attendance for Occurrence #{activeChildOpp.occurrence_number}: {activeChildOpp.date} ({activeChildOpp.start_time} - {activeChildOpp.end_time})
+                                      </span>
+                                      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                        Award: +{activeChildOpp.duration_hours} hrs/shift
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  {registeredVolunteers.length === 0 ? (
+                                    <div className="py-6 text-center text-xs text-gray-400 bg-white rounded-xl border border-gray-100">
+                                      No volunteers have registered for this recurring series yet.
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-2.5">
+                                      {registeredVolunteers.map((reg) => {
+                                        const volId = reg.volunteer_id;
+                                        const volProfile = db.getProfile(volId);
+                                        const volName = volProfile?.name || `Volunteer (${volId.slice(-4)})`;
+                                        const volEmail = volProfile?.email || 'N/A';
+                                        const volAge = calculateAge(volProfile?.dob);
+                                        const targetOppId = activeChildOpp?.id || opp.id;
+                                        const attList = db.getAttendanceForOpportunity(targetOppId);
+                                        const currentAtt = attList.find((a) => a.volunteer_id === volId);
+                                        const currentStatus = currentAtt?.status || 'unmarked';
+
+                                        return (
+                                          <div
+                                            key={volId}
+                                            className="p-3.5 bg-white rounded-xl border border-gray-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                                          >
+                                            <div className="space-y-0.5">
+                                              <div className="flex items-center gap-2">
+                                                <span className="font-extrabold text-xs text-gray-900">{volName}</span>
+                                                <span className="px-2 py-0.5 bg-purple-50 text-[#635BFF] text-[10px] font-extrabold rounded-md border border-purple-100">
+                                                  Age: {volAge}
+                                                </span>
+                                              </div>
+                                              <div className="text-[11px] text-gray-500 font-medium">
+                                                Email: {volEmail}
+                                              </div>
+                                            </div>
+
+                                            {/* Tap Attendance Buttons */}
+                                            <div className="flex items-center gap-2 justify-end">
+                                              <button
+                                                onClick={() => handleMarkAttendance(targetOppId, volId, 'here')}
+                                                className={`px-4 py-2 rounded-xl font-black text-xs transition-all flex items-center gap-1 ${
+                                                  currentStatus === 'here'
+                                                    ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-600/20'
+                                                    : 'bg-gray-100 border border-gray-200 text-gray-700 hover:bg-emerald-50 hover:text-emerald-700'
+                                                }`}
+                                              >
+                                                {currentStatus === 'here' ? `✓ HERE (+${activeChildOpp?.duration_hours || opp.duration_hours}h)` : `HERE (+${activeChildOpp?.duration_hours || opp.duration_hours}h)`}
+                                              </button>
+                                              <button
+                                                onClick={() => handleMarkAttendance(targetOppId, volId, 'not_here')}
+                                                className={`px-4 py-2 rounded-xl font-black text-xs transition-all ${
+                                                  currentStatus === 'not_here'
+                                                    ? 'bg-red-600 text-white shadow-sm ring-2 ring-red-600/20'
+                                                    : 'bg-gray-100 border border-gray-200 text-gray-700 hover:bg-red-50 hover:text-red-700'
+                                                }`}
+                                              >
+                                                NOT HERE
+                                              </button>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()
+                          ) : (
+                            <>
+                              <div className="flex items-center justify-between border-b border-gray-200/60 pb-2">
+                                <h5 className="font-extrabold text-xs text-gray-900">
+                                  Registered Volunteers for {opp.title} ({registeredVolunteers.length})
+                                </h5>
+                                <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+                                  Standard Award: +{opp.duration_hours} hrs/shift
+                                </span>
+                              </div>
+
+                              {registeredVolunteers.length === 0 ? (
+                                <div className="py-6 text-center text-xs text-gray-400 bg-white rounded-xl border border-gray-100">
+                                  No volunteers have registered for this opportunity yet.
+                                </div>
+                              ) : (
+                                <div className="space-y-2.5">
+                                  {registeredVolunteers.map((reg) => {
+                                    const volId = reg.volunteer_id;
+                                    const volProfile = db.getProfile(volId);
+                                    const volName = volProfile?.name || `Volunteer (${volId.slice(-4)})`;
+                                    const volEmail = volProfile?.email || 'N/A';
+                                    const volAge = calculateAge(volProfile?.dob);
+                                    const attList = db.getAttendanceForOpportunity(opp.id);
+                                    const currentAtt = attList.find((a) => a.volunteer_id === volId);
+                                    const currentStatus = currentAtt?.status || 'unmarked';
+
+                                    return (
+                                      <div
+                                        key={volId}
+                                        className="p-3.5 bg-white rounded-xl border border-gray-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                                      >
+                                        <div className="space-y-0.5">
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-extrabold text-xs text-gray-900">{volName}</span>
+                                            <span className="px-2 py-0.5 bg-purple-50 text-[#635BFF] text-[10px] font-extrabold rounded-md border border-purple-100">
+                                              Age: {volAge}
+                                            </span>
+                                          </div>
+                                          <div className="text-[11px] text-gray-500 font-medium">
+                                            Email: {volEmail}
+                                          </div>
+                                        </div>
+
+                                        {/* Tap Attendance Buttons */}
+                                        <div className="flex items-center gap-2 justify-end">
+                                          <button
+                                            onClick={() => handleMarkAttendance(opp.id, volId, 'here')}
+                                            className={`px-4 py-2 rounded-xl font-black text-xs transition-all flex items-center gap-1 ${
+                                              currentStatus === 'here'
+                                                ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-600/20'
+                                                : 'bg-gray-100 border border-gray-200 text-gray-700 hover:bg-emerald-50 hover:text-emerald-700'
+                                            }`}
+                                          >
+                                            {currentStatus === 'here' ? `✓ HERE (+${opp.duration_hours}h)` : `HERE (+${opp.duration_hours}h)`}
+                                          </button>
+                                          <button
+                                            onClick={() => handleMarkAttendance(opp.id, volId, 'not_here')}
+                                            className={`px-4 py-2 rounded-xl font-black text-xs transition-all ${
+                                              currentStatus === 'not_here'
+                                                ? 'bg-red-600 text-white shadow-sm ring-2 ring-red-600/20'
+                                                : 'bg-gray-100 border border-gray-200 text-gray-700 hover:bg-red-50 hover:text-red-700'
+                                            }`}
+                                          >
+                                            NOT HERE
+                                          </button>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       )}
