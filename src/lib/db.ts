@@ -240,9 +240,8 @@ class LocalDatabase {
           };
         });
 
-        const remoteIds = new Set(mappedOpps.map((o) => o.id));
-        const localOnlyOpps = this.opportunities.filter((l) => !remoteIds.has(l.id));
-        this.opportunities = [...mappedOpps, ...localOnlyOpps];
+        this.opportunities = mappedOpps;
+        this.saveToStorage();
       }
 
       // 5. Update dynamic registered_count and resolve org_name fallback
@@ -1071,28 +1070,42 @@ class LocalDatabase {
     const oppUUID = ensureUUID(id);
     const opp = this.opportunities.find((o) => o.id === id || o.id === oppUUID);
 
-    // Preserve opportunity title on attendance records before deleting opportunity
-    if (opp?.title) {
-      this.attendance.forEach((att) => {
-        if (att.opportunity_id === id || att.opportunity_id === oppUUID) {
-          if (!att.opportunity_title) {
-            att.opportunity_title = opp.title;
-          }
+    const idsToDelete = new Set<string>();
+    idsToDelete.add(id);
+    idsToDelete.add(oppUUID);
+
+    // If deleting a recurring opportunity, also delete all sibling occurrences in the series
+    if (opp?.recurrence_series_id) {
+      const seriesId = opp.recurrence_series_id;
+      this.opportunities.forEach((o) => {
+        if (o.recurrence_series_id === seriesId) {
+          idsToDelete.add(o.id);
+          idsToDelete.add(ensureUUID(o.id));
         }
       });
     }
 
+    // Preserve opportunity title on attendance records before deleting opportunity
+    this.attendance.forEach((att) => {
+      if (idsToDelete.has(att.opportunity_id)) {
+        if (!att.opportunity_title && opp?.title) {
+          att.opportunity_title = opp.title;
+        }
+      }
+    });
+
     // Filter out opportunity & registrations from local state, BUT KEEP ATTENDANCE INTACT!
-    this.opportunities = this.opportunities.filter((o) => o.id !== id && o.id !== oppUUID);
-    this.registrations = this.registrations.filter((r) => r.opportunity_id !== id && r.opportunity_id !== oppUUID);
+    this.opportunities = this.opportunities.filter((o) => !idsToDelete.has(o.id));
+    this.registrations = this.registrations.filter((r) => !idsToDelete.has(r.opportunity_id));
     this.saveToStorage();
 
     if (isSupabaseConfigured()) {
       try {
+        const idList = Array.from(idsToDelete);
         // Delete registrations for this opportunity from Supabase
-        await supabase.from('registrations').delete().eq('opportunity_id', oppUUID);
-        // Delete opportunity post row from Supabase (attendance records are preserved permanently in Supabase)
-        const { error } = await supabase.from('opportunities').delete().eq('id', oppUUID);
+        await supabase.from('registrations').delete().in('opportunity_id', idList);
+        // Delete opportunity post rows from Supabase
+        const { error } = await supabase.from('opportunities').delete().in('id', idList);
         if (error) {
           console.error('Supabase opportunity delete error:', error);
         }
