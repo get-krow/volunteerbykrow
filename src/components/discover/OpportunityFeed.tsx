@@ -95,9 +95,21 @@ export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, o
 
   // Filter & Sort Pipeline
   const filteredOpportunities = useMemo(() => {
+    const seenSameVolSeries = new Set<string>();
+
     return opportunities
       .filter((opp) => opp.status === 'published')
-      .filter((opp) => !(opp.recurrence_type === 'same_volunteers' && opp.occurrence_number !== undefined))
+      .filter((opp) => {
+        if (opp.recurrence_type === 'same_volunteers') {
+          // Hide child occurrence records from volunteer posts feed
+          if (opp.occurrence_number !== undefined) return false;
+          // Deduplicate series so ONLY ONE main card is ever shown per same_volunteers series
+          const seriesKey = opp.recurrence_series_id || `${opp.org_id}-${opp.title}-${opp.series_start_date || opp.date}`;
+          if (seenSameVolSeries.has(seriesKey)) return false;
+          seenSameVolSeries.add(seriesKey);
+        }
+        return true;
+      })
       .filter((opp) => {
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();

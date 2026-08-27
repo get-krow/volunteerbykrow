@@ -75,8 +75,17 @@ export const OrganizationFeed: React.FC<OrganizationFeedProps> = ({ currentUser,
 
   const orgOppMap = useMemo(() => {
     const map = new Map<string, Opportunity[]>();
+    const seenSameVolSeries = new Set<string>();
+
     opportunities.forEach((opp) => {
       if (opp.status === 'published') {
+        if (opp.recurrence_type === 'same_volunteers') {
+          if (opp.occurrence_number !== undefined) return;
+          const seriesKey = opp.recurrence_series_id || `${opp.org_id}-${opp.title}-${opp.series_start_date || opp.date}`;
+          if (seenSameVolSeries.has(seriesKey)) return;
+          seenSameVolSeries.add(seriesKey);
+        }
+
         const existing = map.get(opp.org_id) || [];
         existing.push(opp);
         map.set(opp.org_id, existing);
