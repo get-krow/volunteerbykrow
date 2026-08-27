@@ -1177,6 +1177,8 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                                         const volName = volProfile?.name || `Volunteer (${volId.slice(-4)})`;
                                         const volEmail = volProfile?.email || 'N/A';
                                         const volAge = calculateAge(volProfile?.dob);
+                                        const volTotalHours = db.calculateVolunteerTotalHours(volId);
+                                        const volBadge = getBadgeForHours(volTotalHours);
                                         const targetOppId = activeChildOpp?.id || opp.id;
                                         const attList = db.getAttendanceForOpportunity(targetOppId);
                                         const currentAtt = attList.find((a) => a.volunteer_id === volId);
@@ -1188,10 +1190,20 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                                             className="p-3.5 bg-white rounded-xl border border-gray-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                                           >
                                             <div className="space-y-0.5">
-                                              <div className="flex items-center gap-2">
+                                              <div className="flex items-center gap-2 flex-wrap">
                                                 <span className="font-extrabold text-xs text-gray-900">{volName}</span>
                                                 <span className="px-2 py-0.5 bg-purple-50 text-[#635BFF] text-[10px] font-extrabold rounded-md border border-purple-100">
                                                   Age: {volAge}
+                                                </span>
+                                                <span
+                                                  className="px-2 py-0.5 text-[10px] font-extrabold rounded-md border flex items-center gap-1"
+                                                  style={{
+                                                    backgroundColor: (volBadge.color || '#635BFF') + '15',
+                                                    color: volBadge.color || '#635BFF',
+                                                    borderColor: (volBadge.color || '#635BFF') + '40',
+                                                  }}
+                                                >
+                                                  <span>🎖️</span> {volBadge.name} ({volTotalHours}h)
                                                 </span>
                                               </div>
                                               <div className="text-[11px] text-gray-500 font-medium">
@@ -1253,6 +1265,8 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                                     const volName = volProfile?.name || `Volunteer (${volId.slice(-4)})`;
                                     const volEmail = volProfile?.email || 'N/A';
                                     const volAge = calculateAge(volProfile?.dob);
+                                    const volTotalHours = db.calculateVolunteerTotalHours(volId);
+                                    const volBadge = getBadgeForHours(volTotalHours);
                                     const attList = db.getAttendanceForOpportunity(opp.id);
                                     const currentAtt = attList.find((a) => a.volunteer_id === volId);
                                     const currentStatus = currentAtt?.status || 'unmarked';
@@ -1263,10 +1277,20 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                                         className="p-3.5 bg-white rounded-xl border border-gray-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                                       >
                                         <div className="space-y-0.5">
-                                          <div className="flex items-center gap-2">
+                                          <div className="flex items-center gap-2 flex-wrap">
                                             <span className="font-extrabold text-xs text-gray-900">{volName}</span>
                                             <span className="px-2 py-0.5 bg-purple-50 text-[#635BFF] text-[10px] font-extrabold rounded-md border border-purple-100">
                                               Age: {volAge}
+                                            </span>
+                                            <span
+                                              className="px-2 py-0.5 text-[10px] font-extrabold rounded-md border flex items-center gap-1"
+                                              style={{
+                                                backgroundColor: (volBadge.color || '#635BFF') + '15',
+                                                color: volBadge.color || '#635BFF',
+                                                borderColor: (volBadge.color || '#635BFF') + '40',
+                                              }}
+                                            >
+                                              <span>🎖️</span> {volBadge.name} ({volTotalHours}h)
                                             </span>
                                           </div>
                                           <div className="text-[11px] text-gray-500 font-medium">

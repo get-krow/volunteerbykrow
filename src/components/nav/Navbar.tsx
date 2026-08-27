@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Sparkles, Bell, User, Building2, Compass, LayoutDashboard, Shield, LogOut, Check, ChevronDown } from 'lucide-react';
 import { UserProfile, SystemRole, NotificationItem } from '@/lib/types';
 import { db } from '@/lib/db';
+import { DobReminderModal } from '../auth/DobReminderModal';
 
 interface NavbarProps {
   currentUser: UserProfile | null;
@@ -265,6 +266,17 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, onOpenAuth, onLogou
             Profile
           </Link>
         </div>
+      )}
+
+      {currentUser && currentUser.role === 'volunteer' && (!currentUser.dob || currentUser.dob.trim() === '') && (
+        <DobReminderModal
+          currentUser={currentUser}
+          isOpen={true}
+          onClose={() => {}}
+          onSaveSuccess={() => {
+            window.location.reload();
+          }}
+        />
       )}
     </header>
   );
