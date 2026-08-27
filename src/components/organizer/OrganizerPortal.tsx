@@ -24,7 +24,7 @@ import {
   Image,
   HelpCircle,
 } from 'lucide-react';
-import { Opportunity, OrganizerProfile, UserProfile, AttendanceRecord } from '@/lib/types';
+import { Opportunity, OrganizerProfile, UserProfile, AttendanceRecord, RecurrenceFrequency } from '@/lib/types';
 import { db } from '@/lib/db';
 import { getBadgeForHours } from '@/lib/badges';
 import { DeleteAccountModal } from '../auth/DeleteAccountModal';
@@ -197,6 +197,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   const [maxVolunteers, setMaxVolunteers] = useState<string>('10');
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceType, setRecurrenceType] = useState<'same_volunteers' | 'different_volunteers'>('different_volunteers');
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>('every_week');
   const [recurrenceCount, setRecurrenceCount] = useState<string>('8');
   const [description, setDescription] = useState('');
   const [instructions, setInstructions] = useState('');
@@ -225,7 +226,8 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   }, [startTime, endTime]);
 
   const activeOpportunities = useMemo(() => {
-    return opportunities.filter((o) => o.org_id === org.id && o.status === 'published');
+    const orgOpps = opportunities.filter((o) => o.org_id === org.id && o.status === 'published');
+    return orgOpps.filter((o) => !(o.recurrence_type === 'same_volunteers' && o.occurrence_number === undefined));
   }, [opportunities, org.id]);
 
   const endedOpportunities = useMemo(() => {
@@ -256,8 +258,8 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
 
   const sortedAttendanceOpportunities = useMemo(() => {
     const orgOpps = opportunities.filter((o) => o.org_id === org.id);
-    const topLevelOpps = orgOpps.filter((o) => !(o.recurrence_type === 'same_volunteers' && o.occurrence_number !== undefined));
-    return [...topLevelOpps].sort((a, b) => {
+    const occurrenceOpps = orgOpps.filter((o) => !(o.recurrence_type === 'same_volunteers' && o.occurrence_number === undefined));
+    return [...occurrenceOpps].sort((a, b) => {
       const dateTimeA = new Date(`${a.date}T${a.start_time || '00:00'}`).getTime();
       const dateTimeB = new Date(`${b.date}T${b.start_time || '00:00'}`).getTime();
       return dateTimeA - dateTimeB;
@@ -317,6 +319,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
       max_volunteers: maxVolunteers ? parseInt(maxVolunteers) : null,
       is_recurring: isRecurring,
       recurrence_type: isRecurring ? recurrenceType : undefined,
+      recurrence_frequency: isRecurring ? recurrenceFrequency : undefined,
       recurrence_count: isRecurring ? parseInt(recurrenceCount || '8') : undefined,
     });
 
@@ -805,9 +808,16 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                         </div>
                         <div>
                           <label className="block text-xs font-bold text-gray-700 mb-1">Repeat Frequency</label>
-                          <div className="px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-800">
-                            Every Week
-                          </div>
+                          <select
+                            value={recurrenceFrequency}
+                            onChange={(e) => setRecurrenceFrequency(e.target.value as RecurrenceFrequency)}
+                            className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-800 focus:ring-2 focus:ring-[#635BFF]"
+                          >
+                            <option value="every_day">Every Day</option>
+                            <option value="every_week">Every Week</option>
+                            <option value="every_other_week">Every 2 Weeks</option>
+                            <option value="every_month">Every Month</option>
+                          </select>
                         </div>
                       </div>
 

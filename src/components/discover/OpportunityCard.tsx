@@ -59,6 +59,13 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
     return `${hour12}:${m < 10 ? '0' + m : m} ${ampm}`;
   };
 
+  const formatFreqLabel = (freq?: string) => {
+    if (freq === 'every_day') return 'Every Day';
+    if (freq === 'every_other_week') return 'Every 2 Weeks';
+    if (freq === 'every_month') return 'Every Month';
+    return 'Every Week';
+  };
+
   return (
     <div
       onClick={() => onSelectCard?.(opp)}
@@ -96,7 +103,9 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
                 {opp.is_recurring && (
                   <span className="bg-purple-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-md">
                     {opp.recurrence_type === 'same_volunteers'
-                      ? `Recurring Series (${opp.recurrence_count || 8} Occurrences)`
+                      ? opp.occurrence_number !== undefined
+                        ? `Occurrence #${opp.occurrence_number} of ${opp.recurrence_count}`
+                        : `Recurring Series (${opp.recurrence_count || 8} Occurrences)`
                       : 'Recurring'}
                   </span>
                 )}
@@ -134,7 +143,7 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
             <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
             <span>
               {opp.recurrence_type === 'same_volunteers'
-                ? `Every Week · ${formatDate(opp.series_start_date || opp.date)} – ${formatDate(opp.series_end_date || opp.date)}`
+                ? `${formatFreqLabel(opp.recurrence_frequency)} · ${formatDate(opp.series_start_date || opp.date)} – ${formatDate(opp.series_end_date || opp.date)}`
                 : `${formatDate(opp.date)} · ${formatTime(opp.start_time)}`}
             </span>
           </div>

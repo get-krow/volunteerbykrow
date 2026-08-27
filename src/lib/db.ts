@@ -12,6 +12,7 @@ import {
   ContactMessage,
   VerificationStatus,
   RecurrenceType,
+  RecurrenceFrequency,
 } from './types';
 import { getBadgeForHours } from './badges';
 import { supabase, isSupabaseConfigured } from './supabase';
@@ -759,18 +760,30 @@ class LocalDatabase {
 
     const isRecurring = !!oppData.is_recurring;
     const recurrenceType = isRecurring ? (oppData.recurrence_type || 'different_volunteers') : undefined;
+    const recurrenceFrequency = isRecurring ? (oppData.recurrence_frequency || 'every_week') : undefined;
     const recurrenceCount = isRecurring ? Math.max(2, oppData.recurrence_count || 8) : undefined;
     const seriesId = isRecurring ? (oppData.recurrence_series_id || ensureUUID('series-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4))) : undefined;
+
+    const calcDate = (baseDateStr: string, idx: number, freq?: RecurrenceFrequency): string => {
+      const d = new Date(baseDateStr + 'T00:00:00');
+      if (freq === 'every_day') {
+        d.setDate(d.getDate() + idx);
+      } else if (freq === 'every_other_week') {
+        d.setDate(d.getDate() + (idx * 14));
+      } else if (freq === 'every_month') {
+        d.setMonth(d.getMonth() + idx);
+      } else {
+        d.setDate(d.getDate() + (idx * 7));
+      }
+      return d.toISOString().split('T')[0];
+    };
 
     if (isRecurring && recurrenceType === 'different_volunteers' && recurrenceCount) {
       // MODE 1: Different Volunteers = Generate N separate opportunities
       const createdOpps: Opportunity[] = [];
-      const startDateObj = new Date(oppData.date + 'T00:00:00');
 
       for (let i = 0; i < recurrenceCount; i++) {
-        const occDateObj = new Date(startDateObj);
-        occDateObj.setDate(occDateObj.getDate() + (i * 7));
-        const occDateStr = occDateObj.toISOString().split('T')[0];
+        const occDateStr = calcDate(oppData.date, i, recurrenceFrequency);
         const oppId = ensureUUID('opp-' + Date.now() + '-' + i + '-' + Math.random().toString(36).substr(2, 4));
 
         const occOpp: Opportunity = {
@@ -783,6 +796,7 @@ class LocalDatabase {
           date: occDateStr,
           is_recurring: true,
           recurrence_type: 'different_volunteers',
+          recurrence_frequency: recurrenceFrequency,
           recurrence_series_id: seriesId,
           recurrence_count: recurrenceCount,
           occurrence_number: i + 1,
@@ -827,12 +841,9 @@ class LocalDatabase {
     } else if (isRecurring && recurrenceType === 'same_volunteers' && recurrenceCount) {
       // MODE 2: Same Volunteer = Create 1 main public opportunity listing + N child occurrence records
       const occurrence_dates: string[] = [];
-      const startDateObj = new Date(oppData.date + 'T00:00:00');
 
       for (let i = 0; i < recurrenceCount; i++) {
-        const d = new Date(startDateObj);
-        d.setDate(d.getDate() + (i * 7));
-        occurrence_dates.push(d.toISOString().split('T')[0]);
+        occurrence_dates.push(calcDate(oppData.date, i, recurrenceFrequency));
       }
 
       const series_start_date = occurrence_dates[0];
@@ -850,6 +861,7 @@ class LocalDatabase {
         date: series_start_date,
         is_recurring: true,
         recurrence_type: 'same_volunteers',
+        recurrence_frequency: recurrenceFrequency,
         recurrence_series_id: seriesId,
         recurrence_count: recurrenceCount,
         occurrence_dates,
@@ -876,6 +888,7 @@ class LocalDatabase {
           date: occurrence_dates[i],
           is_recurring: true,
           recurrence_type: 'same_volunteers',
+          recurrence_frequency: recurrenceFrequency,
           recurrence_series_id: seriesId,
           recurrence_count: recurrenceCount,
           occurrence_number: i + 1,

@@ -65,6 +65,13 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
     return `${parseTime(startTime)} to ${parseTime(endTime)}`;
   };
 
+  const formatFreqLabel = (freq?: string) => {
+    if (freq === 'every_day') return 'Every Day';
+    if (freq === 'every_other_week') return 'Every 2 Weeks';
+    if (freq === 'every_month') return 'Every Month';
+    return 'Every Week';
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
       <div className="bg-white sm:rounded-3xl shadow-2xl border border-gray-100 max-w-4xl w-full min-h-screen sm:min-h-0 overflow-hidden relative flex flex-col my-auto">
@@ -92,33 +99,27 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                   />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-[#635BFF] via-[#5046E5] to-[#3730A3] flex items-center justify-center p-6 relative overflow-hidden">
-                    <div className="absolute -right-10 -bottom-10 w-56 h-56 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-                    <div className="text-center text-white space-y-2 z-10 px-4">
-                      <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md mx-auto flex items-center justify-center font-black text-xl shadow-md border border-white/20">
+                    <div className="text-center text-white space-y-2 z-10">
+                      <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md mx-auto flex items-center justify-center font-black text-lg">
                         {opp.org_name ? opp.org_name.charAt(0) : 'V'}
                       </div>
-                      <p className="font-extrabold text-sm sm:text-base tracking-wide opacity-95">{opp.org_name || 'Volunteer Opportunity'}</p>
+                      <p className="font-extrabold text-sm">{opp.org_name || 'Volunteer Opportunity'}</p>
                     </div>
                   </div>
                 )}
-                <div className="absolute top-4 left-4 flex items-center gap-2">
-                  <span className="bg-white/95 backdrop-blur-sm border border-gray-200/80 text-gray-900 text-xs font-bold px-3 py-1 rounded-full shadow-xs">
-                    {opp.custom_role || 'General'}
-                  </span>
-                  <span className="bg-white/95 backdrop-blur-sm border border-gray-200/80 text-gray-900 text-xs font-bold px-3 py-1 rounded-full shadow-xs">
-                    {opp.min_age ? `${opp.min_age}+` : 'All Ages'}
-                  </span>
-                </div>
               </div>
 
-              {/* Title & Org on Mobile */}
-              <div className="px-6 md:px-0 space-y-2 md:hidden">
-                <div className="flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-[#635BFF]" />
-                  <span className="text-xs font-bold text-gray-600">{opp.org_name}</span>
-                  {opp.org_verification_status === 'verified' && (
-                    <span className="bg-emerald-50 text-emerald-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 border border-emerald-200">
-                      ✓ Verified
+              {/* Title Header */}
+              <div className="px-6 md:px-0 space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-black uppercase tracking-wider text-[#635BFF] bg-purple-50 px-3 py-1 rounded-full border border-purple-100">
+                    {opp.category_id?.replace('_', ' ') || 'General'}
+                  </span>
+                  {opp.is_recurring && (
+                    <span className="text-xs font-black uppercase tracking-wider text-purple-900 bg-purple-100 px-3 py-1 rounded-full">
+                      {opp.recurrence_type === 'same_volunteers'
+                        ? `Recurring Commitment (${opp.recurrence_count || 8} Occurrences)`
+                        : 'Recurring Opportunity'}
                     </span>
                   )}
                 </div>
@@ -144,7 +145,7 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                         Full Commitment Required ({opp.recurrence_count || 8} Occurrences)
                       </span>
                       <span className="text-xs font-black text-purple-900 bg-white px-2.5 py-0.5 rounded-full border border-purple-200">
-                        {opp.total_series_hours || opp.duration_hours * 8} Total Hours
+                        {opp.total_series_hours || opp.duration_hours * (opp.recurrence_count || 8)} Total Hours
                       </span>
                     </div>
                     <p className="text-xs text-gray-700 font-medium">
@@ -152,7 +153,7 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                     </p>
                     {opp.occurrence_dates && opp.occurrence_dates.length > 0 && (
                       <div className="pt-2 border-t border-purple-200/60">
-                        <span className="text-[11px] font-bold text-gray-800 block mb-1">Scheduled Dates:</span>
+                        <span className="text-[11px] font-bold text-gray-800 block mb-1">Scheduled Dates ({formatFreqLabel(opp.recurrence_frequency)}):</span>
                         <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
                           {opp.occurrence_dates.map((dStr, idx) => (
                             <span key={dStr} className="text-[10px] font-bold px-2 py-0.5 bg-white text-purple-900 rounded-md border border-purple-200 shadow-2xs">
@@ -183,27 +184,19 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
             <div className="md:col-span-5 p-6 md:p-0">
               <div className="bg-gray-50/80 md:bg-white rounded-2xl p-5 border border-gray-200/80 space-y-5 sticky top-4">
                 {/* Title & Org Header (Desktop) */}
-                <div className="hidden md:block space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-[#635BFF]" />
-                    <span className="text-xs font-bold text-gray-600">{opp.org_name}</span>
-                    {opp.org_verification_status === 'verified' && (
-                      <span className="bg-emerald-50 text-emerald-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 border border-emerald-200">
-                        ✓ Verified
-                      </span>
-                    )}
-                  </div>
-                  <h2 className="text-xl font-black text-gray-900 leading-tight">{opp.title}</h2>
+                <div className="border-b border-gray-200/80 pb-4 space-y-1">
+                  <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">{opp.org_name}</div>
+                  <h2 className="text-lg font-black text-gray-900">{opp.title}</h2>
                 </div>
 
-                {/* Key Details Summary List */}
+                {/* Key Details Overview */}
                 <div className="space-y-3 text-xs text-gray-700 font-medium divide-y divide-gray-100">
                   <div className="pt-2 flex items-center gap-3">
                     <Calendar className="w-4 h-4 text-[#635BFF] flex-shrink-0" />
                     <div>
                       <div className="font-bold text-gray-900">
                         {opp.recurrence_type === 'same_volunteers'
-                          ? `Every Week · ${formatDate(opp.series_start_date || opp.date)} – ${formatDate(opp.series_end_date || opp.date)}`
+                          ? `${formatFreqLabel(opp.recurrence_frequency)} · ${formatDate(opp.series_start_date || opp.date)} – ${formatDate(opp.series_end_date || opp.date)}`
                           : formatDate(opp.date)}
                       </div>
                       <div className="text-gray-500 text-[11px]">{formatTime(opp.start_time, opp.end_time)}</div>

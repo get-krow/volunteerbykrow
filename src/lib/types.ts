@@ -5,6 +5,7 @@ export type OpportunityStatus = 'published' | 'cancelled' | 'ended' | 'archived'
 export type RegistrationStatus = 'registered' | 'unsigned' | 'cancelled' | 'completed';
 export type AttendanceStatus = 'unmarked' | 'here' | 'not_here';
 export type RecurrenceType = 'same_volunteers' | 'different_volunteers';
+export type RecurrenceFrequency = 'every_day' | 'every_week' | 'every_other_week' | 'every_month';
 
 export interface UserProfile {
   id: string;
@@ -65,6 +66,7 @@ export interface Opportunity {
   max_volunteers?: number | null;
   is_recurring?: boolean;
   recurrence_type?: RecurrenceType;
+  recurrence_frequency?: RecurrenceFrequency;
   recurrence_series_id?: string;
   recurrence_count?: number;
   occurrence_number?: number;
