@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Sun,
+  Moon,
   Bell,
   LogOut,
   Check,
@@ -17,6 +18,7 @@ import {
   Briefcase,
 } from 'lucide-react';
 import { db } from '@/lib/db';
+import { useTheme } from '@/lib/theme';
 import { NotificationItem, UserProfile, SystemRole } from '@/lib/types';
 
 interface TopHeaderProps {
@@ -30,6 +32,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   onOpenAuth,
 }) => {
   const pathname = usePathname();
+  const { theme, toggleTheme } = useTheme();
   const [isMounted, setIsMounted] = useState(false);
   const currentUser = propUser || (typeof window !== 'undefined' ? db.getCurrentUser() : null);
 
@@ -142,10 +145,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
       <div className="flex items-center gap-2.5">
         {/* Light/Dark Theme Toggle */}
         <button
+          onClick={toggleTheme}
           className="w-9 h-9 rounded-full border border-purple-200/80 bg-white text-purple-600 hover:bg-purple-50 flex items-center justify-center transition-colors"
           title="Toggle Light/Dark Mode"
         >
-          <Sun className="w-4 h-4" />
+          {theme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
         </button>
 
         {/* Persistent Notification Bell (Upper-Right across all tabs) */}

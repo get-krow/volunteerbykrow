@@ -18,6 +18,7 @@ export default function ProfilePage() {
   const handleLogout = () => {
     db.setCurrentUser(null);
     setCurrentUser(null);
+    window.location.href = '/';
   };
 
   return (

@@ -23,9 +23,12 @@ import {
   Upload,
   Image,
   HelpCircle,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { Opportunity, OrganizerProfile, UserProfile, AttendanceRecord, RecurrenceFrequency } from '@/lib/types';
 import { db, ensureUUID } from '@/lib/db';
+import { useTheme } from '@/lib/theme';
 import { getBadgeForHours } from '@/lib/badges';
 import { DeleteAccountModal } from '../auth/DeleteAccountModal';
 import { AppleWheelPicker, AppleWheelOption } from '../ui/AppleWheelPicker';
@@ -154,6 +157,7 @@ interface OrganizerPortalProps {
 }
 
 export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, onLogout, initialTab = 'opportunities' }) => {
+  const { theme, toggleTheme } = useTheme();
   const [tab, setTab] = useState<'opportunities' | 'add' | 'attendance' | 'profile'>(initialTab);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
@@ -1432,15 +1436,30 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
 
       {/* TAB 4: ORGANIZER PROFILE SETTINGS */}
       {tab === 'profile' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-2xs max-w-xl mx-auto space-y-6">
-          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-            <h2 className="text-lg font-black text-gray-900">Organization Settings</h2>
-            <button
-              onClick={onLogout}
-              className="px-3.5 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-full text-xs font-bold flex items-center gap-1.5"
-            >
-              <LogOut className="w-3.5 h-3.5" /> Log Out
-            </button>
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-gray-200/80 dark:border-slate-800 shadow-2xs max-w-xl mx-auto space-y-6">
+          <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-800 pb-3">
+            <h2 className="text-lg font-black text-gray-900 dark:text-white">Organization Settings</h2>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="px-3.5 py-1.5 bg-purple-50 dark:bg-slate-800 hover:bg-purple-100 dark:hover:bg-slate-700 text-[#635BFF] dark:text-purple-300 rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors border border-purple-100 dark:border-slate-700"
+              >
+                {theme === 'dark' ? <Moon className="w-3.5 h-3.5 text-amber-400" /> : <Sun className="w-3.5 h-3.5 text-purple-600" />}
+                <span>{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  db.setCurrentUser(null);
+                  if (onLogout) onLogout();
+                  window.location.href = '/';
+                }}
+                className="px-3.5 py-1.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 hover:bg-red-100 rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors border border-red-100 dark:border-red-900/40"
+              >
+                <LogOut className="w-3.5 h-3.5" /> Log Out
+              </button>
+            </div>
           </div>
 
           <form

@@ -18,6 +18,7 @@ export default function OrganizerPage() {
   const handleLogout = () => {
     db.setCurrentUser(null);
     setCurrentUser(null);
+    window.location.href = '/';
   };
 
   return (

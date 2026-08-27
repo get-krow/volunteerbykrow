@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { User, MapPin, Calendar, Mail, Save, LogOut, Trash2, Camera, ShieldAlert, HelpCircle } from 'lucide-react';
+import { User, MapPin, Calendar, Mail, Save, LogOut, Trash2, Camera, ShieldAlert, HelpCircle, Sun, Moon } from 'lucide-react';
 import { UserProfile } from '@/lib/types';
 import { db } from '@/lib/db';
+import { useTheme } from '@/lib/theme';
 import { DeleteAccountModal } from '../auth/DeleteAccountModal';
 
 interface VolunteerProfileProps {
@@ -12,6 +13,7 @@ interface VolunteerProfileProps {
 }
 
 export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser, onLogout }) => {
+  const { theme, toggleTheme } = useTheme();
   const [name, setName] = useState(currentUser.name);
   const [dob, setDob] = useState(currentUser.dob || '2004-05-15');
   const [country, setCountry] = useState(currentUser.country || 'Canada');
@@ -38,20 +40,37 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
     setTimeout(() => setIsSaved(false), 3000);
   };
 
+  const handleLogoutClick = () => {
+    db.setCurrentUser(null);
+    if (onLogout) onLogout();
+    window.location.href = '/';
+  };
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-card space-y-6">
-        <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-gray-100 dark:border-slate-800 shadow-card space-y-6">
+        <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-800 pb-4">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Volunteer Profile Settings</h1>
-            <p className="text-xs text-gray-500">Manage your personal information, date of birth, and location.</p>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Volunteer Profile Settings</h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Manage your personal information, date of birth, and location.</p>
           </div>
-          <button
-            onClick={onLogout}
-            className="px-3.5 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors"
-          >
-            <LogOut className="w-3.5 h-3.5" /> Log Out
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="px-3.5 py-1.5 bg-purple-50 dark:bg-slate-800 hover:bg-purple-100 dark:hover:bg-slate-700 text-[#635BFF] dark:text-purple-300 rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors border border-purple-100 dark:border-slate-700"
+            >
+              {theme === 'dark' ? <Moon className="w-3.5 h-3.5 text-amber-400" /> : <Sun className="w-3.5 h-3.5 text-purple-600" />}
+              <span>{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
+            </button>
+
+            <button
+              onClick={handleLogoutClick}
+              className="px-3.5 py-1.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 hover:bg-red-100 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors border border-red-100 dark:border-red-900/40"
+            >
+              <LogOut className="w-3.5 h-3.5" /> Log Out
+            </button>
+          </div>
         </div>
 
         {isSaved && (

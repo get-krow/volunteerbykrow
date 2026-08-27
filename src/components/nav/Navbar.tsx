@@ -3,9 +3,10 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Sparkles, Bell, User, Building2, Compass, LayoutDashboard, Shield, LogOut, Check, ChevronDown } from 'lucide-react';
+import { Sparkles, Bell, User, Building2, Compass, LayoutDashboard, Shield, LogOut, Check, ChevronDown, Sun, Moon } from 'lucide-react';
 import { UserProfile, SystemRole, NotificationItem } from '@/lib/types';
 import { db } from '@/lib/db';
+import { useTheme } from '@/lib/theme';
 import { DobReminderModal } from '../auth/DobReminderModal';
 
 interface NavbarProps {
@@ -17,6 +18,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ currentUser, onOpenAuth, onLogout }) => {
   const pathname = usePathname();
   const router = useRouter();
+  const { theme, toggleTheme } = useTheme();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>(() =>
     currentUser ? db.getNotifications(currentUser.id) : []
@@ -190,18 +192,31 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, onOpenAuth, onLogou
             )}
           </div>
 
+          {/* Dark Mode Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="p-2 text-gray-500 dark:text-amber-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-slate-800 rounded-full transition-colors"
+            title="Toggle Light/Dark Mode"
+          >
+            {theme === 'dark' ? <Moon className="w-4 h-4 text-amber-400" /> : <Sun className="w-4 h-4 text-purple-600" />}
+          </button>
+
           {/* User Auth Buttons / Profile Indicator */}
           {currentUser ? (
             <div className="flex items-center gap-2">
               <div className="hidden sm:flex flex-col text-right">
-                <span className="text-xs font-bold text-gray-900 leading-tight">{currentUser.name}</span>
+                <span className="text-xs font-bold text-gray-900 dark:text-white leading-tight">{currentUser.name}</span>
                 <span className="text-[10px] text-brand-600 font-semibold uppercase tracking-wider">
                   {currentUser.role}
                 </span>
               </div>
               <button
-                onClick={onLogout}
-                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                onClick={() => {
+                  db.setCurrentUser(null);
+                  if (onLogout) onLogout();
+                  window.location.href = '/';
+                }}
+                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-slate-800 rounded-full transition-colors"
                 title="Log out"
               >
                 <LogOut className="w-4 h-4" />
