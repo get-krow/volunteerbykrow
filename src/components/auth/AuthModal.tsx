@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Phone, User, Building2, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, User, Building2, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 import { SystemRole, UserProfile } from '@/lib/types';
 import { db } from '@/lib/db';
 import { supabase } from '@/lib/supabase';
@@ -20,14 +20,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onLoginSuccess,
 }) => {
   const [role, setRole] = useState<SystemRole>(initialRole);
-  const [view, setView] = useState<'main' | 'email_pass' | 'phone_otp' | 'phone_verify'>('main');
+  const [view, setView] = useState<'main' | 'email_pass'>('main');
 
   // Input states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [otpCode, setOtpCode] = useState('');
 
   // UX states
   const [isLoading, setIsLoading] = useState(false);
@@ -173,94 +171,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     onClose();
   };
 
-  const handleSendPhoneOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    resetMessages();
-    if (!phoneNumber || phoneNumber.length < 7) {
-      setErrorMsg('Please enter a valid phone number with country code (e.g. +1 555 123 4567).');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        phone: phoneNumber,
-      });
-      if (error) {
-        console.warn('Supabase Phone OTP Notice:', error.message);
-        setSuccessMsg('SMS Auth notice: Test mode enabled. Verification code: 123456');
-      } else {
-        setSuccessMsg(`Verification code sent to ${phoneNumber}`);
-      }
-      setView('phone_verify');
-    } catch (err: any) {
-      setSuccessMsg('Test mode enabled. Verification code: 123456');
-      setView('phone_verify');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleVerifyPhoneOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    resetMessages();
-    if (!otpCode) {
-      setErrorMsg('Please enter the 6-digit verification code.');
-      return;
-    }
-
-    setIsLoading(true);
-    let userId = 'usr_phone_' + Date.now();
-    try {
-      const { data } = await supabase.auth.verifyOtp({
-        phone: phoneNumber,
-        token: otpCode,
-        type: 'sms',
-      });
-      if (data?.user?.id) {
-        userId = data.user.id;
-      }
-    } catch (err) {
-      console.warn('OTP verify fallback active:', err);
-    }
-
-    const phoneUser: UserProfile = {
-      id: userId,
-      email: `${phoneNumber.replace(/\D/g, '')}@phone.volunteerbykrow.com`,
-      role: role,
-      name: fullName.trim() || `User (${phoneNumber.slice(-4)})`,
-      country: 'Canada',
-      province_state: 'BC',
-      city: 'Vancouver',
-      created_at: new Date().toISOString(),
-    };
-
-    db.setCurrentUser(phoneUser);
-    await db.saveProfileToSupabase(phoneUser);
-
-    if (role === 'organizer') {
-      const orgData = {
-        id: phoneUser.id,
-        org_name: phoneUser.name,
-        hq_country: 'Canada',
-        hq_province_state: 'BC',
-        hq_city: 'Vancouver',
-        no_hq: false,
-        verification_status: 'pending' as const,
-        created_at: new Date().toISOString(),
-      };
-      db.saveOrganizer(orgData);
-      await db.saveOrganizerToSupabase(orgData);
-      setIsLoading(false);
-      window.location.href = '/organizer/opportunities';
-      return;
-    }
-
-    setIsLoading(false);
-    onLoginSuccess(phoneUser);
-    onClose();
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
       <div className="bg-[#202123] rounded-[28px] shadow-2xl border border-zinc-800 max-w-[440px] w-full p-7 sm:p-8 relative text-white overflow-hidden">
@@ -328,7 +238,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         )}
 
-        {/* MAIN VIEW - Exactly matches image */}
+        {/* MAIN VIEW */}
         {view === 'main' && (
           <div>
             <h2 className="text-2xl font-bold text-white text-center mb-2 tracking-tight">
@@ -365,19 +275,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   />
                 </svg>
                 <span>Continue with Google</span>
-              </button>
-
-              {/* Phone Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  resetMessages();
-                  setView('phone_otp');
-                }}
-                className="w-full py-3.5 px-4 rounded-full border border-zinc-700/70 bg-[#2b2c2e]/60 hover:bg-zinc-700/70 text-white font-semibold text-sm flex items-center justify-center gap-3 transition-colors shadow-xs"
-              >
-                <Phone className="w-5 h-5 shrink-0 text-zinc-300" />
-                <span>Continue with phone</span>
               </button>
             </div>
 
@@ -451,67 +348,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               className="w-full py-3.5 bg-white hover:bg-zinc-200 text-black font-bold text-sm rounded-full transition-colors mt-2 flex items-center justify-center gap-2"
             >
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin text-black" /> : <span>Complete Sign In</span>}
-            </button>
-          </form>
-        )}
-
-        {/* SUB-VIEW 2: Phone Input */}
-        {view === 'phone_otp' && (
-          <form onSubmit={handleSendPhoneOtp} className="space-y-4 pt-2">
-            <div className="text-center mb-4">
-              <h3 className="text-xl font-bold text-white">Continue with phone</h3>
-              <p className="text-xs text-zinc-400 mt-1">We'll send a verification code to your phone</p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1.5">Phone Number</label>
-              <input
-                type="tel"
-                required
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="+1 555 123 4567"
-                className="w-full px-4 py-3 rounded-2xl bg-black border border-zinc-700 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-white transition-all"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3.5 bg-white hover:bg-zinc-200 text-black font-bold text-sm rounded-full transition-colors mt-2 flex items-center justify-center gap-2"
-            >
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin text-black" /> : <span>Send Code</span>}
-            </button>
-          </form>
-        )}
-
-        {/* SUB-VIEW 3: Phone Code Verification */}
-        {view === 'phone_verify' && (
-          <form onSubmit={handleVerifyPhoneOtp} className="space-y-4 pt-2">
-            <div className="text-center mb-4">
-              <h3 className="text-xl font-bold text-white">Enter code</h3>
-              <p className="text-xs text-zinc-400 mt-1">Sent to {phoneNumber}</p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1.5">6-Digit Code</label>
-              <input
-                type="text"
-                required
-                maxLength={6}
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value)}
-                placeholder="123456"
-                className="w-full px-4 py-3 rounded-2xl bg-black border border-zinc-700 text-white text-center text-lg font-mono tracking-widest placeholder-zinc-600 focus:outline-none focus:border-white transition-all"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3.5 bg-white hover:bg-zinc-200 text-black font-bold text-sm rounded-full transition-colors mt-2 flex items-center justify-center gap-2"
-            >
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin text-black" /> : <span>Verify & Continue</span>}
             </button>
           </form>
         )}
