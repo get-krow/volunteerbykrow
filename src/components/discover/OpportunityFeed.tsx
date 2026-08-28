@@ -53,7 +53,7 @@ export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, o
 
     const interval = setInterval(() => {
       refreshData();
-    }, 5000);
+    }, 2000);
 
     window.addEventListener('focus', handleSync);
     window.addEventListener('storage', handleSync);

@@ -38,6 +38,19 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
   useEffect(() => {
     refreshData();
     db.syncWithSupabase().then(() => refreshData());
+
+    const handleSync = () => {
+      db.syncWithSupabase().then(() => refreshData());
+    };
+
+    const interval = setInterval(handleSync, 2000);
+    window.addEventListener('focus', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
   }, [currentUser]);
 
   const refreshData = () => {

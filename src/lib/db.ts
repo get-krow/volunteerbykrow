@@ -1060,12 +1060,9 @@ class LocalDatabase {
     return this.opportunities
       .filter((opp) => opp.status !== 'archived')
       .map((opp) => {
-        const activeRegs = this.registrations.filter(
-          (r) => (r.opportunity_id === opp.id || r.opportunity_id === ensureUUID(opp.id)) && r.status === 'registered'
-        ).length;
         return {
           ...opp,
-          registered_count: activeRegs,
+          registered_count: this.getRegisteredCount(opp.id),
         };
       });
   }
@@ -1492,9 +1489,18 @@ class LocalDatabase {
     const targetOppIds = new Set<string>();
     targetOppIds.add(opportunityId);
     targetOppIds.add(oppUUID);
-    if (opp?.id) {
+
+    if (opp) {
       targetOppIds.add(opp.id);
       targetOppIds.add(ensureUUID(opp.id));
+      if (opp.recurrence_series_id) {
+        this.opportunities.forEach((o) => {
+          if (o.recurrence_series_id === opp.recurrence_series_id) {
+            targetOppIds.add(o.id);
+            targetOppIds.add(ensureUUID(o.id));
+          }
+        });
+      }
     }
 
     const uniqueVolunteers = new Set<string>();
@@ -1502,7 +1508,11 @@ class LocalDatabase {
     this.registrations.forEach((r) => {
       if (r.status === 'registered') {
         const regOppUUID = ensureUUID(r.opportunity_id);
-        if (targetOppIds.has(r.opportunity_id) || targetOppIds.has(regOppUUID)) {
+        if (
+          targetOppIds.has(r.opportunity_id) ||
+          targetOppIds.has(regOppUUID) ||
+          (opp?.recurrence_series_id && r.opportunity_id === opp.recurrence_series_id)
+        ) {
           uniqueVolunteers.add(ensureUUID(r.volunteer_id));
         }
       }
