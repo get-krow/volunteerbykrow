@@ -505,10 +505,81 @@ class LocalDatabase {
     return this.currentUser;
   }
 
+  public async saveProfileToSupabase(user: UserProfile): Promise<boolean> {
+    if (!isSupabaseConfigured() || !user) return false;
+    try {
+      this.ensureKrowId(user);
+      const uId = ensureUUID(user.id);
+      const payload = {
+        id: uId,
+        krow_id: user.krow_id || null,
+        role: user.role || 'volunteer',
+        email: user.email || '',
+        name: user.name || 'User',
+        dob: user.dob || null,
+        country: user.country || 'Canada',
+        province_state: user.province_state || 'BC',
+        city: user.city || 'Vancouver',
+        bio: user.bio || null,
+        avatar_url: user.avatar_url || null,
+      };
+
+      const { error } = await supabase.from('profiles').upsert([payload]);
+      if (error) {
+        console.error('Supabase profile upsert error:', error);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error('Supabase profile save error:', err);
+      return false;
+    }
+  }
+
+  public async saveOrganizerToSupabase(org: OrganizerProfile): Promise<boolean> {
+    if (!isSupabaseConfigured() || !org) return false;
+    try {
+      const orgId = ensureUUID(org.id);
+      const { error: pErr } = await supabase.from('profiles').upsert([
+        {
+          id: orgId,
+          role: 'organizer',
+          email: this.currentUser?.email || `${org.org_name.toLowerCase().replace(/\s+/g, '')}@org.com`,
+          name: org.org_name,
+          country: org.hq_country || 'Canada',
+          province_state: org.hq_province_state || 'BC',
+          city: org.hq_city || 'Vancouver',
+        },
+      ]);
+      if (pErr) console.error('Supabase parent profile upsert for org error:', pErr);
+
+      const { error: oErr } = await supabase.from('organizer_profiles').upsert([
+        {
+          id: orgId,
+          org_name: org.org_name,
+          hq_country: org.hq_country || 'Canada',
+          hq_province_state: org.hq_province_state || 'BC',
+          hq_city: org.hq_city || 'Vancouver',
+          hq_address: org.hq_address || null,
+          no_hq: org.no_hq || false,
+          bio: org.bio || null,
+          logo_url: org.logo_url || null,
+          verification_status: org.verification_status || 'pending',
+        },
+      ]);
+      if (oErr) console.error('Supabase organizer_profiles upsert error:', oErr);
+      return true;
+    } catch (err) {
+      console.error('Supabase save organizer error:', err);
+      return false;
+    }
+  }
+
   public setCurrentUser(user: UserProfile | null) {
     if (user) {
       const uId = ensureUUID(user.id);
       user.id = uId;
+      this.ensureKrowId(user);
       const pIdx = this.profiles.findIndex((p) => p.id === uId || ensureUUID(p.id) === uId);
       const existingInStore = pIdx >= 0 ? this.profiles[pIdx] : (this.currentUser && (this.currentUser.id === uId || ensureUUID(this.currentUser.id) === uId) ? this.currentUser : null);
 
@@ -531,26 +602,7 @@ class LocalDatabase {
     this.saveToStorage();
 
     if (user && isSupabaseConfigured()) {
-      supabase
-        .from('profiles')
-        .upsert([
-          {
-            id: user.id,
-            krow_id: user.krow_id || null,
-            role: user.role,
-            email: user.email,
-            name: user.name,
-            dob: user.dob || null,
-            country: user.country || 'Canada',
-            province_state: user.province_state || 'BC',
-            city: user.city || 'Vancouver',
-            bio: user.bio || null,
-            avatar_url: user.avatar_url || null,
-          },
-        ])
-        .then(({ error }) => {
-          if (error) console.error('Supabase profile upsert error:', error);
-        });
+      this.saveProfileToSupabase(user);
 
       if (user.role === 'organizer') {
         const existingOrg = this.getOrganizer(user.id);
@@ -580,6 +632,7 @@ class LocalDatabase {
       dob: updates.dob || existingDob,
       krow_id: updates.krow_id || existingKrowId,
     };
+    this.ensureKrowId(this.currentUser);
 
     const pUUID = ensureUUID(this.currentUser.id);
     const pIdx = this.profiles.findIndex((p) => p.id === this.currentUser?.id || p.id === pUUID || ensureUUID(p.id) === pUUID);
@@ -592,26 +645,7 @@ class LocalDatabase {
     this.saveToStorage();
 
     if (isSupabaseConfigured()) {
-      supabase
-        .from('profiles')
-        .upsert([
-          {
-            id: pUUID,
-            krow_id: this.currentUser.krow_id || null,
-            role: this.currentUser.role,
-            email: this.currentUser.email,
-            name: this.currentUser.name,
-            dob: this.currentUser.dob || null,
-            country: this.currentUser.country,
-            province_state: this.currentUser.province_state,
-            city: this.currentUser.city,
-            bio: this.currentUser.bio || null,
-            avatar_url: this.currentUser.avatar_url || null,
-          },
-        ])
-        .then(({ error }) => {
-          if (error) console.error('Supabase profile upsert error:', error);
-        });
+      this.saveProfileToSupabase(this.currentUser);
     }
   }
 

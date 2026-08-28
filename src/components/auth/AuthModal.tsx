@@ -123,23 +123,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     };
 
     db.setCurrentUser(user);
+    await db.saveProfileToSupabase(user);
 
     if (role === 'organizer') {
-      db.saveOrganizer({
+      const orgData = {
         id: userId,
         org_name: name,
         hq_country: country,
         hq_province_state: provinceState,
         hq_city: city,
         no_hq: false,
-        verification_status: 'pending',
+        verification_status: 'pending' as const,
         created_at: new Date().toISOString(),
-      });
+      };
+      db.saveOrganizer(orgData);
+      await db.saveOrganizerToSupabase(orgData);
       window.location.href = '/organizer/opportunities';
       return;
     }
 
     onLoginSuccess(user);
+    onClose();
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
