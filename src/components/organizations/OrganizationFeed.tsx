@@ -42,16 +42,16 @@ export const OrganizationFeed: React.FC<OrganizationFeedProps> = ({ currentUser,
     }
   };
 
-  const handleRegister = (oppId: string) => {
+  const handleRegister = async (oppId: string) => {
     if (!currentUser) {
       onOpenAuth();
       return;
     }
-    const res = db.registerForOpportunity(oppId, currentUser.id);
+    const res = await db.registerForOpportunity(oppId, currentUser.id);
     if (!res.success) {
       alert(res.message);
     }
-    refreshData();
+    await refreshData();
   };
 
   const filteredOrganizers = useMemo(() => {

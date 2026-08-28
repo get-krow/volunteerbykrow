@@ -72,25 +72,25 @@ export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, o
     }
   };
 
-  const handleRegister = (oppId: string) => {
+  const handleRegister = async (oppId: string) => {
     if (!currentUser) {
       onOpenAuth();
       return;
     }
-    const res = db.registerForOpportunity(oppId, currentUser.id);
+    const res = await db.registerForOpportunity(oppId, currentUser.id);
     if (!res.success) {
       alert(res.message);
     }
-    refreshData();
+    await refreshData();
   };
 
-  const handleUnsign = (oppId: string) => {
+  const handleUnsign = async (oppId: string) => {
     if (!currentUser) return;
-    const res = db.unsignFromOpportunity(oppId, currentUser.id);
+    const res = await db.unsignFromOpportunity(oppId, currentUser.id);
     if (!res.success) {
       alert(res.message);
     }
-    refreshData();
+    await refreshData();
   };
 
   // Filter & Sort Pipeline

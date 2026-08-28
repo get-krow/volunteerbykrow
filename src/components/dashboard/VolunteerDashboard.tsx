@@ -85,9 +85,9 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
     return opportunities.filter((o) => savedSet.has(o.id) && o.status === 'published');
   }, [opportunities, savedIds]);
 
-  const handleUnsign = (oppId: string) => {
+  const handleUnsign = async (oppId: string) => {
     if (confirm('Are you sure you want to unsign from this opportunity? Your spot will be made available to others.')) {
-      const res = db.unsignFromOpportunity(oppId, currentUser.id);
+      const res = await db.unsignFromOpportunity(oppId, currentUser.id);
       alert(res.message);
       refreshData();
     }

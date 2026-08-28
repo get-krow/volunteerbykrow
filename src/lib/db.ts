@@ -1553,8 +1553,16 @@ class LocalDatabase {
     );
   }
 
-  public registerForOpportunity(opportunityId: string, volunteerId: string): { success: boolean; message: string } {
-    const opp = this.opportunities.find((o) => o.id === opportunityId);
+  public async registerForOpportunity(
+    opportunityId: string,
+    volunteerId: string
+  ): Promise<{ success: boolean; message: string }> {
+    // 1. Sync latest registrations from Supabase FIRST so capacity check is 100% authoritative in real time!
+    if (isSupabaseConfigured()) {
+      await this.syncWithSupabase();
+    }
+
+    const opp = this.opportunities.find((o) => o.id === opportunityId || ensureUUID(o.id) === ensureUUID(opportunityId));
     if (!opp) return { success: false, message: 'Opportunity not found' };
 
     if (opp.status !== 'published') {
@@ -1745,8 +1753,14 @@ class LocalDatabase {
     return { success: true, message: 'Registration confirmed!' };
   }
 
-  public unsignFromOpportunity(opportunityId: string, volunteerId: string): { success: boolean; message: string } {
-    const opp = this.opportunities.find((o) => o.id === opportunityId);
+  public async unsignFromOpportunity(
+    opportunityId: string,
+    volunteerId: string
+  ): Promise<{ success: boolean; message: string }> {
+    if (isSupabaseConfigured()) {
+      await this.syncWithSupabase();
+    }
+    const opp = this.opportunities.find((o) => o.id === opportunityId || ensureUUID(o.id) === ensureUUID(opportunityId));
     if (!opp) return { success: false, message: 'Opportunity not found' };
 
     if (opp.is_recurring && opp.recurrence_type === 'same_volunteers' && opp.recurrence_series_id) {

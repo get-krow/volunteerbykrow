@@ -1,7 +1,7 @@
 import { db } from './db';
 import { getBadgeForHours, getNextBadgeInfo } from './badges';
 
-function runBusinessRuleTests() {
+async function runBusinessRuleTests() {
   console.log('=== RUNNING VOLUNTEER BY KROW BUSINESS RULE VERIFICATIONS ===\n');
 
   // Test 1: Account Separation & Initial Seed State
@@ -25,7 +25,7 @@ function runBusinessRuleTests() {
     created_at: new Date().toISOString(),
   };
   db.setCurrentUser(vol17YearOld);
-  const regResult = db.registerForOpportunity('opp-3', 'vol-test-1');
+  const regResult = await db.registerForOpportunity('opp-3', 'vol-test-1');
   console.assert(regResult.success, 'Registration should succeed for eligible age on event date');
   console.log('✓ Age calculation on event date verified:', regResult.message);
 
