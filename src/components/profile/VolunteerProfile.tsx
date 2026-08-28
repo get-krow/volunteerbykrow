@@ -39,10 +39,14 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   useEffect(() => {
-    if (currentUser.dob && !dob) {
-      setDob(currentUser.dob);
-    }
-  }, [currentUser.dob]);
+    if (currentUser.dob) setDob(currentUser.dob);
+    if (currentUser.name) setName(currentUser.name);
+    if (currentUser.country) setCountry(currentUser.country);
+    if (currentUser.province_state) setProvinceState(currentUser.province_state);
+    if (currentUser.city) setCity(currentUser.city);
+    if (currentUser.bio) setBio(currentUser.bio);
+    if (currentUser.avatar_url) setAvatarUrl(currentUser.avatar_url);
+  }, [currentUser]);
 
   const calculatedAge = useMemo(() => calculateCurrentAge(dob), [dob]);
 

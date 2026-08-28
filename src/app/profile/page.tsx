@@ -13,6 +13,9 @@ export default function ProfilePage() {
 
   useEffect(() => {
     setCurrentUser(db.getCurrentUser());
+    db.syncWithSupabase().then(() => {
+      setCurrentUser(db.getCurrentUser());
+    });
   }, []);
 
   const handleLogout = () => {

@@ -122,12 +122,14 @@ class LocalDatabase {
       if (dbProfiles && dbProfiles.length > 0) {
         dbProfiles.forEach((p: any) => {
           const idx = this.profiles.findIndex((existing) => existing.id === p.id || ensureUUID(existing.id) === ensureUUID(p.id));
+          const existingLocalDob = (idx >= 0 ? this.profiles[idx].dob : undefined) || (this.currentUser && (this.currentUser.id === p.id || ensureUUID(this.currentUser.id) === ensureUUID(p.id)) ? this.currentUser.dob : undefined);
+
           const mappedProfile: UserProfile = {
             id: p.id,
             role: p.role || 'volunteer',
             email: p.email || '',
             name: p.name || 'Volunteer',
-            dob: p.dob || undefined,
+            dob: p.dob || existingLocalDob || undefined,
             country: p.country || 'Canada',
             province_state: p.province_state || 'BC',
             city: p.city || 'Vancouver',
@@ -481,7 +483,7 @@ class LocalDatabase {
         .from('profiles')
         .upsert([
           {
-            id: this.currentUser.id,
+            id: pUUID,
             role: this.currentUser.role,
             email: this.currentUser.email,
             name: this.currentUser.name,
