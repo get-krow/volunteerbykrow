@@ -65,18 +65,30 @@ export function generateKrowId(existingIds: string[] = []): string {
   return krowId;
 }
 
-export function generateCertificateId(existingIds: string[] = []): string {
+export function generateCertificateId(userKrowId?: string, existingIds: string[] = []): string {
   const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
   const existingSet = new Set(existingIds.map((id) => id.toUpperCase()));
   let certId = '';
+  const cleanKrow = userKrowId ? userKrowId.replace(/^KROW-/i, '').toUpperCase() : '';
+
   do {
     let rand = '';
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 4; i++) {
       rand += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    certId = `CERT-${rand}`;
+    certId = cleanKrow ? `CERT-${cleanKrow}-${rand}` : `CERT-${rand}${rand}`;
   } while (existingSet.has(certId));
   return certId;
+}
+
+export function parseKrowIdFromCertId(certId: string): string | null {
+  if (!certId) return null;
+  const clean = certId.trim().toUpperCase();
+  const match = clean.match(/^CERT-([23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8})(-[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{4})?$/i);
+  if (match && match[1]) {
+    return `KROW-${match[1]}`;
+  }
+  return null;
 }
 
 // Clean Launch Ready State (Zero Fake Mocks)
@@ -613,7 +625,7 @@ class LocalDatabase {
     const totalHours = this.calculateVolunteerTotalHours(userId);
     const completedShifts = this.calculateVolunteerCompletedShifts(userId);
     const existingCertIds = this.certificates.map((c) => c.certificate_id);
-    const newCertId = generateCertificateId(existingCertIds);
+    const newCertId = generateCertificateId(user.krow_id, existingCertIds);
 
     const newCert: CertificateRecord = {
       id: ensureUUID(`cert-${Date.now()}-${Math.floor(Math.random() * 1000000)}`),
@@ -666,6 +678,95 @@ class LocalDatabase {
     if (!certificateId) return undefined;
     const cleanId = certificateId.trim().toUpperCase();
     return this.certificates.find((c) => c.certificate_id.toUpperCase() === cleanId);
+  }
+
+  public async getCertificateByIdAsync(certificateId: string): Promise<CertificateRecord | undefined> {
+    if (!certificateId) return undefined;
+    const cleanId = certificateId.trim().toUpperCase();
+
+    // 1. Check local in-memory certificates
+    const localMatch = this.getCertificateById(cleanId);
+    if (localMatch) return localMatch;
+
+    // 2. Query Supabase 'certificates' table directly
+    if (isSupabaseConfigured()) {
+      try {
+        const { data } = await supabase.from('certificates').select('*').eq('certificate_id', cleanId).single();
+        if (data) {
+          const mapped: CertificateRecord = {
+            id: data.id,
+            certificate_id: data.certificate_id,
+            user_id: data.user_id,
+            krow_id: data.krow_id,
+            student_name: data.student_name || 'Volunteer',
+            hours: data.hours || 0,
+            activity_count: data.activity_count || 0,
+            issued_at: data.issued_at || new Date().toISOString(),
+            status: data.status || 'VALID',
+            created_at: data.created_at || new Date().toISOString(),
+          };
+          const idx = this.certificates.findIndex((c) => c.certificate_id === mapped.certificate_id);
+          if (idx >= 0) this.certificates[idx] = mapped;
+          else this.certificates.push(mapped);
+          this.saveToStorage();
+          return mapped;
+        }
+      } catch (e) {}
+    }
+
+    // 3. Fallback: Parse KROW ID embedded in Certificate ID & lookup against Supabase profiles and attendance
+    const extractedKrowId = parseKrowIdFromCertId(cleanId);
+    if (extractedKrowId) {
+      let matchedProfile = this.profiles.find((p) => p.krow_id?.toUpperCase() === extractedKrowId.toUpperCase());
+
+      if (!matchedProfile && isSupabaseConfigured()) {
+        try {
+          const { data: pData } = await supabase.from('profiles').select('*').eq('krow_id', extractedKrowId).single();
+          if (pData) {
+            matchedProfile = {
+              id: pData.id,
+              krow_id: pData.krow_id,
+              role: pData.role || 'volunteer',
+              email: pData.email || '',
+              name: pData.name || 'Volunteer',
+              country: pData.country || 'Canada',
+              province_state: pData.province_state || 'BC',
+              city: pData.city || 'Vancouver',
+              created_at: pData.created_at || new Date().toISOString(),
+            };
+            this.ensureKrowId(matchedProfile);
+            this.profiles.push(matchedProfile);
+          }
+        } catch (e) {}
+      }
+
+      if (matchedProfile) {
+        const totalHours = this.calculateVolunteerTotalHours(matchedProfile.id);
+        const completedShifts = this.calculateVolunteerCompletedShifts(matchedProfile.id);
+
+        const syntheticCert: CertificateRecord = {
+          id: ensureUUID(`cert-${cleanId}`),
+          certificate_id: cleanId,
+          user_id: matchedProfile.id,
+          krow_id: matchedProfile.krow_id || extractedKrowId,
+          student_name: matchedProfile.name,
+          hours: Math.round(totalHours * 10) / 10,
+          activity_count: completedShifts,
+          issued_at: new Date().toISOString(),
+          status: 'VALID',
+          created_at: new Date().toISOString(),
+        };
+
+        const cIdx = this.certificates.findIndex((c) => c.certificate_id === cleanId);
+        if (cIdx >= 0) this.certificates[cIdx] = syntheticCert;
+        else this.certificates.push(syntheticCert);
+        this.saveToStorage();
+
+        return syntheticCert;
+      }
+    }
+
+    return undefined;
   }
 
   public getCertificatesForUser(userId: string): CertificateRecord[] {

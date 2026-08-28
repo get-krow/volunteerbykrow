@@ -21,17 +21,25 @@ export default function CertificateVerificationPage() {
   const rawCertId = (params?.certificateId as string) || searchParams?.get('id') || '';
 
   useEffect(() => {
+    let isMounted = true;
     if (rawCertId) {
-      // Synchronize database state
-      db.syncWithSupabase().then(() => {
-        const found = db.getCertificateById(rawCertId);
-        setCertRecord(found || null);
+      db.syncWithSupabase()
+        .then(() => db.getCertificateByIdAsync(rawCertId))
+        .then((found) => {
+          if (isMounted) setCertRecord(found || null);
+        });
+
+      db.getCertificateByIdAsync(rawCertId).then((foundImmediately) => {
+        if (isMounted && foundImmediately) {
+          setCertRecord(foundImmediately);
+        }
       });
-      const foundImmediately = db.getCertificateById(rawCertId);
-      setCertRecord(foundImmediately || null);
     } else {
       setCertRecord(null);
     }
+    return () => {
+      isMounted = false;
+    };
   }, [rawCertId]);
 
   const handleManualSearch = (e: React.FormEvent) => {
