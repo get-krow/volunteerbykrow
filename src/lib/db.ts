@@ -168,10 +168,12 @@ class LocalDatabase {
   public async syncWithSupabase(): Promise<void> {
     if (!isSupabaseConfigured()) return;
     try {
-      // 1. Sync Profiles
+      // 1. Sync Profiles from Supabase (Source of Truth)
       const { data: dbProfiles } = await supabase.from('profiles').select('*');
-      if (dbProfiles && dbProfiles.length > 0) {
-        dbProfiles.forEach((p: any) => {
+      if (dbProfiles) {
+        const dbProfileUUIDs = new Set(dbProfiles.map((p: any) => ensureUUID(p.id)));
+
+        const remoteProfiles: UserProfile[] = dbProfiles.map((p: any) => {
           const idx = this.profiles.findIndex((existing) => existing.id === p.id || ensureUUID(existing.id) === ensureUUID(p.id));
           const existingLocalDob = (idx >= 0 ? this.profiles[idx].dob : undefined) || (this.currentUser && (this.currentUser.id === p.id || ensureUUID(this.currentUser.id) === ensureUUID(p.id)) ? this.currentUser.dob : undefined);
           const existingLocalKrowId = (idx >= 0 ? this.profiles[idx].krow_id : undefined) || (this.currentUser && (this.currentUser.id === p.id || ensureUUID(this.currentUser.id) === ensureUUID(p.id)) ? this.currentUser.krow_id : undefined);
@@ -192,22 +194,30 @@ class LocalDatabase {
           };
 
           this.ensureKrowId(mappedProfile);
+          return mappedProfile;
+        });
 
-          if (idx >= 0) {
-            this.profiles[idx] = { ...this.profiles[idx], ...mappedProfile };
-          } else {
-            this.profiles.push(mappedProfile);
+        // Purge any local ghost profiles that no longer exist in Supabase
+        this.profiles = remoteProfiles;
+
+        // If current logged in user is a ghost profile deleted from Supabase, log out cleanly
+        if (this.currentUser && !dbProfileUUIDs.has(ensureUUID(this.currentUser.id))) {
+          this.currentUser = null;
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('krow_currentUser');
           }
-
-          if (this.currentUser && (this.currentUser.id === p.id || ensureUUID(this.currentUser.id) === ensureUUID(p.id))) {
+        } else if (this.currentUser) {
+          const match = remoteProfiles.find((p) => p.id === this.currentUser?.id || ensureUUID(p.id) === ensureUUID(this.currentUser!.id));
+          if (match) {
             this.currentUser = {
               ...this.currentUser,
-              ...mappedProfile,
-              dob: mappedProfile.dob || this.currentUser.dob,
-              krow_id: mappedProfile.krow_id || this.currentUser.krow_id,
+              ...match,
+              dob: match.dob || this.currentUser.dob,
+              krow_id: match.krow_id || this.currentUser.krow_id,
             };
           }
-        });
+        }
+
         this.saveToStorage();
       }
 
@@ -426,11 +436,11 @@ class LocalDatabase {
 
   private loadFromStorage() {
     try {
-      // Force purge stale local storage if legacy mock keys exist
-      const cacheVer = localStorage.getItem('krow_cache_v4_clean');
+      // Force purge stale local storage if legacy mock keys or ghost accounts exist
+      const cacheVer = localStorage.getItem('krow_cache_v5_ghost_purge');
       if (!cacheVer) {
         localStorage.clear();
-        localStorage.setItem('krow_cache_v4_clean', 'true');
+        localStorage.setItem('krow_cache_v5_ghost_purge', 'true');
         return;
       }
 
@@ -647,6 +657,32 @@ class LocalDatabase {
     if (isSupabaseConfigured()) {
       this.saveProfileToSupabase(this.currentUser);
     }
+  }
+
+  public async deleteProfile(userId: string): Promise<boolean> {
+    const uUUID = ensureUUID(userId);
+    this.profiles = this.profiles.filter((p) => p.id !== userId && ensureUUID(p.id) !== uUUID);
+
+    if (this.currentUser && (this.currentUser.id === userId || ensureUUID(this.currentUser.id) === uUUID)) {
+      this.currentUser = null;
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('krow_currentUser');
+      }
+    }
+
+    this.saveToStorage();
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('profiles').delete().or(`id.eq.${userId},id.eq.${uUUID}`);
+        await supabase.from('organizer_profiles').delete().or(`id.eq.${userId},id.eq.${uUUID}`);
+        return true;
+      } catch (err) {
+        console.error('Error deleting profile from Supabase:', err);
+        return false;
+      }
+    }
+    return true;
   }
 
   // --- Certificates & Verification System ---
