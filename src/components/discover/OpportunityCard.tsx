@@ -93,11 +93,15 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
             </div>
           )}
 
-          {/* Role & Age & Closed Badges */}
+          {/* Role & Age & Closed/Full Badges */}
           <div className="absolute top-3 left-3 flex items-center gap-1.5 z-10 flex-wrap">
             {isEnded ? (
               <span className="bg-red-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs uppercase tracking-wider">
                 Closed
+              </span>
+            ) : isFull ? (
+              <span className="bg-amber-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs uppercase tracking-wider">
+                Full
               </span>
             ) : (
               <>
@@ -166,8 +170,8 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
           </div>
 
           {/* Spots Remaining */}
-          <div className="text-xs font-semibold text-[#635BFF] pt-1">
-            {spotsLeft !== null ? `${spotsLeft} spots remaining` : 'Unlimited spots'}
+          <div className={`text-xs font-bold pt-1 ${isFull ? 'text-amber-600 font-extrabold' : 'text-[#635BFF]'}`}>
+            {isFull ? 'FULL (0 spots remaining)' : spotsLeft !== null ? `${spotsLeft} spot${spotsLeft === 1 ? '' : 's'} remaining` : 'Unlimited spots'}
           </div>
         </div>
       </div>

@@ -232,8 +232,8 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
 
                   <div className="pt-3 flex items-center justify-between">
                     <span className="text-gray-500">Availability</span>
-                    <span className="font-bold text-[#635BFF]">
-                      {spotsLeft !== null ? `${spotsLeft} spots remaining` : 'Unlimited spots'}
+                    <span className={`font-bold ${isFull ? 'text-amber-600 font-extrabold' : 'text-[#635BFF]'}`}>
+                      {isFull ? 'FULL (0 spots remaining)' : spotsLeft !== null ? `${spotsLeft} spot${spotsLeft === 1 ? '' : 's'} remaining` : 'Unlimited spots'}
                     </span>
                   </div>
                 </div>

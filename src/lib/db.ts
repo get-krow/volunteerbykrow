@@ -509,10 +509,22 @@ class LocalDatabase {
 
   public setCurrentUser(user: UserProfile | null) {
     if (user) {
-      user.id = ensureUUID(user.id);
-      const pIdx = this.profiles.findIndex((p) => p.id === user.id || ensureUUID(p.id) === user.id);
+      const uId = ensureUUID(user.id);
+      user.id = uId;
+      const pIdx = this.profiles.findIndex((p) => p.id === uId || ensureUUID(p.id) === uId);
+      const existingInStore = pIdx >= 0 ? this.profiles[pIdx] : (this.currentUser && (this.currentUser.id === uId || ensureUUID(this.currentUser.id) === uId) ? this.currentUser : null);
+
+      if (existingInStore) {
+        user = {
+          ...existingInStore,
+          ...user,
+          dob: user.dob || existingInStore.dob || undefined,
+          krow_id: user.krow_id || existingInStore.krow_id || undefined,
+        };
+      }
+
       if (pIdx >= 0) {
-        this.profiles[pIdx] = { ...this.profiles[pIdx], ...user };
+        this.profiles[pIdx] = { ...user };
       } else {
         this.profiles.push({ ...user });
       }
@@ -561,12 +573,20 @@ class LocalDatabase {
 
   public updateProfile(updates: Partial<UserProfile>) {
     if (!this.currentUser) return;
-    this.currentUser = { ...this.currentUser, ...updates };
+    const existingDob = this.currentUser.dob;
+    const existingKrowId = this.currentUser.krow_id;
+
+    this.currentUser = {
+      ...this.currentUser,
+      ...updates,
+      dob: updates.dob || existingDob,
+      krow_id: updates.krow_id || existingKrowId,
+    };
 
     const pUUID = ensureUUID(this.currentUser.id);
     const pIdx = this.profiles.findIndex((p) => p.id === this.currentUser?.id || p.id === pUUID || ensureUUID(p.id) === pUUID);
     if (pIdx >= 0) {
-      this.profiles[pIdx] = { ...this.profiles[pIdx], ...updates };
+      this.profiles[pIdx] = { ...this.profiles[pIdx], ...this.currentUser };
     } else {
       this.profiles.push({ ...this.currentUser });
     }
@@ -1469,15 +1489,24 @@ class LocalDatabase {
 
   // --- Registration Logic ---
   public getRegisteredCount(opportunityId: string): number {
+    const opp = this.opportunities.find((o) => o.id === opportunityId || ensureUUID(o.id) === ensureUUID(opportunityId));
     const oppUUID = ensureUUID(opportunityId);
+    const targetOppIds = new Set<string>();
+    targetOppIds.add(opportunityId);
+    targetOppIds.add(oppUUID);
+    if (opp?.id) {
+      targetOppIds.add(opp.id);
+      targetOppIds.add(ensureUUID(opp.id));
+    }
+
     const uniqueVolunteers = new Set<string>();
 
     this.registrations.forEach((r) => {
-      if (
-        (r.opportunity_id === opportunityId || r.opportunity_id === oppUUID) &&
-        r.status === 'registered'
-      ) {
-        uniqueVolunteers.add(r.volunteer_id);
+      if (r.status === 'registered') {
+        const regOppUUID = ensureUUID(r.opportunity_id);
+        if (targetOppIds.has(r.opportunity_id) || targetOppIds.has(regOppUUID)) {
+          uniqueVolunteers.add(r.volunteer_id);
+        }
       }
     });
 
