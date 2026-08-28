@@ -125,29 +125,57 @@ class LocalDatabase {
   private initSupabaseAuthListener() {
     if (!isSupabaseConfigured()) return;
     try {
-      const processSession = (session: any) => {
+      const processSession = async (session: any) => {
         if (!session?.user) return;
+        const uUUID = ensureUUID(session.user.id);
         const rawMeta = session.user.user_metadata || {};
         const fullName = rawMeta.full_name || rawMeta.name || session.user.email?.split('@')[0] || 'Volunteer';
         const avatarUrl = rawMeta.avatar_url || rawMeta.picture || null;
 
-        const user: UserProfile = {
-          id: session.user.id,
+        let existingRemoteProfile: UserProfile | null = null;
+        try {
+          const { data } = await supabase.from('profiles').select('*').or(`id.eq.${session.user.id},id.eq.${uUUID}`).single();
+          if (data) {
+            existingRemoteProfile = {
+              id: data.id,
+              krow_id: data.krow_id || undefined,
+              role: data.role || (rawMeta.role as SystemRole) || 'volunteer',
+              email: data.email || session.user.email,
+              name: data.name || fullName,
+              dob: data.dob || undefined,
+              country: data.country || 'Canada',
+              province_state: data.province_state || 'BC',
+              city: data.city || 'Vancouver',
+              bio: data.bio || undefined,
+              avatar_url: data.avatar_url || avatarUrl || undefined,
+              created_at: data.created_at || new Date().toISOString(),
+            };
+          }
+        } catch (e) {
+          // Ignore fallback if table lookup fails
+        }
+
+        const user: UserProfile = existingRemoteProfile || {
+          id: uUUID,
           email: session.user.email || 'volunteer@gmail.com',
           role: (rawMeta.role as SystemRole) || 'volunteer',
           name: fullName,
-          avatar_url: avatarUrl,
+          avatar_url: avatarUrl || undefined,
           country: 'Canada',
           province_state: 'BC',
           city: 'Vancouver',
           created_at: new Date().toISOString(),
         };
 
+        this.ensureKrowId(user);
         this.setCurrentUser(user);
+        await this.saveProfileToSupabase(user);
 
-        // Clean ugly OAuth token hash fragment from browser URL bar
-        if (typeof window !== 'undefined' && window.location.hash.includes('access_token=')) {
-          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        // Clean ugly OAuth token hash or code query params from browser URL bar after successful login
+        if (typeof window !== 'undefined') {
+          if (window.location.hash.includes('access_token=') || window.location.search.includes('code=')) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
         }
       };
 

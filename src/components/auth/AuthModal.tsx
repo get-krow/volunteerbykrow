@@ -41,10 +41,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const handleGoogleAuth = async () => {
     try {
+      const redirectUrl = typeof window !== 'undefined' ? window.location.origin : undefined;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       });
       if (error) throw error;
@@ -61,6 +66,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         created_at: new Date().toISOString(),
       };
       db.setCurrentUser(googleUser);
+      await db.saveProfileToSupabase(googleUser);
       onLoginSuccess(googleUser);
       onClose();
     }
