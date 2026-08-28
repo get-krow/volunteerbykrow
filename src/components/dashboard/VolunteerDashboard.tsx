@@ -80,8 +80,8 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
     }
   };
 
-  const handleGenerateReport = () => {
-    generateVolunteerHoursReport(currentUser, totalHours, completedShiftsCount, currentBadge);
+  const handleGenerateReport = async () => {
+    await generateVolunteerHoursReport(currentUser, totalHours, completedShiftsCount, currentBadge);
   };
 
   const formatDate = (dateStr: string) => {
