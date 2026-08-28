@@ -7,6 +7,8 @@ import { AuthModal } from '../auth/AuthModal';
 import { db } from '@/lib/db';
 import { UserProfile, SystemRole } from '@/lib/types';
 
+import { DobReminderModal } from '../auth/DobReminderModal';
+
 interface MainLayoutProps {
   children: React.ReactNode;
 }
@@ -49,6 +51,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     }
   };
 
+  const isProfileIncomplete =
+    currentUser &&
+    currentUser.role === 'volunteer' &&
+    (!currentUser.dob || currentUser.dob.trim() === '' || !currentUser.location_set);
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900 selection:bg-[#635BFF] selection:text-white">
       {/* Top Desktop Navigation Header (Section 5 Spec) */}
@@ -69,6 +76,19 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         initialRole={authRole}
         onLoginSuccess={handleLoginSuccess}
       />
+
+      {/* Automatic Volunteer Profile Completion Modal (DOB & Location Prompt for Google OAuth & New Users) */}
+      {isProfileIncomplete && (
+        <DobReminderModal
+          currentUser={currentUser}
+          isOpen={true}
+          onClose={() => {}}
+          onSaveSuccess={(updated) => {
+            setCurrentUser(updated);
+            db.setCurrentUser(updated);
+          }}
+        />
+      )}
     </div>
   );
 };

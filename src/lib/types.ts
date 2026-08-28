@@ -17,6 +17,7 @@ export interface UserProfile {
   country: string;
   province_state: string;
   city: string;
+  location_set?: boolean;
   bio?: string | null;
   avatar_url?: string | null;
   created_at: string;

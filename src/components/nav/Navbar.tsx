@@ -273,17 +273,6 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, onOpenAuth, onLogou
           </Link>
         </div>
       )}
-
-      {currentUser && currentUser.role === 'volunteer' && (!currentUser.dob || currentUser.dob.trim() === '') && (
-        <DobReminderModal
-          currentUser={currentUser}
-          isOpen={true}
-          onClose={() => {}}
-          onSaveSuccess={() => {
-            window.location.reload();
-          }}
-        />
-      )}
     </header>
   );
 };
