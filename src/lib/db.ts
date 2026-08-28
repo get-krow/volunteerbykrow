@@ -225,24 +225,28 @@ class LocalDatabase {
           return mappedProfile;
         });
 
-        // Purge any local ghost profiles that no longer exist in Supabase
-        this.profiles = remoteProfiles;
+        // Keep remote profiles plus active currentUser if newly registered
+        this.profiles = [...remoteProfiles];
 
-        // If current logged in user is a ghost profile deleted from Supabase, log out cleanly
-        if (this.currentUser && !dbProfileUUIDs.has(ensureUUID(this.currentUser.id))) {
-          this.currentUser = null;
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('krow_currentUser');
-          }
-        } else if (this.currentUser) {
-          const match = remoteProfiles.find((p) => p.id === this.currentUser?.id || ensureUUID(p.id) === ensureUUID(this.currentUser!.id));
-          if (match) {
-            this.currentUser = {
-              ...this.currentUser,
-              ...match,
-              dob: match.dob || this.currentUser.dob,
-              krow_id: match.krow_id || this.currentUser.krow_id,
-            };
+        if (this.currentUser) {
+          const curUUID = ensureUUID(this.currentUser.id);
+          const hasInRemote = dbProfileUUIDs.has(curUUID) || remoteProfiles.some((p) => p.id === this.currentUser?.id || ensureUUID(p.id) === curUUID);
+
+          if (!hasInRemote) {
+            // Push missing currentUser profile to Supabase automatically!
+            this.ensureKrowId(this.currentUser);
+            this.profiles.push(this.currentUser);
+            this.saveProfileToSupabase(this.currentUser);
+          } else {
+            const match = remoteProfiles.find((p) => p.id === this.currentUser?.id || ensureUUID(p.id) === curUUID);
+            if (match) {
+              this.currentUser = {
+                ...this.currentUser,
+                ...match,
+                dob: match.dob || this.currentUser.dob,
+                krow_id: match.krow_id || this.currentUser.krow_id,
+              };
+            }
           }
         }
 

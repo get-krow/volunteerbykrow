@@ -111,6 +111,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       });
       if (signUpData?.user?.id) {
         userId = signUpData.user.id;
+        if (!signUpData.session) {
+          try {
+            await supabase.auth.signInWithPassword({ email, password: password || 'KrowPass123!' });
+          } catch (signInErr) {
+            console.warn('Auto signin after signup:', signInErr);
+          }
+        }
       }
     } catch (err) {
       console.warn('Supabase Auth signUp:', err);
@@ -191,13 +198,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     db.setCurrentUser(loggedInUser);
+    await db.saveProfileToSupabase(loggedInUser);
 
     if (loggedInUser.role === 'organizer') {
+      const existingOrg = db.getOrganizer(loggedInUser.id);
+      const orgData = existingOrg || {
+        id: loggedInUser.id,
+        org_name: loggedInUser.name,
+        hq_country: loggedInUser.country || 'Canada',
+        hq_province_state: loggedInUser.province_state || 'BC',
+        hq_city: loggedInUser.city || 'Vancouver',
+        no_hq: false,
+        verification_status: 'pending' as const,
+        created_at: new Date().toISOString(),
+      };
+      db.saveOrganizer(orgData);
+      await db.saveOrganizerToSupabase(orgData);
       window.location.href = '/organizer/opportunities';
       return;
     }
 
     onLoginSuccess(loggedInUser);
+    onClose();
   };
 
   return (
