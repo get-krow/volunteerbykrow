@@ -3,6 +3,7 @@ import QRCode from 'qrcode';
 import { UserProfile, BadgeDefinition, Opportunity, AttendanceRecord } from './types';
 import { db } from './db';
 import { getBadgeForHours } from './badges';
+import { encodeCertificateToken } from './cert-token';
 
 // Format date helper (ASCII safe)
 function formatDate(dateStr?: string): string {
@@ -152,7 +153,15 @@ export async function generateVolunteerHoursReport(
   const certificateId = certRecord.certificate_id;
 
   const dateFormatted = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  const verifyUrl = `https://volunteerbykrow.vercel.app/verify/${certificateId}`;
+  const certToken = encodeCertificateToken({
+    certId: certificateId,
+    krowId,
+    name: profile.name || 'Volunteer',
+    hours: totalAwardedHours,
+    opps: completedShiftsCount,
+    issued: dateFormatted,
+  });
+  const verifyUrl = `https://volunteerbykrow.vercel.app/verify/${certificateId}${certToken ? `?d=${certToken}` : ''}`;
 
   // Layout tracking state
   let currentY = 15;

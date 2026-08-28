@@ -5,6 +5,7 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { db } from '@/lib/db';
 import { CertificateRecord } from '@/lib/types';
+import { decodeCertificateToken } from '@/lib/cert-token';
 import { ShieldCheck, ShieldAlert, Award, Calendar, User, Hash, Clock, CheckCircle2, Search, ArrowRight, Copy, Check } from 'lucide-react';
 
 export default function CertificateVerificationPage() {
@@ -19,14 +20,28 @@ export default function CertificateVerificationPage() {
 
   // Read certificateId from route params or fallback search query parameter
   const rawCertId = (params?.certificateId as string) || searchParams?.get('id') || '';
+  const tokenParam = searchParams?.get('d') || '';
 
   useEffect(() => {
     let isMounted = true;
+
+    // 1. Try decoding cryptographic payload token first for instant, guaranteed cross-device verification
+    const tokenRecord = tokenParam ? decodeCertificateToken(tokenParam) : null;
+    if (tokenRecord) {
+      setCertRecord(tokenRecord);
+    }
+
     if (rawCertId) {
       db.syncWithSupabase()
         .then(() => db.getCertificateByIdAsync(rawCertId))
         .then((found) => {
-          if (isMounted) setCertRecord(found || null);
+          if (isMounted) {
+            if (found) {
+              setCertRecord(found);
+            } else if (!tokenRecord) {
+              setCertRecord(null);
+            }
+          }
         });
 
       db.getCertificateByIdAsync(rawCertId).then((foundImmediately) => {
@@ -34,13 +49,14 @@ export default function CertificateVerificationPage() {
           setCertRecord(foundImmediately);
         }
       });
-    } else {
+    } else if (!tokenRecord) {
       setCertRecord(null);
     }
+
     return () => {
       isMounted = false;
     };
-  }, [rawCertId]);
+  }, [rawCertId, tokenParam]);
 
   const handleManualSearch = (e: React.FormEvent) => {
     e.preventDefault();
