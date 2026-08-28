@@ -544,7 +544,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                           </span>
                           {opp.is_recurring && (
                             <span className="text-[10px] font-extrabold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-100">
-                              Recurring Series ({opp.recurrence_count || opp.occurrence_dates?.length || 1} Occurrences)
+                              Recurring Series ({opp.recurrence_count || opp.occurrence_dates?.length || (opp.recurrence_series_id ? opportunities.filter((o) => o.recurrence_series_id === opp.recurrence_series_id && o.occurrence_number !== undefined).length : 1)} Occurrences)
                             </span>
                           )}
                         </div>

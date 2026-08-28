@@ -113,11 +113,26 @@ CREATE TABLE IF NOT EXISTS public.opportunities (
   max_volunteers INT, -- NULL means unlimited
   is_recurring BOOLEAN DEFAULT FALSE,
   recurrence_type TEXT CHECK (recurrence_type IN ('same_volunteers', 'different_volunteers')),
+  recurrence_frequency TEXT,
   recurrence_series_id UUID,
+  recurrence_count INT,
+  occurrence_number INT,
+  occurrence_dates JSONB,
+  series_start_date DATE,
+  series_end_date DATE,
+  total_series_hours NUMERIC,
   status TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('published', 'cancelled', 'ended')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS recurrence_count INT;
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS occurrence_number INT;
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS occurrence_dates JSONB;
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS series_start_date DATE;
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS series_end_date DATE;
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS total_series_hours NUMERIC;
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS recurrence_frequency TEXT;
 
 -- 5. Registrations Table
 CREATE TABLE IF NOT EXISTS public.registrations (
@@ -291,21 +306,25 @@ ALTER TABLE public.saved_opportunities ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public read profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Allow public insert profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Allow public update profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Allow public delete profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Users view own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Users update own profile" ON public.profiles;
 
 CREATE POLICY "Public read profiles" ON public.profiles FOR SELECT USING (true);
 CREATE POLICY "Allow public insert profiles" ON public.profiles FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow public update profiles" ON public.profiles FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete profiles" ON public.profiles FOR DELETE USING (true);
 
 -- 2. Organizer Profiles Policies
 DROP POLICY IF EXISTS "Public read organizer profiles" ON public.organizer_profiles;
 DROP POLICY IF EXISTS "Allow public insert organizer profiles" ON public.organizer_profiles;
 DROP POLICY IF EXISTS "Allow public update organizer profiles" ON public.organizer_profiles;
+DROP POLICY IF EXISTS "Allow public delete organizer profiles" ON public.organizer_profiles;
 
 CREATE POLICY "Public read organizer profiles" ON public.organizer_profiles FOR SELECT USING (true);
 CREATE POLICY "Allow public insert organizer profiles" ON public.organizer_profiles FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow public update organizer profiles" ON public.organizer_profiles FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete organizer profiles" ON public.organizer_profiles FOR DELETE USING (true);
 
 -- 3. Opportunities Policies
 DROP POLICY IF EXISTS "Public read opportunities" ON public.opportunities;
@@ -324,10 +343,12 @@ CREATE POLICY "Allow public delete opportunities" ON public.opportunities FOR DE
 DROP POLICY IF EXISTS "Allow public insert registrations" ON public.registrations;
 DROP POLICY IF EXISTS "Allow public read registrations" ON public.registrations;
 DROP POLICY IF EXISTS "Allow public update registrations" ON public.registrations;
+DROP POLICY IF EXISTS "Allow public delete registrations" ON public.registrations;
 
 CREATE POLICY "Allow public insert registrations" ON public.registrations FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow public read registrations" ON public.registrations FOR SELECT USING (true);
 CREATE POLICY "Allow public update registrations" ON public.registrations FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete registrations" ON public.registrations FOR DELETE USING (true);
 
 DROP POLICY IF EXISTS "Allow public manage attendance" ON public.attendance;
 CREATE POLICY "Allow public manage attendance" ON public.attendance FOR ALL USING (true);

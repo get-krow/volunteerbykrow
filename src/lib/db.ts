@@ -320,6 +320,26 @@ class LocalDatabase {
       // 4. Sync Opportunities
       const { data: dbOpps } = await supabase.from('opportunities').select('*');
       if (dbOpps) {
+        const seriesChildCountMap = new Map<string, number>();
+        const seriesChildDatesMap = new Map<string, string[]>();
+
+        dbOpps.forEach((sOpp: any) => {
+          if (sOpp.recurrence_series_id) {
+            if (sOpp.occurrence_number !== undefined && sOpp.occurrence_number !== null) {
+              const c = seriesChildCountMap.get(sOpp.recurrence_series_id) || 0;
+              seriesChildCountMap.set(sOpp.recurrence_series_id, c + 1);
+            }
+            if (sOpp.date) {
+              const dates = seriesChildDatesMap.get(sOpp.recurrence_series_id) || [];
+              if (!dates.includes(sOpp.date)) {
+                dates.push(sOpp.date);
+                dates.sort();
+                seriesChildDatesMap.set(sOpp.recurrence_series_id, dates);
+              }
+            }
+          }
+        });
+
         const mappedOpps: Opportunity[] = dbOpps.map((sOpp: any) => {
           const matchOrg = this.organizers.find((o) => o.id === sOpp.org_id || o.id === ensureUUID(sOpp.org_id));
           const resolvedOrgName =
@@ -328,6 +348,9 @@ class LocalDatabase {
               : matchOrg?.org_name || this.currentUser?.name || 'Organization';
 
           const localMatch = this.opportunities.find((l) => l.id === sOpp.id);
+          const computedCount = sOpp.recurrence_series_id ? (seriesChildCountMap.get(sOpp.recurrence_series_id) || seriesChildDatesMap.get(sOpp.recurrence_series_id)?.length || 0) : 0;
+          const computedDates = sOpp.recurrence_series_id ? seriesChildDatesMap.get(sOpp.recurrence_series_id) : undefined;
+
           return {
             id: sOpp.id,
             org_id: sOpp.org_id,
@@ -352,9 +375,9 @@ class LocalDatabase {
             recurrence_type: sOpp.recurrence_type || localMatch?.recurrence_type,
             recurrence_frequency: sOpp.recurrence_frequency || localMatch?.recurrence_frequency,
             recurrence_series_id: sOpp.recurrence_series_id || localMatch?.recurrence_series_id,
-            recurrence_count: sOpp.recurrence_count || localMatch?.recurrence_count,
+            recurrence_count: sOpp.recurrence_count || localMatch?.recurrence_count || (computedCount > 0 ? computedCount : undefined),
             occurrence_number: sOpp.occurrence_number ?? localMatch?.occurrence_number,
-            occurrence_dates: sOpp.occurrence_dates || localMatch?.occurrence_dates,
+            occurrence_dates: sOpp.occurrence_dates || localMatch?.occurrence_dates || (computedDates && computedDates.length > 0 ? computedDates : undefined),
             series_start_date: sOpp.series_start_date || localMatch?.series_start_date,
             series_end_date: sOpp.series_end_date || localMatch?.series_end_date,
             total_series_hours: sOpp.total_series_hours || localMatch?.total_series_hours,
@@ -1414,7 +1437,14 @@ class LocalDatabase {
             max_volunteers: cOpp.max_volunteers || null,
             is_recurring: true,
             recurrence_type: 'same_volunteers',
+            recurrence_frequency: recurrenceFrequency,
             recurrence_series_id: seriesId,
+            recurrence_count: cOpp.recurrence_count || recurrenceCount,
+            occurrence_number: cOpp.occurrence_number,
+            occurrence_dates: cOpp.occurrence_dates || occurrence_dates,
+            series_start_date: cOpp.series_start_date || series_start_date,
+            series_end_date: cOpp.series_end_date || series_end_date,
+            total_series_hours: cOpp.total_series_hours || total_series_hours,
             status: 'published',
           }));
 
@@ -1438,7 +1468,13 @@ class LocalDatabase {
             max_volunteers: mainOpp.max_volunteers || null,
             is_recurring: true,
             recurrence_type: 'same_volunteers',
+            recurrence_frequency: recurrenceFrequency,
             recurrence_series_id: seriesId,
+            recurrence_count: mainOpp.recurrence_count || recurrenceCount,
+            occurrence_dates: mainOpp.occurrence_dates || occurrence_dates,
+            series_start_date: mainOpp.series_start_date || series_start_date,
+            series_end_date: mainOpp.series_end_date || series_end_date,
+            total_series_hours: mainOpp.total_series_hours || total_series_hours,
             status: 'published',
           },
           ...childUpsertList,
