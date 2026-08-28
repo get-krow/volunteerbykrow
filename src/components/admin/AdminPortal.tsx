@@ -10,7 +10,13 @@ export const AdminPortal: React.FC = () => {
   const [adminPass, setAdminPass] = useState('');
   const [passError, setPassError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'verify' | 'hours' | 'categories' | 'messages'>('verify');
+  const [activeTab, setActiveTab] = useState<'verify' | 'hours' | 'categories' | 'messages' | 'reset'>('verify');
+
+  // System Reset State
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [confirmInput, setConfirmInput] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
 
   // State
   const [organizers, setOrganizers] = useState<OrganizerProfile[]>(() => db.getOrganizers());
@@ -126,6 +132,24 @@ export const AdminPortal: React.FC = () => {
     refreshData();
   };
 
+  const handleSystemReset = async () => {
+    if (confirmInput.trim() !== 'RESET ALL DATA') return;
+    setIsResetting(true);
+    const res = await db.resetSystemData();
+    setIsResetting(false);
+    if (res.success) {
+      setResetSuccess(true);
+      refreshData();
+      setTimeout(() => {
+        if (typeof window !== 'undefined') {
+          window.location.href = '/';
+        }
+      }, 1500);
+    } else {
+      alert(`Reset failed: ${res.message}`);
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center p-4">
@@ -223,6 +247,15 @@ export const AdminPortal: React.FC = () => {
                 {messages.length}
               </span>
             )}
+          </button>
+          <button
+            onClick={() => setActiveTab('reset')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeTab === 'reset' ? 'bg-red-600 text-white shadow-sm' : 'text-red-400 hover:text-red-300'
+            }`}
+          >
+            <AlertCircle className="w-3.5 h-3.5" />
+            System Reset
           </button>
         </div>
       </div>
@@ -578,6 +611,135 @@ export const AdminPortal: React.FC = () => {
                   })
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* FEATURE 5: SYSTEM RESET TO LAUNCH READY */}
+      {activeTab === 'reset' && (
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-red-100 shadow-card space-y-6">
+          <div className="border-b border-red-100 pb-4">
+            <div className="flex items-center gap-2.5 text-red-600 mb-1">
+              <AlertCircle className="w-6 h-6" />
+              <h2 className="font-extrabold text-gray-900 text-xl">Reset System to Launch Ready</h2>
+            </div>
+            <p className="text-xs text-gray-600 leading-relaxed">
+              Completely wipe all user data, organizations, opportunities, shift history, certificates, and audit logs across local storage and the Supabase database to restore the entire system to a clean launch-ready state.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 rounded-2xl bg-red-50/70 border border-red-100 space-y-2 text-xs">
+              <div className="font-bold text-red-900 flex items-center gap-2">
+                <Trash2 className="w-4 h-4 text-red-600" /> What will be PERMANENTLY deleted:
+              </div>
+              <ul className="list-disc list-inside space-y-1 text-red-700 font-medium">
+                <li>ALL User Profiles & Account Records</li>
+                <li>ALL Organization Profiles & HQ Details</li>
+                <li>ALL Opportunities & Recurring Series</li>
+                <li>ALL Volunteer Registrations & Attendance Records</li>
+                <li>ALL Hour Audit Logs & Issued Certificates</li>
+                <li>ALL User Contact Messages & Notifications</li>
+                <li>ALL Custom Categories & Local Storage Cache</li>
+              </ul>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-100 space-y-2 text-xs">
+              <div className="font-bold text-amber-900 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-amber-600" /> Clean Launch Environment Guarantee:
+              </div>
+              <p className="text-amber-800 leading-relaxed">
+                After reset, the system will be entirely free of test accounts, dummy shifts, or lingering records. Predefined system categories will be re-initialized and ready for clean production deployment.
+              </p>
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <button
+              onClick={() => {
+                setConfirmInput('');
+                setResetSuccess(false);
+                setIsResetModalOpen(true);
+              }}
+              className="px-6 py-3.5 bg-red-600 hover:bg-red-700 text-white font-extrabold rounded-2xl text-xs flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
+            >
+              <Trash2 className="w-4 h-4" /> Initiate System Reset
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* SYSTEM RESET CONFIRMATION MODAL */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/70 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full space-y-5 relative shadow-2xl border border-red-100">
+            <button
+              onClick={() => setIsResetModalOpen(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </button>
+
+            <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center font-bold">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+
+            <div>
+              <h3 className="font-extrabold text-gray-900 text-lg">Confirm Full System Reset</h3>
+              <p className="text-xs text-red-600 mt-1 font-semibold">
+                ⚠️ Warning: This action cannot be undone!
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                To confirm permanent deletion of ALL accounts, organizations, opportunities, and system data, type <strong className="text-gray-900 select-all font-mono">RESET ALL DATA</strong> below:
+              </p>
+            </div>
+
+            {resetSuccess ? (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-2xl flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                <span>System reset complete! Redirecting to home...</span>
+              </div>
+            ) : (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSystemReset();
+                }}
+                className="space-y-4"
+              >
+                <input
+                  type="text"
+                  required
+                  value={confirmInput}
+                  onChange={(e) => setConfirmInput(e.target.value)}
+                  placeholder="Type RESET ALL DATA"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-red-200 text-xs font-mono font-bold focus:ring-2 focus:ring-red-500 focus:outline-none"
+                />
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsResetModalOpen(false)}
+                    className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-xs transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={confirmInput.trim() !== 'RESET ALL DATA' || isResetting}
+                    className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-md"
+                  >
+                    {isResetting ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Resetting...
+                      </>
+                    ) : (
+                      'Confirm Full Reset'
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

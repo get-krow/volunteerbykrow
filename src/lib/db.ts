@@ -2406,6 +2406,78 @@ class LocalDatabase {
       }
     }
   }
+
+  public async resetSystemData(): Promise<{ success: boolean; message: string }> {
+    try {
+      // 1. Reset in-memory state
+      this.categories = [...INITIAL_CATEGORIES];
+      this.organizers = [];
+      this.opportunities = [];
+      this.currentUser = null;
+      this.profiles = [];
+      this.registrations = [];
+      this.attendance = [];
+      this.notifications = [];
+      this.savedOpportunityIds = [];
+      this.hourAuditLogs = [];
+      this.contactMessages = [];
+      this.certificates = [];
+
+      // 2. Clear LocalStorage
+      if (typeof window !== 'undefined') {
+        const keysToRemove = [
+          'krow_categories',
+          'krow_organizers',
+          'krow_opportunities',
+          'krow_currentUser',
+          'krow_registrations',
+          'krow_attendance',
+          'krow_notifications',
+          'krow_saved',
+          'krow_audit',
+          'krow_contact_messages',
+          'krow_certificates',
+          'krow_profiles',
+        ];
+        keysToRemove.forEach((key) => localStorage.removeItem(key));
+        localStorage.setItem('krow_cache_v5_ghost_purge', 'true');
+      }
+
+      // 3. Clear Supabase database tables if Supabase is configured
+      if (isSupabaseConfigured()) {
+        const dummyUuid = '00000000-0000-0000-0000-000000000000';
+
+        // Delete from dependent tables first (foreign keys)
+        await supabase.from('hour_audit_logs').delete().neq('id', dummyUuid);
+        await supabase.from('saved_opportunities').delete().neq('id', dummyUuid);
+        await supabase.from('registrations').delete().neq('id', dummyUuid);
+        await supabase.from('attendance').delete().neq('id', dummyUuid);
+        await supabase.from('notifications').delete().neq('id', dummyUuid);
+        await supabase.from('certificates').delete().neq('id', dummyUuid);
+        await supabase.from('contact_messages').delete().neq('id', dummyUuid);
+
+        // Delete opportunities, organizer profiles, profiles
+        await supabase.from('opportunities').delete().neq('id', dummyUuid);
+        await supabase.from('organizer_profiles').delete().neq('id', dummyUuid);
+        await supabase.from('profiles').delete().neq('id', dummyUuid);
+
+        // Delete custom categories
+        await supabase.from('categories').delete().eq('is_custom', true);
+
+        // Sign out active session from Supabase auth
+        try {
+          await supabase.auth.signOut();
+        } catch (e) {
+          console.warn('Supabase auth signout error during reset:', e);
+        }
+      }
+
+      return { success: true, message: 'System successfully reset to clean launch ready state!' };
+    } catch (error: any) {
+      console.error('System reset error:', error);
+      return { success: false, message: error?.message || 'An error occurred during system reset.' };
+    }
+  }
 }
 
 export const db = new LocalDatabase();
