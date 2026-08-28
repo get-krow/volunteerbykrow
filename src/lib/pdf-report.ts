@@ -475,10 +475,15 @@ export async function generateVolunteerHoursReport(
   doc.setTextColor(100, 116, 139);
   doc.text(`Issued Date: ${dateFormatted}  |  Status: Official Verified Record`, vLeftX, vBoxY + 28);
 
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(7);
-  doc.setTextColor(148, 163, 184);
-  doc.text(`Verification URL: ${verifyUrl}`, vLeftX, vBoxY + 33);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Verification Link: ', vLeftX, vBoxY + 33);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(99, 91, 255);
+  const displayUrl = `https://volunteerbykrow.vercel.app/verify/${certificateId}`;
+  doc.textWithLink(displayUrl, vLeftX + 22, vBoxY + 33, { url: verifyUrl });
 
   // Right side: High-Resolution 300DPI Standard PNG QR Code via official 'qrcode' package
   const qrSize = 30; // 30mm x 30mm box
