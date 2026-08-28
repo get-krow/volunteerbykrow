@@ -121,7 +121,7 @@ class LocalDatabase {
       const { data: dbProfiles } = await supabase.from('profiles').select('*');
       if (dbProfiles && dbProfiles.length > 0) {
         dbProfiles.forEach((p: any) => {
-          const idx = this.profiles.findIndex((existing) => existing.id === p.id);
+          const idx = this.profiles.findIndex((existing) => existing.id === p.id || ensureUUID(existing.id) === ensureUUID(p.id));
           const mappedProfile: UserProfile = {
             id: p.id,
             role: p.role || 'volunteer',
@@ -136,11 +136,20 @@ class LocalDatabase {
             created_at: p.created_at || new Date().toISOString(),
           };
           if (idx >= 0) {
-            this.profiles[idx] = mappedProfile;
+            this.profiles[idx] = { ...this.profiles[idx], ...mappedProfile };
           } else {
             this.profiles.push(mappedProfile);
           }
+
+          if (this.currentUser && (this.currentUser.id === p.id || ensureUUID(this.currentUser.id) === ensureUUID(p.id))) {
+            this.currentUser = {
+              ...this.currentUser,
+              ...mappedProfile,
+              dob: mappedProfile.dob || this.currentUser.dob,
+            };
+          }
         });
+        this.saveToStorage();
       }
 
       // 2. Sync Registrations
@@ -470,18 +479,22 @@ class LocalDatabase {
     if (isSupabaseConfigured()) {
       supabase
         .from('profiles')
-        .update({
-          name: updates.name,
-          dob: updates.dob || null,
-          country: updates.country,
-          province_state: updates.province_state,
-          city: updates.city,
-          bio: updates.bio,
-          avatar_url: updates.avatar_url,
-        })
-        .eq('id', this.currentUser.id)
+        .upsert([
+          {
+            id: this.currentUser.id,
+            role: this.currentUser.role,
+            email: this.currentUser.email,
+            name: this.currentUser.name,
+            dob: this.currentUser.dob || null,
+            country: this.currentUser.country,
+            province_state: this.currentUser.province_state,
+            city: this.currentUser.city,
+            bio: this.currentUser.bio || null,
+            avatar_url: this.currentUser.avatar_url || null,
+          },
+        ])
         .then(({ error }) => {
-          if (error) console.error('Supabase profile update error:', error);
+          if (error) console.error('Supabase profile upsert error:', error);
         });
     }
   }

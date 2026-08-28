@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { User, MapPin, Calendar, Mail, Save, LogOut, Trash2, Camera, ShieldAlert, HelpCircle, Sun, Moon } from 'lucide-react';
 import { UserProfile } from '@/lib/types';
 import { db } from '@/lib/db';
@@ -10,6 +10,20 @@ import { DeleteAccountModal } from '../auth/DeleteAccountModal';
 interface VolunteerProfileProps {
   currentUser: UserProfile;
   onLogout: () => void;
+}
+
+function calculateCurrentAge(dobStr: string): string | null {
+  if (!dobStr) return null;
+  const birthDate = new Date(dobStr);
+  if (isNaN(birthDate.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  if (age < 0 || age > 120) return null;
+  return `${age} yrs old`;
 }
 
 export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser, onLogout }) => {
@@ -23,6 +37,14 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
 
   const [isSaved, setIsSaved] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (currentUser.dob && !dob) {
+      setDob(currentUser.dob);
+    }
+  }, [currentUser.dob]);
+
+  const calculatedAge = useMemo(() => calculateCurrentAge(dob), [dob]);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,13 +123,20 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">Date of Birth</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-gray-700">Date of Birth</label>
+              {calculatedAge && (
+                <span className="px-2.5 py-0.5 bg-purple-50 text-[#635BFF] text-[11px] font-extrabold rounded-full border border-purple-200 flex items-center gap-1 shadow-2xs">
+                  ✨ Age: {calculatedAge}
+                </span>
+              )}
+            </div>
             <input
               type="date"
               required
               value={dob}
               onChange={(e) => setDob(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
+              className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none font-semibold text-gray-900"
             />
             <p className="text-[10px] text-gray-400 mt-1">
               Age eligibility is evaluated based on your exact age on the opportunity event date.
