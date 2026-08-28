@@ -211,28 +211,26 @@ class LocalDatabase {
         this.saveToStorage();
       }
 
-      // 2. Sync Registrations
+      // 2. Sync Registrations from Supabase
       const { data: dbRegs } = await supabase.from('registrations').select('*');
-      if (dbRegs && dbRegs.length > 0) {
-        dbRegs.forEach((r: any) => {
-          const idx = this.registrations.findIndex(
-            (existing) =>
-              existing.id === r.id ||
-              (existing.opportunity_id === r.opportunity_id && existing.volunteer_id === r.volunteer_id)
-          );
-          const mappedReg: Registration = {
-            id: r.id,
-            opportunity_id: r.opportunity_id,
-            volunteer_id: r.volunteer_id,
-            registered_at: r.registered_at || new Date().toISOString(),
-            status: r.status || 'registered',
-          };
-          if (idx >= 0) {
-            this.registrations[idx] = mappedReg;
-          } else {
-            this.registrations.push(mappedReg);
-          }
-        });
+      if (dbRegs) {
+        const dbRegList: Registration[] = dbRegs.map((r: any) => ({
+          id: r.id,
+          opportunity_id: r.opportunity_id,
+          volunteer_id: r.volunteer_id,
+          registered_at: r.registered_at || new Date().toISOString(),
+          status: r.status || 'registered',
+        }));
+
+        const dbRegKeys = new Set(
+          dbRegList.map((r) => `${ensureUUID(r.opportunity_id)}_${ensureUUID(r.volunteer_id)}`)
+        );
+
+        const localOnly = this.registrations.filter(
+          (l) => !dbRegKeys.has(`${ensureUUID(l.opportunity_id)}_${ensureUUID(l.volunteer_id)}`)
+        );
+
+        this.registrations = [...dbRegList, ...localOnly];
       }
 
       // 3. Sync Organizers
@@ -1505,7 +1503,7 @@ class LocalDatabase {
       if (r.status === 'registered') {
         const regOppUUID = ensureUUID(r.opportunity_id);
         if (targetOppIds.has(r.opportunity_id) || targetOppIds.has(regOppUUID)) {
-          uniqueVolunteers.add(r.volunteer_id);
+          uniqueVolunteers.add(ensureUUID(r.volunteer_id));
         }
       }
     });
@@ -2285,3 +2283,28 @@ class LocalDatabase {
 }
 
 export const db = new LocalDatabase();
+
+if (typeof window !== 'undefined' && isSupabaseConfigured()) {
+  try {
+    supabase
+      .channel('public-db-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations' }, () => {
+        db.syncWithSupabase().then(() => {
+          window.dispatchEvent(new Event('storage'));
+        });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'opportunities' }, () => {
+        db.syncWithSupabase().then(() => {
+          window.dispatchEvent(new Event('storage'));
+        });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        db.syncWithSupabase().then(() => {
+          window.dispatchEvent(new Event('storage'));
+        });
+      })
+      .subscribe();
+  } catch (e) {
+    console.warn('Realtime subscription setup warning:', e);
+  }
+}
