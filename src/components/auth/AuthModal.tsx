@@ -93,16 +93,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleCompleteEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     resetMessages();
-    if (!password) {
-      setErrorMsg('Please enter a password.');
+    if (!password || password.length < 6) {
+      setErrorMsg('Password must be at least 6 characters long.');
       return;
     }
 
     setIsLoading(true);
-    let userId = 'usr_' + Date.now();
+    let userId: string | null = null;
     let computedName = fullName.trim() || email.split('@')[0];
 
     try {
+      // 1. Try Signing In first (if account already exists)
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -111,7 +112,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (signInData?.user?.id) {
         userId = signInData.user.id;
         computedName = signInData.user.user_metadata?.full_name || computedName;
-      } else if (signInError) {
+      } else {
+        // 2. If sign in fails, create new account via Supabase Auth
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -124,13 +126,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         });
 
         if (signUpError) {
-          console.warn('Supabase Auth Notice:', signUpError.message);
-        } else if (signUpData?.user?.id) {
+          console.warn('Supabase Auth signUp error:', signUpError.message);
+          setErrorMsg(signUpError.message);
+          setIsLoading(false);
+          return;
+        }
+
+        if (signUpData?.user?.id) {
           userId = signUpData.user.id;
+          
+          // Auto sign in to establish auth session if auto-session wasn't returned
+          if (!signUpData.session) {
+            const { data: autoSession } = await supabase.auth.signInWithPassword({
+              email,
+              password,
+            });
+            if (autoSession?.user?.id) {
+              userId = autoSession.user.id;
+            }
+          }
         }
       }
     } catch (err: any) {
       console.warn('Supabase Auth error:', err);
+    }
+
+    // Local test fallback if Supabase auth client is offline
+    if (!userId) {
+      userId = 'usr_' + Date.now();
     }
 
     const user: UserProfile = {
@@ -144,8 +167,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       created_at: new Date().toISOString(),
     };
 
+    db.ensureKrowId(user);
     db.setCurrentUser(user);
-    await db.saveProfileToSupabase(user);
+    const saved = await db.saveProfileToSupabase(user);
+    console.log('Supabase profile save status:', saved);
 
     if (role === 'organizer') {
       const existingOrg = db.getOrganizer(user.id);

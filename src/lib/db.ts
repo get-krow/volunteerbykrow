@@ -552,9 +552,9 @@ class LocalDatabase {
     try {
       this.ensureKrowId(user);
       const uId = ensureUUID(user.id);
-      const payload = {
+      
+      const payload: any = {
         id: uId,
-        krow_id: user.krow_id || null,
         role: user.role || 'volunteer',
         email: user.email || '',
         name: user.name || 'User',
@@ -566,9 +566,22 @@ class LocalDatabase {
         avatar_url: user.avatar_url || null,
       };
 
-      const { error } = await supabase.from('profiles').upsert([payload]);
+      if (user.krow_id) {
+        payload.krow_id = user.krow_id;
+      }
+
+      // First attempt with krow_id
+      let { error } = await supabase.from('profiles').upsert([payload], { onConflict: 'id' });
+
+      // Fallback if krow_id column does not exist on target table in Supabase
+      if (error && (error.message?.includes('krow_id') || error.code === 'PGRST204')) {
+        delete payload.krow_id;
+        const res = await supabase.from('profiles').upsert([payload], { onConflict: 'id' });
+        error = res.error;
+      }
+
       if (error) {
-        console.error('Supabase profile upsert error:', error);
+        console.error('Supabase profile upsert error details:', error.message || error);
         return false;
       }
       return true;
