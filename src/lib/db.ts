@@ -13,6 +13,8 @@ import {
   VerificationStatus,
   RecurrenceType,
   RecurrenceFrequency,
+  CertificateRecord,
+  CertificateStatus,
 } from './types';
 import { getBadgeForHours } from './badges';
 import { supabase, isSupabaseConfigured } from './supabase';
@@ -49,6 +51,34 @@ export function ensureUUID(id?: string): string {
   return `00000000-0000-4000-8000-${hex.slice(0, 12)}`;
 }
 
+export function generateKrowId(existingIds: string[] = []): string {
+  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const existingSet = new Set(existingIds.map((id) => id.toUpperCase()));
+  let krowId = '';
+  do {
+    let rand = '';
+    for (let i = 0; i < 8; i++) {
+      rand += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    krowId = `KROW-${rand}`;
+  } while (existingSet.has(krowId));
+  return krowId;
+}
+
+export function generateCertificateId(existingIds: string[] = []): string {
+  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const existingSet = new Set(existingIds.map((id) => id.toUpperCase()));
+  let certId = '';
+  do {
+    let rand = '';
+    for (let i = 0; i < 8; i++) {
+      rand += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    certId = `CERT-${rand}`;
+  } while (existingSet.has(certId));
+  return certId;
+}
+
 // Clean Launch Ready State (Zero Fake Mocks)
 class LocalDatabase {
   private categories: Category[] = INITIAL_CATEGORIES;
@@ -62,6 +92,15 @@ class LocalDatabase {
   private savedOpportunityIds: string[] = [];
   private hourAuditLogs: HourAuditLog[] = [];
   private contactMessages: ContactMessage[] = [];
+  private certificates: CertificateRecord[] = [];
+
+  public ensureKrowId(profile: UserProfile): UserProfile {
+    if (!profile.krow_id) {
+      const existingKrowIds = this.profiles.map((p) => p.krow_id).filter(Boolean) as string[];
+      profile.krow_id = generateKrowId(existingKrowIds);
+    }
+    return profile;
+  }
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -123,9 +162,11 @@ class LocalDatabase {
         dbProfiles.forEach((p: any) => {
           const idx = this.profiles.findIndex((existing) => existing.id === p.id || ensureUUID(existing.id) === ensureUUID(p.id));
           const existingLocalDob = (idx >= 0 ? this.profiles[idx].dob : undefined) || (this.currentUser && (this.currentUser.id === p.id || ensureUUID(this.currentUser.id) === ensureUUID(p.id)) ? this.currentUser.dob : undefined);
+          const existingLocalKrowId = (idx >= 0 ? this.profiles[idx].krow_id : undefined) || (this.currentUser && (this.currentUser.id === p.id || ensureUUID(this.currentUser.id) === ensureUUID(p.id)) ? this.currentUser.krow_id : undefined);
 
           const mappedProfile: UserProfile = {
             id: p.id,
+            krow_id: p.krow_id || existingLocalKrowId || undefined,
             role: p.role || 'volunteer',
             email: p.email || '',
             name: p.name || 'Volunteer',
@@ -137,6 +178,9 @@ class LocalDatabase {
             avatar_url: p.avatar_url || undefined,
             created_at: p.created_at || new Date().toISOString(),
           };
+
+          this.ensureKrowId(mappedProfile);
+
           if (idx >= 0) {
             this.profiles[idx] = { ...this.profiles[idx], ...mappedProfile };
           } else {
@@ -148,6 +192,7 @@ class LocalDatabase {
               ...this.currentUser,
               ...mappedProfile,
               dob: mappedProfile.dob || this.currentUser.dob,
+              krow_id: mappedProfile.krow_id || this.currentUser.krow_id,
             };
           }
         });
@@ -318,6 +363,31 @@ class LocalDatabase {
         });
       }
 
+      // 7. Sync Certificates
+      const { data: dbCerts } = await supabase.from('certificates').select('*');
+      if (dbCerts && dbCerts.length > 0) {
+        dbCerts.forEach((c: any) => {
+          const idx = this.certificates.findIndex((existing) => existing.id === c.id || existing.certificate_id === c.certificate_id);
+          const mappedCert: CertificateRecord = {
+            id: c.id,
+            certificate_id: c.certificate_id,
+            user_id: c.user_id,
+            krow_id: c.krow_id,
+            student_name: c.student_name || 'Volunteer',
+            hours: c.hours || 0,
+            activity_count: c.activity_count || 0,
+            issued_at: c.issued_at || new Date().toISOString(),
+            status: c.status || 'VALID',
+            created_at: c.created_at || new Date().toISOString(),
+          };
+          if (idx >= 0) {
+            this.certificates[idx] = mappedCert;
+          } else {
+            this.certificates.push(mappedCert);
+          }
+        });
+      }
+
       this.saveToStorage();
     } catch (e) {
       console.error('Supabase sync error:', e);
@@ -337,6 +407,8 @@ class LocalDatabase {
       localStorage.setItem('krow_saved', JSON.stringify(this.savedOpportunityIds));
       localStorage.setItem('krow_audit', JSON.stringify(this.hourAuditLogs));
       localStorage.setItem('krow_contact_messages', JSON.stringify(this.contactMessages));
+      localStorage.setItem('krow_certificates', JSON.stringify(this.certificates));
+      localStorage.setItem('krow_profiles', JSON.stringify(this.profiles));
     } catch (e) {
       console.error('Storage save error', e);
     }
@@ -354,6 +426,9 @@ class LocalDatabase {
 
       const storedCategories = localStorage.getItem('krow_categories');
       if (storedCategories) this.categories = JSON.parse(storedCategories);
+
+      const storedProfiles = localStorage.getItem('krow_profiles');
+      if (storedProfiles) this.profiles = JSON.parse(storedProfiles);
 
       const storedOrganizers = localStorage.getItem('krow_organizers');
       if (storedOrganizers) {
@@ -404,6 +479,13 @@ class LocalDatabase {
 
       const storedMsgs = localStorage.getItem('krow_contact_messages');
       if (storedMsgs) this.contactMessages = JSON.parse(storedMsgs);
+
+      const storedCerts = localStorage.getItem('krow_certificates');
+      if (storedCerts) this.certificates = JSON.parse(storedCerts);
+
+      // Auto-backfill krow_id for all profiles & currentUser
+      this.profiles.forEach((p) => this.ensureKrowId(p));
+      if (this.currentUser) this.ensureKrowId(this.currentUser);
     } catch (e) {
       console.error('Storage load error', e);
     }
@@ -432,6 +514,7 @@ class LocalDatabase {
         .upsert([
           {
             id: user.id,
+            krow_id: user.krow_id || null,
             role: user.role,
             email: user.email,
             name: user.name,
@@ -484,6 +567,7 @@ class LocalDatabase {
         .upsert([
           {
             id: pUUID,
+            krow_id: this.currentUser.krow_id || null,
             role: this.currentUser.role,
             email: this.currentUser.email,
             name: this.currentUser.name,
@@ -499,6 +583,94 @@ class LocalDatabase {
           if (error) console.error('Supabase profile upsert error:', error);
         });
     }
+  }
+
+  // --- Certificates & Verification System ---
+  public issueCertificate(userId: string): CertificateRecord {
+    let user = this.getProfile(userId) || (this.currentUser && (this.currentUser.id === userId || ensureUUID(this.currentUser.id) === ensureUUID(userId)) ? this.currentUser : null);
+
+    if (!user && this.currentUser) {
+      user = this.currentUser;
+    }
+
+    if (!user) {
+      user = {
+        id: userId,
+        role: 'volunteer',
+        email: '',
+        name: 'Volunteer',
+        country: 'Canada',
+        province_state: 'BC',
+        city: 'Vancouver',
+        created_at: new Date().toISOString(),
+      };
+      this.ensureKrowId(user);
+      this.profiles.push(user);
+    } else {
+      this.ensureKrowId(user);
+    }
+
+    const totalHours = this.calculateVolunteerTotalHours(userId);
+    const completedShifts = this.calculateVolunteerCompletedShifts(userId);
+    const existingCertIds = this.certificates.map((c) => c.certificate_id);
+    const newCertId = generateCertificateId(existingCertIds);
+
+    const newCert: CertificateRecord = {
+      id: ensureUUID(`cert-${Date.now()}-${Math.floor(Math.random() * 1000000)}`),
+      certificate_id: newCertId,
+      user_id: user.id,
+      krow_id: user.krow_id!,
+      student_name: user.name || 'Volunteer',
+      hours: Math.round(totalHours * 10) / 10,
+      activity_count: completedShifts,
+      issued_at: new Date().toISOString(),
+      status: 'VALID',
+      created_at: new Date().toISOString(),
+    };
+
+    const existingIdx = this.certificates.findIndex((c) => c.certificate_id === newCert.certificate_id);
+    if (existingIdx >= 0) {
+      this.certificates[existingIdx] = newCert;
+    } else {
+      this.certificates.push(newCert);
+    }
+
+    this.saveToStorage();
+
+    if (isSupabaseConfigured()) {
+      supabase
+        .from('certificates')
+        .upsert([
+          {
+            id: newCert.id,
+            certificate_id: newCert.certificate_id,
+            user_id: ensureUUID(newCert.user_id),
+            krow_id: newCert.krow_id,
+            student_name: newCert.student_name,
+            hours: newCert.hours,
+            activity_count: newCert.activity_count,
+            issued_at: newCert.issued_at,
+            status: newCert.status,
+            created_at: newCert.created_at,
+          },
+        ])
+        .then(({ error }) => {
+          if (error) console.error('Supabase certificate upsert error:', error);
+        });
+    }
+
+    return newCert;
+  }
+
+  public getCertificateById(certificateId: string): CertificateRecord | undefined {
+    if (!certificateId) return undefined;
+    const cleanId = certificateId.trim().toUpperCase();
+    return this.certificates.find((c) => c.certificate_id.toUpperCase() === cleanId);
+  }
+
+  public getCertificatesForUser(userId: string): CertificateRecord[] {
+    const pUUID = ensureUUID(userId);
+    return this.certificates.filter((c) => c.user_id === userId || ensureUUID(c.user_id) === pUUID);
   }
 
   // --- Categories ---

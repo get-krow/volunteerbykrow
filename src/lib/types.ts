@@ -9,6 +9,7 @@ export type RecurrenceFrequency = 'every_day' | 'every_week' | 'every_other_week
 
 export interface UserProfile {
   id: string;
+  krow_id?: string;
   role: SystemRole;
   email: string;
   name: string;
@@ -144,5 +145,20 @@ export interface ContactMessage {
   subject: string;
   message: string;
   is_read?: boolean;
+  created_at: string;
+}
+
+export type CertificateStatus = 'VALID' | 'REVOKED';
+
+export interface CertificateRecord {
+  id: string;
+  certificate_id: string; // e.g. CERT-4D92X7PQ
+  user_id: string;
+  krow_id: string; // e.g. KROW-8F4K2M91
+  student_name: string;
+  hours: number;
+  activity_count: number;
+  issued_at: string; // ISO date string
+  status: CertificateStatus;
   created_at: string;
 }

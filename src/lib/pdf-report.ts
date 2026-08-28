@@ -146,14 +146,13 @@ export async function generateVolunteerHoursReport(
   // Sort experiences: Most recent first
   experienceItems.sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime());
 
-  // Generate Deterministic Document Verification ID
+  // Issue official certificate record in database (Source of Truth)
+  const certRecord = db.issueCertificate(profile.id);
+  const krowId = profile.krow_id || certRecord.krow_id;
+  const certificateId = certRecord.certificate_id;
+
   const dateFormatted = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  const yearStr = new Date().getFullYear().toString();
-  const cleanProfileId = (profile.id || 'VOL').replace(/[^a-zA-Z0-9]/g, '').substring(0, 6).toUpperCase();
-  const verificationId = `KROW-${yearStr}-${cleanProfileId}`;
-  
-  // Use vercel.app domain as instructed until custom domain is purchased
-  const verifyUrl = `https://volunteerbykrow.vercel.app/verify?id=${verificationId}`;
+  const verifyUrl = `https://volunteerbykrow.vercel.app/verify/${certificateId}`;
 
   // Layout tracking state
   let currentY = 15;
@@ -189,7 +188,7 @@ export async function generateVolunteerHoursReport(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(148, 163, 184);
-    doc.text(`Volunteer by Krow - Official Record - ${verificationId}`, margin, footerY);
+    doc.text(`Volunteer by Krow - Official Record - ${certificateId}`, margin, footerY);
 
     doc.setFont('helvetica', 'normal');
     doc.text(`Page ${pageNum}`, pageWidth - margin, footerY, { align: 'right' });
@@ -460,12 +459,12 @@ export async function generateVolunteerHoursReport(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(15, 23, 42);
-  doc.text(`Krow Verification ID:  ${verificationId}`, vLeftX, vBoxY + 23);
+  doc.text(`KROW ID:  ${krowId}   |   Certificate ID:  ${certificateId}`, vLeftX, vBoxY + 23);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text(`Generated Date: ${dateFormatted}  |  Status: Official Verified Record`, vLeftX, vBoxY + 28);
+  doc.text(`Issued Date: ${dateFormatted}  |  Status: Official Verified Record`, vLeftX, vBoxY + 28);
 
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(7);
@@ -495,7 +494,7 @@ export async function generateVolunteerHoursReport(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(6.5);
   doc.setTextColor(99, 91, 255);
-  doc.text('Scan to verify online', qrX + qrSize / 2, qrY + qrSize + 3, { align: 'center' });
+  doc.text('Scan to verify this certificate', qrX + qrSize / 2, qrY + qrSize + 3, { align: 'center' });
 
   // Draw Page Number on Final Page
   drawRunningFooter(pageNumber);

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { User, MapPin, Calendar, Mail, Save, LogOut, Trash2, Camera, ShieldAlert, HelpCircle, Sun, Moon } from 'lucide-react';
+import { User, MapPin, Calendar, Mail, Save, LogOut, Trash2, Camera, ShieldAlert, HelpCircle, Sun, Moon, ShieldCheck, Copy, Check } from 'lucide-react';
 import { UserProfile } from '@/lib/types';
 import { db } from '@/lib/db';
 import { useTheme } from '@/lib/theme';
@@ -36,6 +36,7 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
   const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar_url || '');
 
   const [isSaved, setIsSaved] = useState(false);
+  const [copiedKrowId, setCopiedKrowId] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   useEffect(() => {
@@ -92,6 +93,48 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
             Profile changes saved successfully!
           </div>
         )}
+
+        {/* Krow Identity Section */}
+        <div className="p-4 bg-purple-50/70 rounded-2xl border border-purple-100 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xs font-extrabold text-gray-900 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-[#635BFF]" /> Krow Identity
+              </h3>
+              <p className="text-[11px] text-gray-500 mt-0.5">
+                Your unique Krow ID identifies your account and appears on official Krow certificates.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between bg-white px-4 py-2.5 rounded-xl border border-purple-200 shadow-2xs">
+            <div>
+              <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider block">Your KROW ID</span>
+              <span className="text-sm font-black text-gray-900 tracking-wider font-mono">
+                {currentUser.krow_id || 'KROW-8F4K2M91'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const idToCopy = currentUser.krow_id || 'KROW-8F4K2M91';
+                navigator.clipboard.writeText(idToCopy);
+                setCopiedKrowId(true);
+                setTimeout(() => setCopiedKrowId(false), 2000);
+              }}
+              className="px-3.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-[#635BFF] rounded-lg text-xs font-extrabold flex items-center gap-1.5 transition-colors border border-purple-200"
+            >
+              {copiedKrowId ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-600" /> Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" /> Copy
+                </>
+              )}
+            </button>
+          </div>
+        </div>
 
         <form onSubmit={handleSave} className="space-y-4">
           {/* Avatar Upload */}
