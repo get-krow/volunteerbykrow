@@ -64,8 +64,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
     { name: 'Privacy Policy', href: '/privacy' },
   ];
 
-  const handleLogout = () => {
-    db.setCurrentUser(null);
+  const handleLogout = async () => {
+    await db.logout();
     window.location.href = '/';
   };
 

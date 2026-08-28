@@ -64,8 +64,8 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
     setNotifications(db.getNotifications(currentUser.id));
   };
 
-  const handleLogout = () => {
-    db.setCurrentUser(null);
+  const handleLogout = async () => {
+    await db.logout();
     window.location.href = '/';
   };
 

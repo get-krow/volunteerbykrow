@@ -66,8 +66,8 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
     setTimeout(() => setIsSaved(false), 3000);
   };
 
-  const handleLogoutClick = () => {
-    db.setCurrentUser(null);
+  const handleLogoutClick = async () => {
+    await db.logout();
     if (onLogout) onLogout();
     window.location.href = '/';
   };

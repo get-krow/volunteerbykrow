@@ -18,8 +18,8 @@ export default function ProfilePage() {
     });
   }, []);
 
-  const handleLogout = () => {
-    db.setCurrentUser(null);
+  const handleLogout = async () => {
+    await db.logout();
     setCurrentUser(null);
     window.location.href = '/';
   };

@@ -127,6 +127,12 @@ class LocalDatabase {
     try {
       const processSession = async (session: any) => {
         if (!session?.user) return;
+
+        // Skip auto-login if the user explicitly clicked Log Out
+        if (typeof window !== 'undefined' && localStorage.getItem('krow_explicit_logged_out') === 'true') {
+          return;
+        }
+
         const uUUID = ensureUUID(session.user.id);
         const rawMeta = session.user.user_metadata || {};
         const fullName = rawMeta.full_name || rawMeta.name || session.user.email?.split('@')[0] || 'Volunteer';
@@ -168,7 +174,8 @@ class LocalDatabase {
         };
 
         this.ensureKrowId(user);
-        this.setCurrentUser(user);
+        this.currentUser = user;
+        this.saveToStorage();
         await this.saveProfileToSupabase(user);
 
         // Clean ugly OAuth token hash or code query params from browser URL bar after successful login
@@ -184,7 +191,16 @@ class LocalDatabase {
       });
 
       supabase.auth.onAuthStateChange((event, session) => {
-        if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+        if (event === 'SIGNED_OUT') {
+          this.currentUser = null;
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('krow_currentUser');
+            localStorage.setItem('krow_explicit_logged_out', 'true');
+          }
+        } else if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('krow_explicit_logged_out');
+          }
           processSession(session);
         }
       });
@@ -632,6 +648,9 @@ class LocalDatabase {
 
   public setCurrentUser(user: UserProfile | null) {
     if (user) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('krow_explicit_logged_out');
+      }
       const uId = ensureUUID(user.id);
       user.id = uId;
       this.ensureKrowId(user);
@@ -651,6 +670,14 @@ class LocalDatabase {
         this.profiles[pIdx] = { ...user };
       } else {
         this.profiles.push({ ...user });
+      }
+    } else {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('krow_currentUser');
+        localStorage.setItem('krow_explicit_logged_out', 'true');
+      }
+      if (isSupabaseConfigured()) {
+        supabase.auth.signOut().catch(() => {});
       }
     }
     this.currentUser = user;
@@ -672,6 +699,21 @@ class LocalDatabase {
           created_at: new Date().toISOString(),
         };
         this.saveOrganizer(orgToSave);
+      }
+    }
+  }
+
+  public async logout(): Promise<void> {
+    this.currentUser = null;
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('krow_currentUser');
+      localStorage.setItem('krow_explicit_logged_out', 'true');
+    }
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.auth.signOut();
+      } catch (e) {
+        console.warn('Supabase signOut error:', e);
       }
     }
   }
@@ -704,30 +746,51 @@ class LocalDatabase {
     }
   }
 
-  public async deleteProfile(userId: string): Promise<boolean> {
+  public async deleteAccount(userId: string): Promise<boolean> {
     const uUUID = ensureUUID(userId);
+
+    // 1. Remove from local memory & storage
     this.profiles = this.profiles.filter((p) => p.id !== userId && ensureUUID(p.id) !== uUUID);
+    this.organizers = this.organizers.filter((o) => o.id !== userId && ensureUUID(o.id) !== uUUID);
+    this.registrations = this.registrations.filter((r) => r.volunteer_id !== userId && ensureUUID(r.volunteer_id) !== uUUID);
+    this.attendance = this.attendance.filter((a) => a.volunteer_id !== userId && ensureUUID(a.volunteer_id) !== uUUID);
+    this.notifications = this.notifications.filter((n) => n.user_id !== userId && ensureUUID(n.user_id) !== uUUID);
 
     if (this.currentUser && (this.currentUser.id === userId || ensureUUID(this.currentUser.id) === uUUID)) {
       this.currentUser = null;
       if (typeof window !== 'undefined') {
         localStorage.removeItem('krow_currentUser');
+        localStorage.setItem('krow_explicit_logged_out', 'true');
       }
     }
 
     this.saveToStorage();
 
+    // 2. Permanently delete from Supabase tables & sign out session
     if (isSupabaseConfigured()) {
       try {
-        await supabase.from('profiles').delete().or(`id.eq.${userId},id.eq.${uUUID}`);
         await supabase.from('organizer_profiles').delete().or(`id.eq.${userId},id.eq.${uUUID}`);
+        await supabase.from('registrations').delete().or(`volunteer_id.eq.${userId},volunteer_id.eq.${uUUID}`);
+        await supabase.from('attendance').delete().or(`volunteer_id.eq.${userId},volunteer_id.eq.${uUUID}`);
+        await supabase.from('notifications').delete().or(`user_id.eq.${userId},user_id.eq.${uUUID}`);
+        
+        const { error: profErr } = await supabase.from('profiles').delete().or(`id.eq.${userId},id.eq.${uUUID}`);
+        if (profErr) {
+          console.error('Error deleting profile from Supabase:', profErr);
+        }
+
+        await supabase.auth.signOut();
         return true;
       } catch (err) {
-        console.error('Error deleting profile from Supabase:', err);
+        console.error('Error in deleteAccount Supabase execution:', err);
         return false;
       }
     }
     return true;
+  }
+
+  public async deleteProfile(userId: string): Promise<boolean> {
+    return this.deleteAccount(userId);
   }
 
   // --- Certificates & Verification System ---
@@ -1060,26 +1123,6 @@ class LocalDatabase {
     }
   }
 
-  public async deleteAccount(userId: string): Promise<void> {
-    if (this.currentUser?.id === userId) {
-      this.currentUser = null;
-    }
-    this.organizers = this.organizers.filter((o) => o.id !== userId);
-    this.opportunities = this.opportunities.filter((o) => o.org_id !== userId);
-    this.registrations = this.registrations.filter((r) => r.volunteer_id !== userId);
-    this.attendance = this.attendance.filter((a) => a.volunteer_id !== userId);
-    this.saveToStorage();
-
-    if (isSupabaseConfigured()) {
-      try {
-        await supabase.from('organizer_profiles').delete().eq('id', userId);
-        await supabase.from('profiles').delete().eq('id', userId);
-        await supabase.auth.signOut();
-      } catch (err) {
-        console.error('Supabase account delete error:', err);
-      }
-    }
-  }
 
   public saveOrganizer(org: OrganizerProfile) {
     const orgId = ensureUUID(org.id);

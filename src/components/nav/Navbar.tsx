@@ -202,8 +202,8 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, onOpenAuth, onLogou
                 </span>
               </div>
               <button
-                onClick={() => {
-                  db.setCurrentUser(null);
+                onClick={async () => {
+                  await db.logout();
                   if (onLogout) onLogout();
                   window.location.href = '/';
                 }}
