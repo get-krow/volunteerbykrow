@@ -172,12 +172,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-[#202123] rounded-[28px] shadow-2xl border border-zinc-800 max-w-[440px] w-full p-7 sm:p-8 relative text-white overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-[28px] shadow-2xl border border-gray-100 max-w-[420px] w-full p-7 sm:p-8 relative text-gray-900 overflow-hidden">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-2 text-zinc-400 hover:text-white rounded-full hover:bg-zinc-800 transition-colors"
+          className="absolute top-5 right-5 p-2 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors"
           aria-label="Close modal"
         >
           <X className="w-5 h-5" />
@@ -190,7 +190,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               setView('main');
               resetMessages();
             }}
-            className="absolute top-5 left-5 p-2 text-zinc-400 hover:text-white rounded-full hover:bg-zinc-800 transition-colors flex items-center gap-1 text-xs"
+            className="absolute top-5 left-5 p-2 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors flex items-center gap-1 text-xs font-semibold"
             aria-label="Go back"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -199,25 +199,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Account Role Selector (Volunteer / Organizer) */}
         <div className="flex justify-center mb-6">
-          <div className="inline-flex bg-zinc-900 p-1 rounded-full border border-zinc-800 text-xs font-semibold">
+          <div className="inline-flex bg-gray-100 p-1 rounded-full border border-gray-200/80 text-xs font-semibold">
             <button
               type="button"
               onClick={() => setRole('volunteer')}
               className={`px-4 py-1.5 rounded-full transition-all flex items-center gap-1.5 ${
                 role === 'volunteer'
-                  ? 'bg-zinc-700 text-white shadow-xs font-bold'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-white text-gray-900 shadow-2xs font-black'
+                  : 'text-gray-500 hover:text-gray-900'
               }`}
             >
-              <User className="w-3.5 h-3.5" /> Volunteer
+              <User className="w-3.5 h-3.5 text-[#635BFF]" /> Volunteer
             </button>
             <button
               type="button"
               onClick={() => setRole('organizer')}
               className={`px-4 py-1.5 rounded-full transition-all flex items-center gap-1.5 ${
                 role === 'organizer'
-                  ? 'bg-[#635BFF] text-white shadow-xs font-bold'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-[#635BFF] text-white shadow-2xs font-black'
+                  : 'text-gray-500 hover:text-gray-900'
               }`}
             >
               <Building2 className="w-3.5 h-3.5" /> Organizer
@@ -227,12 +227,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Messages */}
         {errorMsg && (
-          <div className="mb-4 p-3 bg-red-950/60 border border-red-800/60 text-red-300 rounded-2xl text-xs flex items-start gap-2">
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-xs flex items-start gap-2">
             <span>{errorMsg}</span>
           </div>
         )}
         {successMsg && (
-          <div className="mb-4 p-3 bg-emerald-950/60 border border-emerald-800/60 text-emerald-300 rounded-2xl text-xs flex items-start gap-2">
+          <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl text-xs flex items-start gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{successMsg}</span>
           </div>
@@ -241,10 +241,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {/* MAIN VIEW */}
         {view === 'main' && (
           <div>
-            <h2 className="text-2xl font-bold text-white text-center mb-2 tracking-tight">
+            <h2 className="text-2xl font-black text-gray-900 text-center mb-1.5 tracking-tight">
               Log in or sign up
             </h2>
-            <p className="text-xs sm:text-sm text-zinc-400 text-center mb-7 px-2 font-normal leading-relaxed">
+            <p className="text-xs sm:text-sm text-gray-500 text-center mb-6 font-medium leading-relaxed">
               You’ll get smarter responses and can upload files, images, and more.
             </p>
 
@@ -254,7 +254,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 type="button"
                 onClick={handleGoogleAuth}
                 disabled={isLoading}
-                className="w-full py-3.5 px-4 rounded-full border border-zinc-700/70 bg-[#2b2c2e]/60 hover:bg-zinc-700/70 text-white font-semibold text-sm flex items-center justify-center gap-3 transition-colors shadow-xs"
+                className="w-full py-3.5 px-4 rounded-full border border-gray-200 bg-white hover:bg-gray-50 text-gray-800 font-bold text-sm flex items-center justify-center gap-3 transition-colors shadow-2xs"
               >
                 <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                   <path
@@ -280,11 +280,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
             {/* Divider */}
             <div className="relative flex py-5 items-center">
-              <div className="flex-grow border-t border-zinc-700/60"></div>
-              <span className="flex-shrink mx-4 text-xs font-semibold text-zinc-400 tracking-wider">
+              <div className="flex-grow border-t border-gray-200"></div>
+              <span className="flex-shrink mx-4 text-[11px] font-bold text-gray-400 tracking-wider">
                 OR
               </span>
-              <div className="flex-grow border-t border-zinc-700/60"></div>
+              <div className="flex-grow border-t border-gray-200"></div>
             </div>
 
             {/* Email Input & Continue Form */}
@@ -295,15 +295,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email address"
-                className="w-full px-5 py-3.5 rounded-full bg-black border border-zinc-700/80 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-all"
+                className="w-full px-5 py-3.5 rounded-full bg-gray-50 border border-gray-200 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-[#635BFF] focus:bg-white focus:ring-2 focus:ring-[#635BFF]/20 transition-all font-medium"
               />
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3.5 bg-white hover:bg-zinc-200 text-black font-bold text-sm rounded-full transition-colors shadow-md flex items-center justify-center gap-2"
+                className="w-full py-3.5 bg-[#635BFF] hover:bg-[#5046E5] text-white font-bold text-sm rounded-full transition-colors shadow-md flex items-center justify-center gap-2"
               >
-                {isLoading ? <Loader2 className="w-4 h-4 animate-spin text-black" /> : <span>Continue</span>}
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <span>Continue</span>}
               </button>
             </form>
           </div>
@@ -313,12 +313,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {view === 'email_pass' && (
           <form onSubmit={handleCompleteEmailAuth} className="space-y-4 pt-2">
             <div className="text-center mb-4">
-              <h3 className="text-xl font-bold text-white">Enter password</h3>
-              <p className="text-xs text-zinc-400 mt-1">{email}</p>
+              <h3 className="text-xl font-black text-gray-900">Enter password</h3>
+              <p className="text-xs text-gray-500 font-medium mt-1">{email}</p>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+              <label className="block text-xs font-bold text-gray-700 mb-1.5">
                 {role === 'organizer' ? 'Organization / Contact Name' : 'Full Name (Optional)'}
               </label>
               <input
@@ -326,28 +326,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder={role === 'organizer' ? 'e.g. Vancouver Food Bank' : 'e.g. Alex Smith'}
-                className="w-full px-4 py-3 rounded-2xl bg-black border border-zinc-700 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-white transition-all"
+                className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-[#635BFF] focus:bg-white transition-all font-medium"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1.5">Password</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5">Password</label>
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 rounded-2xl bg-black border border-zinc-700 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-white transition-all"
+                className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-[#635BFF] focus:bg-white transition-all font-medium"
               />
             </div>
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3.5 bg-white hover:bg-zinc-200 text-black font-bold text-sm rounded-full transition-colors mt-2 flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-[#635BFF] hover:bg-[#5046E5] text-white font-bold text-sm rounded-full transition-colors mt-2 flex items-center justify-center gap-2 shadow-md"
             >
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin text-black" /> : <span>Complete Sign In</span>}
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <span>Complete Sign In</span>}
             </button>
           </form>
         )}
