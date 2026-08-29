@@ -227,6 +227,8 @@ class LocalDatabase {
           const existingLocalDob = (idx >= 0 ? this.profiles[idx].dob : undefined) || (this.currentUser && (this.currentUser.id === p.id || ensureUUID(this.currentUser.id) === ensureUUID(p.id)) ? this.currentUser.dob : undefined);
           const existingLocalKrowId = (idx >= 0 ? this.profiles[idx].krow_id : undefined) || (this.currentUser && (this.currentUser.id === p.id || ensureUUID(this.currentUser.id) === ensureUUID(p.id)) ? this.currentUser.krow_id : undefined);
 
+          const existingLocalLocationSet = (idx >= 0 ? this.profiles[idx].location_set : undefined) ?? (this.currentUser && (this.currentUser.id === p.id || ensureUUID(this.currentUser.id) === ensureUUID(p.id)) ? this.currentUser.location_set : undefined);
+
           const mappedProfile: UserProfile = {
             id: p.id,
             krow_id: p.krow_id || existingLocalKrowId || undefined,
@@ -234,9 +236,10 @@ class LocalDatabase {
             email: p.email || '',
             name: p.name || 'Volunteer',
             dob: p.dob || existingLocalDob || undefined,
-            country: p.country || 'Canada',
-            province_state: p.province_state || 'BC',
-            city: p.city || 'Vancouver',
+            country: p.country || (idx >= 0 ? this.profiles[idx].country : undefined) || 'Canada',
+            province_state: p.province_state || (idx >= 0 ? this.profiles[idx].province_state : undefined) || 'BC',
+            city: p.city || (idx >= 0 ? this.profiles[idx].city : undefined) || 'Vancouver',
+            location_set: p.location_set ?? existingLocalLocationSet ?? true,
             bio: p.bio || undefined,
             avatar_url: p.avatar_url || undefined,
             created_at: p.created_at || new Date().toISOString(),

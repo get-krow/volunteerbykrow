@@ -51,9 +51,28 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     }
   };
 
+  const [hasSeenDobModal, setHasSeenDobModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (currentUser?.id && typeof window !== 'undefined') {
+      const seen = localStorage.getItem(`krow_dob_modal_seen_${currentUser.id}`);
+      if (seen === 'true') {
+        setHasSeenDobModal(true);
+      }
+    }
+  }, [currentUser?.id]);
+
+  const handleDismissDobModal = () => {
+    if (currentUser?.id && typeof window !== 'undefined') {
+      localStorage.setItem(`krow_dob_modal_seen_${currentUser.id}`, 'true');
+    }
+    setHasSeenDobModal(true);
+  };
+
   const isProfileIncomplete =
     currentUser &&
     currentUser.role === 'volunteer' &&
+    !hasSeenDobModal &&
     (!currentUser.dob || currentUser.dob.trim() === '' || !currentUser.location_set);
 
   return (
@@ -82,8 +101,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         <DobReminderModal
           currentUser={currentUser}
           isOpen={true}
-          onClose={() => {}}
+          onClose={handleDismissDobModal}
           onSaveSuccess={(updated) => {
+            handleDismissDobModal();
             setCurrentUser(updated);
             db.setCurrentUser(updated);
           }}
