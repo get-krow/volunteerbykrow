@@ -341,103 +341,41 @@ export async function generateVolunteerHoursReport(
 
   currentY += 20;
 
-  // Volunteer Experience Section Header
-  ensureSpace(12);
+  // Volunteer Experience Section Header & Online Record Notice
+  ensureSpace(28);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.setTextColor(79, 70, 229);
-  doc.text('VOLUNTEER EXPERIENCE', margin, currentY);
+  doc.text('VOLUNTEER EXPERIENCE & SHIFT BREAKDOWN', margin, currentY);
   currentY += 2;
   doc.setDrawColor(221, 214, 254);
   doc.setLineWidth(0.4);
-  doc.line(margin, currentY, margin + 45, currentY);
+  doc.line(margin, currentY, margin + 70, currentY);
   currentY += 6;
 
-  // Render Volunteer Experience List
-  if (experienceItems.length === 0) {
-    ensureSpace(20);
-    doc.setFillColor(248, 250, 252);
-    doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(margin, currentY, printableWidth, 18, 3, 3, 'FD');
+  // Render Experience Summary Banner Box
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.4);
+  doc.roundedRect(margin, currentY, printableWidth, 22, 3, 3, 'FD');
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(100, 116, 139);
-    doc.text('No verified volunteer experience recorded yet.', margin + 8, currentY + 8);
+  doc.setFillColor(99, 91, 255);
+  doc.rect(margin, currentY, 2.5, 22, 'F');
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(148, 163, 184);
-    doc.text('Completed volunteer opportunities verified by partner organizations will appear here.', margin + 8, currentY + 13);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`Official Shift Audit Log (${completedShiftsCount} Completed Activities)`, margin + 6, currentY + 6);
 
-    currentY += 24;
-  } else {
-    experienceItems.forEach((exp) => {
-      const boxH = exp.is_recurring && exp.completed_dates.length > 0 ? 28 : 22;
-      ensureSpace(boxH + 3);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105);
+  const summaryNotice =
+    `Full itemized shift logs, dates, hourly contributions (${totalAwardedHours} Total Verified Hours), and organization verification records are securely hosted on the official Krow Verification Portal. Scan the QR code below or visit the verification link to inspect complete experience records.`;
+  const splitNotice = doc.splitTextToSize(summaryNotice, printableWidth - 12);
+  doc.text(splitNotice, margin + 6, currentY + 11);
 
-      doc.setFillColor(255, 255, 255);
-      doc.setDrawColor(226, 232, 240);
-      doc.setLineWidth(0.3);
-      doc.roundedRect(margin, currentY, printableWidth, boxH, 3, 3, 'FD');
-
-      // Left Accent Strip
-      doc.setFillColor(99, 91, 255);
-      doc.rect(margin, currentY, 2, boxH, 'F');
-
-      // Title & Hours
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10.5);
-      doc.setTextColor(15, 23, 42);
-      doc.text(exp.title, margin + 5, currentY + 5.5);
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9.5);
-      doc.setTextColor(79, 70, 229);
-      doc.text(`${exp.hours_awarded} verified hrs`, pageWidth - margin - 4, currentY + 5.5, { align: 'right' });
-
-      // Org Name & Verification Status (ASCII safe)
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.5);
-      doc.setTextColor(71, 85, 105);
-      const orgLabel = exp.org_is_verified ? `Verified Partner: ${exp.org_name}` : exp.org_name;
-      doc.text(orgLabel, margin + 5, currentY + 10);
-
-      // Date Range & Occurrence Details (ASCII safe)
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.setTextColor(100, 116, 139);
-
-      let dateSubtext = '';
-      if (exp.is_recurring) {
-        dateSubtext = `${formatDateShort(exp.start_date)} - ${formatDate(exp.end_date)}  |  ${exp.completed_occurrences_count} of ${exp.total_occurrences_count} occurrences completed`;
-      } else {
-        dateSubtext = `${formatDate(exp.start_date)}`;
-      }
-      doc.text(dateSubtext, margin + 5, currentY + 14.5);
-
-      // Description snippet
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.5);
-      doc.setTextColor(148, 163, 184);
-      const descSnippet = doc.splitTextToSize(exp.description, printableWidth - 10)[0] || '';
-      doc.text(descSnippet, margin + 5, currentY + 18.5);
-
-      // Optional Completed Dates list for recurring series (ASCII safe)
-      if (exp.is_recurring && exp.completed_dates.length > 0 && boxH >= 28) {
-        doc.setFont('helvetica', 'italic');
-        doc.setFontSize(7);
-        doc.setTextColor(124, 58, 237);
-        const datesFormatted = exp.completed_dates.map(formatDateShort).join(', ');
-        doc.text(`Completed dates: ${datesFormatted}`, margin + 5, currentY + 24);
-      }
-
-      currentY += boxH + 4;
-    });
-  }
-
-  currentY += 6;
+  currentY += 28;
 
   // Verification Box & High-Resolution PNG QR Code
   ensureSpace(44);

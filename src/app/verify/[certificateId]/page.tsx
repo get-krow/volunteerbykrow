@@ -58,6 +58,83 @@ export default function CertificateVerificationPage() {
     };
   }, [rawCertId, tokenParam]);
 
+  const experiences = React.useMemo(() => {
+    if (!certRecord?.user_id) return [];
+    const rawAtt = db.getAttendanceForVolunteer(certRecord.user_id);
+    const verifiedAtt = rawAtt.filter((a) => a.status === 'here');
+    const allOpps = db.getOpportunities();
+
+    const items: Array<{
+      id: string;
+      title: string;
+      orgName: string;
+      isVerifiedOrg: boolean;
+      category: string;
+      hours: number;
+      dateStr: string;
+      isRecurring: boolean;
+      description: string;
+      completedOccurrences?: number;
+      totalOccurrences?: number;
+    }> = [];
+
+    const processedSeries = new Set<string>();
+
+    verifiedAtt.forEach((att) => {
+      const opp = allOpps.find((o) => o.id === att.opportunity_id);
+      const seriesId = opp?.recurrence_series_id;
+
+      if (opp?.is_recurring && opp?.recurrence_type === 'same_volunteers' && seriesId) {
+        if (processedSeries.has(seriesId)) return;
+        processedSeries.add(seriesId);
+
+        const seriesOpps = allOpps.filter((o) => o.recurrence_series_id === seriesId);
+        const seriesAtts = verifiedAtt.filter((a) => seriesOpps.some((o) => o.id === a.opportunity_id));
+        const mainOpp = seriesOpps.find((o) => o.occurrence_number === undefined) || seriesOpps[0] || opp;
+        const totalHrs = seriesAtts.reduce((sum, a) => sum + (a.hours_awarded || mainOpp.duration_hours || 0), 0);
+        const dates = seriesAtts
+          .map((a) => seriesOpps.find((x) => x.id === a.opportunity_id)?.date || '')
+          .filter(Boolean)
+          .sort();
+
+        const org = db.getOrganizer(mainOpp.org_id);
+        const isOrgVerified = (org?.verification_status || mainOpp.org_verification_status || 'verified') === 'verified';
+
+        items.push({
+          id: seriesId,
+          title: mainOpp.title,
+          orgName: mainOpp.org_name || 'Partner Organization',
+          isVerifiedOrg: isOrgVerified,
+          category: (mainOpp.category_id || 'community').replace('_', ' '),
+          hours: Math.round(totalHrs * 10) / 10,
+          dateStr: dates.length > 1 ? `${dates[0]} to ${dates[dates.length - 1]}` : dates[0] || mainOpp.date,
+          isRecurring: true,
+          description: mainOpp.description || 'Assisted with community volunteer initiative.',
+          completedOccurrences: seriesAtts.length,
+          totalOccurrences: mainOpp.recurrence_count || seriesOpps.filter((o) => o.occurrence_number !== undefined).length || seriesAtts.length,
+        });
+      } else if (opp) {
+        const org = db.getOrganizer(opp.org_id);
+        const isOrgVerified = (org?.verification_status || opp.org_verification_status || 'verified') === 'verified';
+        const hrs = att.hours_awarded || opp.duration_hours || 0;
+
+        items.push({
+          id: att.id,
+          title: opp.title,
+          orgName: opp.org_name || 'Partner Organization',
+          isVerifiedOrg: isOrgVerified,
+          category: (opp.category_id || 'community').replace('_', ' '),
+          hours: Math.round(hrs * 10) / 10,
+          dateStr: opp.date,
+          isRecurring: false,
+          description: opp.description || 'Participated in community volunteer activity.',
+        });
+      }
+    });
+
+    return items;
+  }, [certRecord?.user_id]);
+
   const handleManualSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputCertId.trim()) return;
@@ -196,6 +273,72 @@ export default function CertificateVerificationPage() {
                   </div>
                   <span className="text-xs font-bold text-gray-900">{formatDateStr(certRecord.issued_at)}</span>
                 </div>
+              </div>
+
+              {/* Itemized Volunteer Experience Breakdown Section */}
+              <div className="space-y-4 pt-4 border-t border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Award className="w-4 h-4 text-[#635BFF]" />
+                    <h3 className="font-extrabold text-sm text-gray-900">
+                      Verified Experience & Shift Breakdown
+                    </h3>
+                  </div>
+                  <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-100">
+                    {experiences.length} Activity Log{experiences.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+
+                {experiences.length === 0 ? (
+                  <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-center text-xs text-gray-400 font-medium">
+                    Verified shifts logged by partner organizations will appear here.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {experiences.map((exp) => (
+                      <div
+                        key={exp.id}
+                        className="p-4 rounded-2xl bg-white border border-gray-100 shadow-2xs hover:border-purple-200 transition-all space-y-2"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#635BFF] bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
+                                {exp.category}
+                              </span>
+                              {exp.isRecurring && (
+                                <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-700 bg-purple-100/60 px-2 py-0.5 rounded-full">
+                                  Recurring ({exp.completedOccurrences}/{exp.totalOccurrences} Shifts)
+                                </span>
+                              )}
+                            </div>
+                            <h4 className="font-black text-sm text-gray-900">{exp.title}</h4>
+                            <p className="text-xs text-gray-500 font-medium flex items-center gap-1">
+                              <span>{exp.orgName}</span>
+                              {exp.isVerifiedOrg && (
+                                <span className="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                                  Verified Partner ✓
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                          <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-black text-xs shrink-0">
+                            +{exp.hours} Verified Hrs
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-gray-400 border-t border-gray-50 pt-2 font-medium">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-[#635BFF]" /> {exp.dateStr}
+                          </span>
+                          <span className="text-emerald-600 font-extrabold text-[10px] uppercase tracking-wider">
+                            Verified Attendance ✓
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Official Source of Truth Notice */}
