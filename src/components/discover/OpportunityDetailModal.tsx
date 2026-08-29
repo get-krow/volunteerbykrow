@@ -68,10 +68,20 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
     return `${parseTime(startTime)} to ${parseTime(endTime)}`;
   };
 
-  const formatFreqLabel = (freq?: string) => {
-    if (freq === 'every_day') return 'Every Day';
-    if (freq === 'every_other_week') return 'Every 2 Weeks';
-    if (freq === 'every_month') return 'Every Month';
+  const formatFreqLabel = (freq?: string, dates?: string[]) => {
+    let f = freq;
+    if ((!f || f === 'every_week') && dates && dates.length > 1) {
+      const d1 = new Date(dates[0] + 'T00:00:00').getTime();
+      const d2 = new Date(dates[1] + 'T00:00:00').getTime();
+      const diffDays = Math.round((d2 - d1) / 86400000);
+      if (diffDays === 1) f = 'every_day';
+      else if (diffDays === 14) f = 'every_other_week';
+      else if (diffDays >= 27 && diffDays <= 31) f = 'every_month';
+      else if (diffDays === 7) f = 'every_week';
+    }
+    if (f === 'every_day') return 'Every Day';
+    if (f === 'every_other_week') return 'Every 2 Weeks';
+    if (f === 'every_month') return 'Every Month';
     return 'Every Week';
   };
 
@@ -156,7 +166,7 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                     </p>
                     {opp.occurrence_dates && opp.occurrence_dates.length > 0 && (
                       <div className="pt-2 border-t border-purple-200/60">
-                        <span className="text-[11px] font-bold text-gray-800 block mb-1">Scheduled Dates ({formatFreqLabel(opp.recurrence_frequency)}):</span>
+                        <span className="text-[11px] font-bold text-gray-800 block mb-1">Scheduled Dates ({formatFreqLabel(opp.recurrence_frequency, opp.occurrence_dates)}):</span>
                         <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
                           {opp.occurrence_dates.map((dStr, idx) => (
                             <span key={dStr} className="text-[10px] font-bold px-2 py-0.5 bg-white text-purple-900 rounded-md border border-purple-200 shadow-2xs">
@@ -199,7 +209,7 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                     <div>
                       <div className="font-bold text-gray-900">
                         {opp.recurrence_type === 'same_volunteers'
-                          ? `${formatFreqLabel(opp.recurrence_frequency)} · ${formatDate(opp.series_start_date || opp.date)} – ${formatDate(opp.series_end_date || opp.date)}`
+                          ? `${formatFreqLabel(opp.recurrence_frequency, opp.occurrence_dates)} · ${formatDate(opp.series_start_date || opp.date)} – ${formatDate(opp.series_end_date || opp.date)}`
                           : formatDate(opp.date)}
                       </div>
                       <div className="text-gray-500 text-[11px]">{formatTime(opp.start_time, opp.end_time)}</div>
