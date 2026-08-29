@@ -138,22 +138,25 @@ class LocalDatabase {
         const fullName = rawMeta.full_name || rawMeta.name || session.user.email?.split('@')[0] || 'Volunteer';
         const avatarUrl = rawMeta.avatar_url || rawMeta.picture || null;
 
+        const localCur = (this.currentUser && (this.currentUser.id === session.user.id || ensureUUID(this.currentUser.id) === uUUID)) ? this.currentUser : null;
+
         let existingRemoteProfile: UserProfile | null = null;
         try {
           const { data } = await supabase.from('profiles').select('*').or(`id.eq.${session.user.id},id.eq.${uUUID}`).single();
           if (data) {
             existingRemoteProfile = {
               id: data.id,
-              krow_id: data.krow_id || undefined,
-              role: data.role || (rawMeta.role as SystemRole) || 'volunteer',
+              krow_id: data.krow_id || localCur?.krow_id || undefined,
+              role: data.role || (rawMeta.role as SystemRole) || localCur?.role || 'volunteer',
               email: data.email || session.user.email,
-              name: data.name || fullName,
-              dob: data.dob || undefined,
-              country: data.country || 'Canada',
-              province_state: data.province_state || 'BC',
-              city: data.city || 'Vancouver',
-              bio: data.bio || undefined,
-              avatar_url: data.avatar_url || avatarUrl || undefined,
+              name: data.name || localCur?.name || fullName,
+              dob: data.dob || localCur?.dob || undefined,
+              country: data.country || localCur?.country || 'Canada',
+              province_state: data.province_state || localCur?.province_state || 'BC',
+              city: data.city || localCur?.city || 'Vancouver',
+              location_set: data.location_set ?? localCur?.location_set ?? true,
+              bio: data.bio || localCur?.bio || undefined,
+              avatar_url: data.avatar_url || avatarUrl || localCur?.avatar_url || undefined,
               created_at: data.created_at || new Date().toISOString(),
             };
           }
@@ -164,12 +167,14 @@ class LocalDatabase {
         const user: UserProfile = existingRemoteProfile || {
           id: uUUID,
           email: session.user.email || 'volunteer@gmail.com',
-          role: (rawMeta.role as SystemRole) || 'volunteer',
-          name: fullName,
-          avatar_url: avatarUrl || undefined,
-          country: 'Canada',
-          province_state: 'BC',
-          city: 'Vancouver',
+          role: (rawMeta.role as SystemRole) || localCur?.role || 'volunteer',
+          name: localCur?.name || fullName,
+          avatar_url: avatarUrl || localCur?.avatar_url || undefined,
+          dob: localCur?.dob || undefined,
+          country: localCur?.country || 'Canada',
+          province_state: localCur?.province_state || 'BC',
+          city: localCur?.city || 'Vancouver',
+          location_set: localCur?.location_set ?? true,
           created_at: new Date().toISOString(),
         };
 
@@ -611,6 +616,36 @@ class LocalDatabase {
 
   public getCurrentUser(): UserProfile | null {
     return this.currentUser;
+  }
+
+  public async getProfileFromSupabase(id: string): Promise<UserProfile | null> {
+    if (!isSupabaseConfigured() || !id) return null;
+    try {
+      const uUUID = ensureUUID(id);
+      const { data } = await supabase.from('profiles').select('*').or(`id.eq.${id},id.eq.${uUUID}`).single();
+      if (data) {
+        const mapped: UserProfile = {
+          id: data.id,
+          krow_id: data.krow_id || undefined,
+          role: data.role || 'volunteer',
+          email: data.email || '',
+          name: data.name || 'User',
+          dob: data.dob || undefined,
+          country: data.country || 'Canada',
+          province_state: data.province_state || 'BC',
+          city: data.city || 'Vancouver',
+          location_set: true,
+          bio: data.bio || undefined,
+          avatar_url: data.avatar_url || undefined,
+          created_at: data.created_at || new Date().toISOString(),
+        };
+        this.ensureKrowId(mapped);
+        return mapped;
+      }
+    } catch (e) {
+      console.warn('getProfileFromSupabase error:', e);
+    }
+    return null;
   }
 
   public async saveProfileToSupabase(user: UserProfile): Promise<boolean> {

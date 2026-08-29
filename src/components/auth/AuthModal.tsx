@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { X, User, Building2, ArrowLeft, Loader2, CheckCircle2, MapPin, Calendar } from 'lucide-react';
 import { SystemRole, UserProfile } from '@/lib/types';
-import { db } from '@/lib/db';
+import { db, ensureUUID } from '@/lib/db';
 import { supabase } from '@/lib/supabase';
 
 interface AuthModalProps {
@@ -131,7 +131,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setView('email_pass');
   };
 
-  const handleProceedToOnboarding = (e: React.FormEvent) => {
+  const handleProceedToOnboarding = async (e: React.FormEvent) => {
     e.preventDefault();
     resetMessages();
     if (!password || password.length < 6) {
@@ -139,6 +139,57 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
+    setIsLoading(true);
+    try {
+      // 1. Direct login attempt for existing users
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInData?.user?.id) {
+        const uUUID = ensureUUID(signInData.user.id);
+        let existingProfile: UserProfile | null | undefined = db.getProfile(uUUID) || db.getProfile(signInData.user.id);
+        if (!existingProfile) {
+          existingProfile = await db.getProfileFromSupabase(signInData.user.id);
+        }
+
+        const rawMeta = signInData.user.user_metadata || {};
+        const activeUser: UserProfile = existingProfile || {
+          id: uUUID,
+          email: signInData.user.email || email,
+          role: (rawMeta.role as SystemRole) || role,
+          name: rawMeta.full_name || rawMeta.name || fullName || email.split('@')[0],
+          country: 'Canada',
+          province_state: 'BC',
+          city: 'Vancouver',
+          location_set: true,
+          created_at: new Date().toISOString(),
+        };
+
+        db.ensureKrowId(activeUser);
+        db.setCurrentUser(activeUser);
+        await db.saveProfileToSupabase(activeUser);
+
+        setIsLoading(false);
+        onLoginSuccess(activeUser);
+        onClose();
+        if (activeUser.role === 'organizer') {
+          window.location.href = '/organizer/opportunities';
+        }
+        return;
+      }
+
+      if (signInError && signInError.message.toLowerCase().includes('invalid login credentials')) {
+        // If password is wrong or user does not exist yet
+      }
+    } catch (err: any) {
+      console.warn('Direct login check:', err);
+    } finally {
+      setIsLoading(false);
+    }
+
+    // 2. New user registration path -> proceed to Onboarding screen
     if (role === 'volunteer') {
       if (!fullName.trim()) setFullName(email.split('@')[0]);
       setView('volunteer_onboarding');
@@ -165,41 +216,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const computedName = fullName.trim();
 
     try {
-      const { data: signInData } = await supabase.auth.signInWithPassword({
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            full_name: computedName,
+            role: 'volunteer',
+          },
+        },
       });
 
-      if (signInData?.user?.id) {
-        userId = signInData.user.id;
-      } else {
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: computedName,
-              role: 'volunteer',
-            },
-          },
-        });
+      if (signUpError) {
+        setErrorMsg(signUpError.message);
+        setIsLoading(false);
+        return;
+      }
 
-        if (signUpError) {
-          setErrorMsg(signUpError.message);
-          setIsLoading(false);
-          return;
-        }
-
-        if (signUpData?.user?.id) {
-          userId = signUpData.user.id;
-          if (!signUpData.session) {
-            const { data: autoSession } = await supabase.auth.signInWithPassword({
-              email,
-              password,
-            });
-            if (autoSession?.user?.id) {
-              userId = autoSession.user.id;
-            }
+      if (signUpData?.user?.id) {
+        userId = signUpData.user.id;
+        if (!signUpData.session) {
+          const { data: autoSession } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+          if (autoSession?.user?.id) {
+            userId = autoSession.user.id;
           }
         }
       }
@@ -211,8 +253,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       userId = 'usr_' + Date.now();
     }
 
+    const uUUID = ensureUUID(userId);
+
     const user: UserProfile = {
-      id: userId,
+      id: uUUID,
       email,
       role: 'volunteer',
       name: computedName,
@@ -220,6 +264,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       country,
       province_state: provinceState,
       city,
+      location_set: true,
       created_at: new Date().toISOString(),
     };
 
@@ -245,41 +290,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const computedOrgName = orgName.trim();
 
     try {
-      const { data: signInData } = await supabase.auth.signInWithPassword({
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            full_name: computedOrgName,
+            role: 'organizer',
+          },
+        },
       });
 
-      if (signInData?.user?.id) {
-        userId = signInData.user.id;
-      } else {
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: computedOrgName,
-              role: 'organizer',
-            },
-          },
-        });
+      if (signUpError) {
+        setErrorMsg(signUpError.message);
+        setIsLoading(false);
+        return;
+      }
 
-        if (signUpError) {
-          setErrorMsg(signUpError.message);
-          setIsLoading(false);
-          return;
-        }
-
-        if (signUpData?.user?.id) {
-          userId = signUpData.user.id;
-          if (!signUpData.session) {
-            const { data: autoSession } = await supabase.auth.signInWithPassword({
-              email,
-              password,
-            });
-            if (autoSession?.user?.id) {
-              userId = autoSession.user.id;
-            }
+      if (signUpData?.user?.id) {
+        userId = signUpData.user.id;
+        if (!signUpData.session) {
+          const { data: autoSession } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+          if (autoSession?.user?.id) {
+            userId = autoSession.user.id;
           }
         }
       }
@@ -291,19 +327,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       userId = 'usr_org_' + Date.now();
     }
 
+    const uUUID = ensureUUID(userId);
+
     const user: UserProfile = {
-      id: userId,
+      id: uUUID,
       email,
       role: 'organizer',
       name: computedOrgName,
       country: noHq ? 'Remote' : hqCountry,
       province_state: noHq ? 'Digital' : hqProvinceState,
       city: noHq ? 'Online' : hqCity,
+      location_set: true,
       created_at: new Date().toISOString(),
     };
 
     const orgData = {
-      id: userId,
+      id: uUUID,
       org_name: computedOrgName,
       hq_country: noHq ? 'Remote' : hqCountry,
       hq_province_state: noHq ? 'Digital' : hqProvinceState,
