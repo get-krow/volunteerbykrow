@@ -351,6 +351,33 @@ class LocalDatabase {
           const computedCount = sOpp.recurrence_series_id ? (seriesChildCountMap.get(sOpp.recurrence_series_id) || seriesChildDatesMap.get(sOpp.recurrence_series_id)?.length || 0) : 0;
           const computedDates = sOpp.recurrence_series_id ? seriesChildDatesMap.get(sOpp.recurrence_series_id) : undefined;
 
+          const computedStart = sOpp.series_start_date || (computedDates && computedDates.length > 0 ? computedDates[0] : sOpp.date);
+          let computedEnd = sOpp.series_end_date || (computedDates && computedDates.length > 0 ? computedDates[computedDates.length - 1] : undefined);
+          
+          if (!computedEnd || (computedEnd === computedStart && (sOpp.recurrence_count || computedCount) > 1)) {
+            const count = sOpp.recurrence_count || computedCount || 1;
+            if (count > 1 && computedStart) {
+              const parts = computedStart.split('-');
+              if (parts.length === 3) {
+                const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                const freq = sOpp.recurrence_frequency || 'every_week';
+                if (freq === 'every_day') {
+                  d.setDate(d.getDate() + (count - 1));
+                } else if (freq === 'every_other_week') {
+                  d.setDate(d.getDate() + (count - 1) * 14);
+                } else if (freq === 'every_month') {
+                  d.setMonth(d.getMonth() + (count - 1));
+                } else {
+                  d.setDate(d.getDate() + (count - 1) * 7);
+                }
+                const y = d.getFullYear();
+                const m = (d.getMonth() + 1).toString().padStart(2, '0');
+                const day = d.getDate().toString().padStart(2, '0');
+                computedEnd = `${y}-${m}-${day}`;
+              }
+            }
+          }
+
           return {
             id: sOpp.id,
             org_id: sOpp.org_id,
@@ -378,9 +405,9 @@ class LocalDatabase {
             recurrence_count: sOpp.recurrence_count || localMatch?.recurrence_count || (computedCount > 0 ? computedCount : undefined),
             occurrence_number: sOpp.occurrence_number ?? localMatch?.occurrence_number,
             occurrence_dates: sOpp.occurrence_dates || localMatch?.occurrence_dates || (computedDates && computedDates.length > 0 ? computedDates : undefined),
-            series_start_date: sOpp.series_start_date || localMatch?.series_start_date,
-            series_end_date: sOpp.series_end_date || localMatch?.series_end_date,
-            total_series_hours: sOpp.total_series_hours || localMatch?.total_series_hours,
+            series_start_date: computedStart,
+            series_end_date: computedEnd || sOpp.date,
+            total_series_hours: sOpp.total_series_hours || localMatch?.total_series_hours || (computedCount > 0 ? (sOpp.duration_hours || 2) * computedCount : undefined),
             status: sOpp.status || 'published',
             ended_at: sOpp.ended_at || undefined,
             created_at: sOpp.created_at || new Date().toISOString(),
