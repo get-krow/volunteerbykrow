@@ -242,7 +242,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
 
   const activeOpportunities = useMemo(() => {
     const orgOpps = opportunities.filter((o) => isOrgMatch(o) && o.status === 'published');
-    return orgOpps.filter((o) => !(o.recurrence_type === 'same_volunteers' && o.occurrence_number === undefined));
+    return orgOpps.filter((o) => !(o.recurrence_type === 'same_volunteers' && o.occurrence_number !== undefined));
   }, [opportunities, org]);
 
   const endedOpportunities = useMemo(() => {
@@ -278,8 +278,8 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
 
   const sortedAttendanceOpportunities = useMemo(() => {
     const orgOpps = opportunities.filter((o) => isOrgMatch(o));
-    const occurrenceOpps = orgOpps.filter((o) => !(o.recurrence_type === 'same_volunteers' && o.occurrence_number === undefined));
-    return [...occurrenceOpps].sort((a, b) => {
+    const mainAttendanceOpps = orgOpps.filter((o) => !(o.recurrence_type === 'same_volunteers' && o.occurrence_number !== undefined));
+    return [...mainAttendanceOpps].sort((a, b) => {
       const dateTimeA = new Date(`${a.date}T${a.start_time || '00:00'}`).getTime();
       const dateTimeB = new Date(`${b.date}T${b.start_time || '00:00'}`).getTime();
       return dateTimeA - dateTimeB;
