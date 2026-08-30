@@ -391,22 +391,43 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
               return <div className="py-6 text-center text-xs text-gray-400">No shift history recorded yet.</div>;
             }
             return (
-              <div className="space-y-2 max-h-60 overflow-y-auto">
+              <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
                 {shiftHistoryList.map((att) => {
                   const opp = opportunities.find((o) => o.id === att.opportunity_id);
+                  const org = opp?.org_id ? db.getOrganizer(opp.org_id) : null;
                   const title = att.opportunity_title || opp?.title || 'Volunteer Shift';
+                  const orgName = opp?.org_name || org?.org_name || 'Partner Organization';
+                  const isVerified = att.is_verified_org_at_completion !== undefined 
+                    ? att.is_verified_org_at_completion 
+                    : ((org?.verification_status || opp?.org_verification_status || 'verified') === 'verified');
+
                   return (
-                    <div key={att.id} className="p-3 rounded-xl border border-gray-100 flex items-center justify-between text-xs">
-                      <div>
-                        <div className="font-bold text-gray-900">{title}</div>
-                        <div className="text-gray-500">{att.marked_at ? att.marked_at.split('T')[0] : 'Past'}</div>
+                    <div
+                      key={att.id}
+                      className="p-3.5 rounded-2xl border border-gray-100/90 bg-white hover:border-purple-200 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                    >
+                      <div className="space-y-1">
+                        <div className="font-extrabold text-gray-900 text-sm">{title}</div>
+                        <div className="flex items-center gap-2 flex-wrap text-gray-500 font-medium">
+                          <span className="font-bold text-gray-700">{orgName}</span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                              isVerified
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}
+                          >
+                            {isVerified ? 'Verified Org ✓' : 'Pending Org (0 hrs)'}
+                          </span>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <span className="font-extrabold text-emerald-600 block">
+
+                      <div className="flex sm:flex-col items-center sm:items-end justify-between text-right shrink-0 border-t sm:border-t-0 border-gray-100 pt-2 sm:pt-0">
+                        <span className="font-black text-emerald-600 text-sm">
                           {att.status === 'here' ? `+${att.hours_awarded} hrs` : 'Did Not Attend'}
                         </span>
-                        <span className="text-[10px] text-gray-400">
-                          {att.is_verified_org_at_completion ? 'Verified Org' : 'Pending Org (0 hrs)'}
+                        <span className="text-[11px] text-gray-400 font-medium">
+                          {att.marked_at ? att.marked_at.split('T')[0] : (opp?.date || 'Past')}
                         </span>
                       </div>
                     </div>
