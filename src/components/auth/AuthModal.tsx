@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { X, User, Building2, ArrowLeft, Loader2, CheckCircle2, MapPin, Calendar } from 'lucide-react';
 import { SystemRole, UserProfile } from '@/lib/types';
 import { db, ensureUUID } from '@/lib/db';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -140,54 +140,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     setIsLoading(true);
-    const cleanEmail = email.trim().toLowerCase();
-
     try {
-      // 1. Check if user account already exists in local DB or Supabase
-      const existingLocalProfile = db.getProfiles().find((p) => p.email.toLowerCase() === cleanEmail);
-      const existingLocalOrg = db.getOrganizers().find((o) => (o as any).email?.toLowerCase() === cleanEmail);
-      
-      let existingSupabaseProfile: UserProfile | null = null;
-      if (isSupabaseConfigured()) {
-        try {
-          const { data: profiles } = await supabase.from('profiles').select('*').eq('email', cleanEmail).limit(1);
-          if (profiles && profiles.length > 0) {
-            existingSupabaseProfile = profiles[0] as UserProfile;
-          }
-        } catch (e) {
-          console.warn('Supabase profile check error:', e);
-        }
-      }
-
-      const accountAlreadyExists = !!(existingLocalProfile || existingLocalOrg || existingSupabaseProfile);
-
-      // 2. Direct login attempt for existing users
+      // 1. Direct login attempt for existing users
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
+        email,
         password,
       });
 
       if (signInData?.user?.id) {
         const uUUID = ensureUUID(signInData.user.id);
-        let existingProfile: UserProfile | null | undefined = existingLocalProfile || existingSupabaseProfile || db.getProfile(uUUID);
+        let existingProfile: UserProfile | null | undefined = db.getProfile(uUUID) || db.getProfile(signInData.user.id);
         if (!existingProfile) {
           existingProfile = await db.getProfileFromSupabase(signInData.user.id);
         }
 
         const rawMeta = signInData.user.user_metadata || {};
-        const userRole = existingProfile?.role || (rawMeta.role as SystemRole) || role;
-
-        let orgNameFromDb = undefined;
-        if (userRole === 'organizer') {
-          const orgProf = db.getOrganizer(uUUID);
-          orgNameFromDb = orgProf?.org_name;
-        }
-
         const activeUser: UserProfile = existingProfile || {
           id: uUUID,
-          email: signInData.user.email || cleanEmail,
-          role: userRole,
-          name: orgNameFromDb || rawMeta.full_name || rawMeta.name || fullName || cleanEmail.split('@')[0],
+          email: signInData.user.email || email,
+          role: (rawMeta.role as SystemRole) || role,
+          name: rawMeta.full_name || rawMeta.name || fullName || email.split('@')[0],
           country: 'Canada',
           province_state: 'BC',
           city: 'Vancouver',
@@ -208,11 +180,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
 
-      // If account exists but password was invalid:
-      if (accountAlreadyExists || (signInError && signInError.message.toLowerCase().includes('invalid login credentials') && (existingLocalProfile || existingSupabaseProfile))) {
-        setErrorMsg('Invalid email or password. Please check your credentials and try again.');
-        setIsLoading(false);
-        return;
+      if (signInError && signInError.message.toLowerCase().includes('invalid login credentials')) {
+        // If password is wrong or user does not exist yet
       }
     } catch (err: any) {
       console.warn('Direct login check:', err);
@@ -220,11 +189,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setIsLoading(false);
     }
 
-    // 3. New user registration path -> ONLY for accounts that do NOT exist yet
+    // 2. New user registration path -> proceed to Onboarding screen
     if (role === 'volunteer') {
       if (!fullName.trim()) setFullName(email.split('@')[0]);
       setView('volunteer_onboarding');
     } else {
+      if (!orgName.trim()) setOrgName(fullName.trim() || email.split('@')[0]);
       setView('organizer_onboarding');
     }
   };
