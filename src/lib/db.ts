@@ -621,6 +621,10 @@ class LocalDatabase {
     return this.currentUser;
   }
 
+  public getProfiles(): UserProfile[] {
+    return [...this.profiles];
+  }
+
   public async getProfileFromSupabase(id: string): Promise<UserProfile | null> {
     if (!isSupabaseConfigured() || !id) return null;
     try {
