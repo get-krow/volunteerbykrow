@@ -94,6 +94,8 @@ export interface AttendanceRecord {
   id: string;
   opportunity_id: string;
   opportunity_title?: string;
+  org_id?: string;
+  org_name?: string;
   volunteer_id: string;
   volunteer_name?: string;
   volunteer_avatar?: string;

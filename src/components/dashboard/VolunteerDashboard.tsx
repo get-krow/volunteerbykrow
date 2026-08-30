@@ -386,7 +386,14 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
             Shift History
           </h2>
           {(() => {
-            const shiftHistoryList = attendance.filter((a) => a.opportunity_id !== 'admin-adjustment');
+            const shiftHistoryList = attendance
+              .filter((a) => a.opportunity_id !== 'admin-adjustment')
+              .sort((a, b) => {
+                const dateA = a.marked_at || (opportunities.find((o) => o.id === a.opportunity_id)?.date) || '';
+                const dateB = b.marked_at || (opportunities.find((o) => o.id === b.opportunity_id)?.date) || '';
+                return new Date(dateB).getTime() - new Date(dateA).getTime();
+              });
+
             if (shiftHistoryList.length === 0) {
               return <div className="py-6 text-center text-xs text-gray-400">No shift history recorded yet.</div>;
             }
@@ -394,9 +401,9 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
               <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
                 {shiftHistoryList.map((att) => {
                   const opp = opportunities.find((o) => o.id === att.opportunity_id);
-                  const org = opp?.org_id ? db.getOrganizer(opp.org_id) : null;
+                  const org = (att.org_id || opp?.org_id) ? db.getOrganizer(att.org_id || opp?.org_id || '') : null;
                   const title = att.opportunity_title || opp?.title || 'Volunteer Shift';
-                  const orgName = opp?.org_name || org?.org_name || 'Partner Organization';
+                  const orgName = att.org_name || opp?.org_name || org?.org_name || 'Partner Organization';
                   const isVerified = att.is_verified_org_at_completion !== undefined 
                     ? att.is_verified_org_at_completion 
                     : ((org?.verification_status || opp?.org_verification_status || 'verified') === 'verified');

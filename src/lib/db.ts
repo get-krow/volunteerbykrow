@@ -1661,11 +1661,18 @@ class LocalDatabase {
       });
     }
 
-    // Preserve opportunity title on attendance records before deleting opportunity
+    // Preserve opportunity title & organization name on attendance records before deleting opportunity
+    const resolvedOrgName = opp?.org_name || (opp?.org_id ? this.getOrganizer(opp.org_id)?.org_name : undefined);
     this.attendance.forEach((att) => {
-      if (idsToDelete.has(att.opportunity_id)) {
+      if (idsToDelete.has(att.opportunity_id) || idsToDelete.has(ensureUUID(att.opportunity_id))) {
         if (!att.opportunity_title && opp?.title) {
           att.opportunity_title = opp.title;
+        }
+        if (!att.org_id && opp?.org_id) {
+          att.org_id = opp.org_id;
+        }
+        if (!att.org_name && resolvedOrgName) {
+          att.org_name = resolvedOrgName;
         }
       }
     });
@@ -2135,17 +2142,23 @@ class LocalDatabase {
         a.volunteer_id === volunteerId
     );
 
+    const resolvedOrgName = opp?.org_name || org?.org_name || 'Partner Organization';
+
     if (att) {
       att.status = status;
       att.hours_awarded = hoursAwarded;
       att.is_verified_org_at_completion = isVerified;
       if (oppTitle) att.opportunity_title = oppTitle;
+      if (opp?.org_id) att.org_id = opp.org_id;
+      if (resolvedOrgName) att.org_name = resolvedOrgName;
       att.marked_at = new Date().toISOString();
     } else {
       att = {
         id: 'att-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
         opportunity_id: opportunityId,
         opportunity_title: oppTitle,
+        org_id: opp?.org_id,
+        org_name: resolvedOrgName,
         volunteer_id: volunteerId,
         status,
         hours_awarded: hoursAwarded,
