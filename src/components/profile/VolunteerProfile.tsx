@@ -51,6 +51,22 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
 
   const calculatedAge = useMemo(() => calculateCurrentAge(dob), [dob]);
 
+  const handleAvatarFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Please select an image file size under 5MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        setAvatarUrl(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     db.updateProfile({
@@ -138,23 +154,50 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
 
         <form onSubmit={handleSave} className="space-y-4">
           {/* Avatar Upload */}
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-purple-100 text-[#635BFF] flex items-center justify-center font-bold text-xl overflow-hidden border-2 border-purple-200">
+          <div className="p-4 rounded-2xl bg-purple-50/40 border border-purple-100 flex items-center gap-4">
+            <div className="relative group w-16 h-16 rounded-full bg-purple-100 text-[#635BFF] flex items-center justify-center font-bold text-xl overflow-hidden border-2 border-purple-200 shrink-0 shadow-2xs">
               {avatarUrl ? (
                 <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
               ) : (
                 name.charAt(0)
               )}
+              <label
+                htmlFor="avatar-file-input"
+                className="absolute inset-0 bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                title="Upload Photo"
+              >
+                <Camera className="w-5 h-5" />
+              </label>
             </div>
-            <div className="flex-1">
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Profile Photo URL (Optional)</label>
-              <input
-                type="url"
-                value={avatarUrl}
-                onChange={(e) => setAvatarUrl(e.target.value)}
-                placeholder="https://images.unsplash.com/photo-..."
-                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
-              />
+
+            <div className="flex-1 space-y-1.5">
+              <label className="block text-xs font-extrabold text-gray-900">Profile Photo</label>
+              <div className="flex items-center gap-2 flex-wrap">
+                <label
+                  htmlFor="avatar-file-input"
+                  className="px-3.5 py-2 bg-[#635BFF] hover:bg-[#5046E5] text-white rounded-xl text-xs font-extrabold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                >
+                  <Camera className="w-3.5 h-3.5" /> Upload Image
+                  <input
+                    id="avatar-file-input"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarFileUpload}
+                    className="hidden"
+                  />
+                </label>
+
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setAvatarUrl('')}
+                    className="px-3 py-2 bg-white text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-xl text-xs font-bold transition-colors border border-gray-200"
+                  >
+                    Remove Photo
+                  </button>
+                )}
+              </div>
+              <p className="text-[11px] text-gray-500 font-medium">Click "Upload Image" to select any picture file directly from your device.</p>
             </div>
           </div>
 

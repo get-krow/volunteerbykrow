@@ -18,6 +18,8 @@ import {
   ShieldCheck,
   Sparkles,
   ChevronRight,
+  Camera,
+  Search,
   LogOut,
   ArrowLeft,
   Upload,
@@ -374,6 +376,22 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
       await db.clearPastOpportunities(org.id);
       refreshData();
     }
+  };
+
+  const handleLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Logo image size must be less than 5MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        setOrg((prev) => ({ ...prev, logo_url: reader.result as string }));
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleBannerFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1460,6 +1478,43 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
             }}
             className="space-y-4 text-xs"
           >
+            {/* Organization Logo File Upload */}
+            <div className="p-4 rounded-2xl bg-purple-50/40 border border-purple-100 flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-purple-100 border border-purple-200 text-[#635BFF] flex items-center justify-center font-bold text-xl overflow-hidden shrink-0 shadow-2xs">
+                {org.logo_url ? <img src={org.logo_url} alt={org.org_name} className="w-full h-full object-cover" /> : <Building2 className="w-6 h-6" />}
+              </div>
+
+              <div className="flex-1 space-y-1.5">
+                <label className="block text-xs font-extrabold text-gray-900">Organization Logo</label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <label
+                    htmlFor="org-logo-file-input"
+                    className="px-3.5 py-2 bg-[#635BFF] hover:bg-[#5046E5] text-white rounded-xl text-xs font-extrabold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                  >
+                    <Camera className="w-3.5 h-3.5" /> Upload Logo
+                    <input
+                      id="org-logo-file-input"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoFileUpload}
+                      className="hidden"
+                    />
+                  </label>
+
+                  {org.logo_url && (
+                    <button
+                      type="button"
+                      onClick={() => setOrg((prev) => ({ ...prev, logo_url: null }))}
+                      className="px-3 py-2 bg-white text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-xl text-xs font-bold transition-colors border border-gray-200"
+                    >
+                      Remove Logo
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-gray-500 font-medium">Click "Upload Logo" to pick any image file directly from your device.</p>
+              </div>
+            </div>
+
             <div>
               <label className="block font-bold text-gray-700 mb-1">Organization Name</label>
               <input
