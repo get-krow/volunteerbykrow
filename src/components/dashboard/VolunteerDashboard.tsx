@@ -7,7 +7,6 @@ import {
   Clock,
   MapPin,
   Download,
-  Bookmark,
   CheckCircle2,
   AlertCircle,
   ExternalLink,
@@ -32,7 +31,6 @@ interface VolunteerDashboardProps {
 export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentUser }) => {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [savedIds, setSavedIds] = useState<string[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
 
   useEffect(() => {
@@ -56,7 +54,6 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
   const refreshData = () => {
     setRegistrations(db.getVolunteerRegistrations(currentUser.id));
     setOpportunities(db.getOpportunities());
-    setSavedIds(db.getSavedOpportunityIds());
     setAttendance(db.getVolunteerAttendance(currentUser.id));
   };
 
@@ -80,10 +77,6 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [opportunities, registrations]);
 
-  const savedOpportunities = useMemo(() => {
-    const savedSet = new Set(savedIds);
-    return opportunities.filter((o) => savedSet.has(o.id) && o.status === 'published');
-  }, [opportunities, savedIds]);
 
   const handleUnsign = async (oppId: string) => {
     if (confirm('Are you sure you want to unsign from this opportunity? Your spot will be made available to others.')) {
@@ -356,30 +349,8 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
         )}
       </div>
 
-      {/* Section 22 Spec: Volunteer History & Saved Opportunities */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Saved Opportunities */}
-        <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-2xs space-y-4">
-          <h2 className="font-extrabold text-base text-gray-900 border-b border-gray-100 pb-3">
-            Saved Opportunities ({savedOpportunities.length})
-          </h2>
-          {savedOpportunities.length === 0 ? (
-            <div className="py-6 text-center text-xs text-gray-400">No saved opportunities.</div>
-          ) : (
-            <div className="space-y-2">
-              {savedOpportunities.map((opp) => (
-                <div key={opp.id} className="p-3 rounded-xl border border-gray-100 flex items-center justify-between text-xs">
-                  <div>
-                    <div className="font-bold text-gray-900 truncate max-w-[200px]">{opp.title}</div>
-                    <div className="text-gray-500">{formatDate(opp.date)} · {opp.duration_hours}h</div>
-                  </div>
-                  <span className="font-extrabold text-[#635BFF]">{opp.duration_hours} hrs</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
+      {/* Section 22 Spec: Volunteer History */}
+      <div className="space-y-4">
         {/* Shift History */}
         <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-2xs space-y-4">
           <h2 className="font-extrabold text-base text-gray-900 border-b border-gray-100 pb-3">
