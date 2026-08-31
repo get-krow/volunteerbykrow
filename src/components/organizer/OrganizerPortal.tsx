@@ -34,6 +34,7 @@ import { useTheme } from '@/lib/theme';
 import { getBadgeForHours } from '@/lib/badges';
 import { DeleteAccountModal } from '../auth/DeleteAccountModal';
 import { AppleWheelPicker, AppleWheelOption } from '../ui/AppleWheelPicker';
+import { VerificationModal } from './VerificationModal';
 
 const MONTH_OPTIONS: AppleWheelOption[] = [
   { label: 'Jan', value: '01' },
@@ -161,6 +162,7 @@ interface OrganizerPortalProps {
 export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, onLogout, initialTab = 'opportunities' }) => {
   const { theme, toggleTheme } = useTheme();
   const [tab, setTab] = useState<'opportunities' | 'add' | 'attendance' | 'profile'>(initialTab);
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   useEffect(() => {
@@ -428,12 +430,12 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
               <h1 className="text-xl font-black text-gray-900">{org.org_name}</h1>
               <span
                 className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-                  org.verification_status === 'verified'
+                  org.verification_status === 'VERIFIED' || org.verification_status === 'verified'
                     ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                     : 'bg-amber-50 text-amber-700 border border-amber-200'
                 }`}
               >
-                {org.verification_status === 'verified' ? '✓ Verified' : 'Pending'}
+                {org.verification_status === 'VERIFIED' || org.verification_status === 'verified' ? '✓ Verified' : org.verification_status.replace(/_/g, ' ')}
               </span>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium mt-0.5">
@@ -456,6 +458,67 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
           </div>
         </div>
       </div>
+
+      {/* Verification Card (Spec #2) */}
+      {org.verification_status !== 'VERIFIED' && org.verification_status !== 'verified' && (
+        <div className="bg-white rounded-3xl p-6 border border-purple-100 shadow-2xs space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-[#635BFF]" />
+                <h3 className="font-extrabold text-base text-gray-900">Verify your organization</h3>
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                    org.verification_status === 'PENDING_REVIEW'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                      : org.verification_status === 'MORE_INFORMATION_REQUIRED'
+                      ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                      : org.verification_status === 'SUSPENDED' || org.verification_status === 'REVOKED'
+                      ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                      : 'bg-purple-50 text-[#635BFF] border border-purple-200'
+                  }`}
+                >
+                  Status: {org.verification_status.replace(/_/g, ' ')}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 max-w-2xl font-medium">
+                {org.verification_status === 'PENDING_REVIEW'
+                  ? 'Your organization information has been submitted to Krow for review. Our team will verify your signals shortly.'
+                  : org.verification_status === 'MORE_INFORMATION_REQUIRED'
+                  ? `Additional information requested: ${org.status_reason || 'Please update your application details.'}`
+                  : org.verification_status === 'SUSPENDED' || org.verification_status === 'REVOKED'
+                  ? `Verification suspended: ${org.status_reason || 'Under administrative review.'}`
+                  : 'Verified organizations can build greater trust with volunteers and access Krow’s full organization functionality.'}
+              </p>
+            </div>
+
+            <div>
+              {org.verification_status === 'PENDING_REVIEW' ? (
+                <div className="px-4 py-2.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl text-xs font-extrabold flex items-center gap-1.5 shrink-0">
+                  <Clock className="w-4 h-4" /> Pending Review
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsVerificationModalOpen(true)}
+                  className="px-5 py-2.5 bg-[#635BFF] hover:bg-[#5046E5] text-white rounded-xl text-xs font-extrabold shadow-2xs transition-all shrink-0 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  {org.verification_status === 'MORE_INFORMATION_REQUIRED'
+                    ? 'Update Information'
+                    : 'Start Verification'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <VerificationModal
+        currentOrg={org}
+        isOpen={isVerificationModalOpen}
+        onClose={() => setIsVerificationModalOpen(false)}
+        onSubmitted={() => refreshData()}
+      />
 
       {/* TAB 1: OUR OPPORTUNITIES (Section 30 & 31 Spec) */}
       {tab === 'opportunities' && (

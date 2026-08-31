@@ -359,3 +359,60 @@ CREATE POLICY "Allow public manage saved" ON public.saved_opportunities FOR ALL 
 
 DROP POLICY IF EXISTS "Allow public manage notifications" ON public.notifications;
 CREATE POLICY "Allow public manage notifications" ON public.notifications FOR ALL USING (true);
+
+-- 11. Organization Verification & Safety Tables
+CREATE TABLE IF NOT EXISTS public.organization_verification_checks (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  organization_id UUID NOT NULL REFERENCES public.organizer_profiles(id) ON DELETE CASCADE,
+  check_type TEXT NOT NULL,
+  status BOOLEAN NOT NULL DEFAULT FALSE,
+  admin_id UUID,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.organization_verification_history (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  organization_id UUID NOT NULL REFERENCES public.organizer_profiles(id) ON DELETE CASCADE,
+  action TEXT NOT NULL,
+  previous_status TEXT NOT NULL,
+  new_status TEXT NOT NULL,
+  admin_id UUID,
+  reason TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.organization_admin_notes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  organization_id UUID NOT NULL REFERENCES public.organizer_profiles(id) ON DELETE CASCADE,
+  admin_id UUID,
+  admin_name TEXT,
+  note TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.organization_reports (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  organization_id UUID NOT NULL REFERENCES public.organizer_profiles(id) ON DELETE CASCADE,
+  opportunity_id UUID REFERENCES public.opportunities(id) ON DELETE SET NULL,
+  reporter_user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  report_type TEXT NOT NULL,
+  description TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'dismissed', 'actioned')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  resolved_at TIMESTAMPTZ,
+  resolved_by UUID
+);
+
+ALTER TABLE public.organization_verification_checks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_verification_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_admin_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_reports ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Admin manage verification checks" ON public.organization_verification_checks FOR ALL USING (true);
+CREATE POLICY "Admin manage verification history" ON public.organization_verification_history FOR ALL USING (true);
+CREATE POLICY "Admin manage admin notes" ON public.organization_admin_notes FOR ALL USING (true);
+CREATE POLICY "Public create reports" ON public.organization_reports FOR INSERT WITH CHECK (true);
+CREATE POLICY "Admin manage reports" ON public.organization_reports FOR ALL USING (true);
+
