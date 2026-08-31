@@ -27,8 +27,9 @@ import {
   HelpCircle,
   Sun,
   Moon,
+  Bell,
 } from 'lucide-react';
-import { Opportunity, OrganizerProfile, UserProfile, AttendanceRecord, RecurrenceFrequency } from '@/lib/types';
+import { Opportunity, OrganizerProfile, UserProfile, AttendanceRecord, RecurrenceFrequency, NotificationItem } from '@/lib/types';
 import { db, ensureUUID } from '@/lib/db';
 import { useTheme } from '@/lib/theme';
 import { getBadgeForHours } from '@/lib/badges';
@@ -214,12 +215,18 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   // Volunteer Credential View Modal
   const [credentialUser, setCredentialUser] = useState<UserProfile | null>(null);
 
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+
   useEffect(() => {
     refreshData();
   }, [currentUser]);
 
   const refreshData = () => {
     setOpportunities(db.getOpportunities());
+    if (org?.id) {
+      setNotifications(db.getNotifications(org.id));
+    }
   };
 
   const calculatedDuration = useMemo(() => {
@@ -511,6 +518,75 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
               )}
             </div>
           </div>
+        </div>
+
+        {/* Notifications Bell Button & Dropdown Drawer */}
+        <div className="relative shrink-0">
+          <button
+            onClick={() => setIsNotifOpen(!isNotifOpen)}
+            className="p-3 bg-purple-50 hover:bg-purple-100 text-[#635BFF] border border-purple-100 rounded-2xl transition-all relative cursor-pointer flex items-center justify-center shadow-2xs"
+            title="Organization Notifications"
+          >
+            <Bell className="w-5 h-5" />
+            {notifications.filter((n) => !n.is_read).length > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#635BFF] text-white font-black text-[10px] rounded-full flex items-center justify-center shadow-xs">
+                {notifications.filter((n) => !n.is_read).length}
+              </span>
+            )}
+          </button>
+
+          {/* Dropdown Menu */}
+          {isNotifOpen && (
+            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-3xl p-4 shadow-2xl border border-gray-100 z-50 space-y-3">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                <h3 className="font-black text-sm text-gray-900 flex items-center gap-1.5">
+                  <Bell className="w-4 h-4 text-[#635BFF]" /> Organization Notifications
+                </h3>
+                {notifications.some((n) => !n.is_read) && (
+                  <button
+                    onClick={() => {
+                      db.markAllNotificationsRead(org.id);
+                      refreshData();
+                    }}
+                    className="text-[11px] font-bold text-[#635BFF] hover:underline"
+                  >
+                    Mark all read
+                  </button>
+                )}
+              </div>
+
+              <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+                {notifications.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-gray-400 font-medium">
+                    No status notifications yet.
+                  </div>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={() => {
+                        db.markNotificationRead(n.id);
+                        refreshData();
+                      }}
+                      className={`p-3 rounded-2xl border text-xs space-y-1 transition-all cursor-pointer ${
+                        n.is_read
+                          ? 'bg-gray-50/60 border-gray-100 text-gray-600'
+                          : 'bg-purple-50/80 border-purple-200 text-gray-900 font-semibold shadow-2xs'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between font-extrabold">
+                        <span className="text-gray-900">{n.title}</span>
+                        <span className="text-[10px] font-normal text-gray-400">
+                          {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-600 leading-relaxed font-medium">{n.message}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

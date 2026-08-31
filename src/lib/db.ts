@@ -1373,23 +1373,23 @@ class LocalDatabase {
       created_at: now,
     });
 
-    let title = 'Organization Status Updated';
-    let msg = `Your verification status has been updated to ${newStatus}.`;
+    let title = 'Organization Verification Status Updated';
+    let msg = `Your organization verification status has been updated to ${newStatus}.`;
 
     if (newStatus === 'VERIFIED' || newStatus === 'verified') {
-      title = 'Organization Verified!';
-      msg = 'Your organization has been verified by Krow. You can now post public opportunities and award verified hours.';
+      title = 'Organization Verification Approved! 🟣';
+      msg = 'Congratulations! Your organization verification application has been approved by Krow. You can now post public volunteer opportunities and award verified volunteer hours.';
     } else if (newStatus === 'MORE_INFORMATION_REQUIRED') {
-      title = 'More Information Required';
-      msg = `Additional information is required to complete your organization verification: ${reason || 'Please review your application.'}`;
+      title = 'More Information Requested for Verification ⚠️';
+      msg = `Additional information is required to complete your organization verification: ${reason || 'Please review and update your application details.'}`;
     } else if (newStatus === 'REJECTED') {
-      title = 'Verification Application Rejected';
+      title = 'Verification Application Rejected ❌';
       msg = `Your organization verification application was not approved: ${reason || 'Does not meet current verification criteria.'}`;
     } else if (newStatus === 'SUSPENDED') {
-      title = 'Organization Account Suspended';
-      msg = `Your organization has been temporarily suspended from Krow: ${reason || 'Under administrative review.'}`;
+      title = 'Organization Account Suspended 🛑';
+      msg = `Your organization account has been temporarily suspended from Krow: ${reason || 'Under administrative safety review.'}`;
     } else if (newStatus === 'REVOKED') {
-      title = 'Organization Verification Revoked';
+      title = 'Organization Verification Revoked ⚠️';
       msg = `Your organization verification status has been revoked: ${reason || 'Policy compliance review.'}`;
     }
 
