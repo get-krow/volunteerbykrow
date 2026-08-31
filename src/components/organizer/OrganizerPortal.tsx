@@ -164,6 +164,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   const [tab, setTab] = useState<'opportunities' | 'add' | 'attendance' | 'profile'>(initialTab);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [showSuspendedModal, setShowSuspendedModal] = useState(false);
 
   useEffect(() => {
     if (initialTab) setTab(initialTab);
@@ -309,9 +310,11 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
     return true;
   };
 
+  const isSuspended = org.verification_status === 'SUSPENDED' || org.verification_status === 'REVOKED' || org.verification_status === 'REJECTED';
+
   const handlePostOpportunity = () => {
-    if (org.verification_status === 'SUSPENDED' || org.verification_status === 'REVOKED' || org.verification_status === 'REJECTED') {
-      alert(`Your organization account is currently ${org.verification_status}. You are not permitted to post opportunities while suspended.`);
+    if (isSuspended) {
+      setShowSuspendedModal(true);
       return;
     }
 
@@ -362,6 +365,10 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   };
 
   const handleEndEvent = async (oppId: string) => {
+    if (isSuspended) {
+      setShowSuspendedModal(true);
+      return;
+    }
     if (confirm('End this event? Unmarked volunteers will automatically be marked Not Here, and attendance will be finalized.')) {
       await db.endEvent(oppId);
       refreshData();
@@ -372,6 +379,10 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   };
 
   const handlePermanentDeleteOpportunity = async (oppId: string) => {
+    if (isSuspended) {
+      setShowSuspendedModal(true);
+      return;
+    }
     if (confirm('Are you sure you want to permanently delete this opportunity from the database?')) {
       await db.deleteOpportunity(oppId);
       refreshData();
@@ -379,6 +390,10 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   };
 
   const handleClearPastOpportunities = async () => {
+    if (isSuspended) {
+      setShowSuspendedModal(true);
+      return;
+    }
     if (confirm('Are you sure you want to permanently delete ALL past/ended opportunities from the database? This cannot be undone.')) {
       await db.clearPastOpportunities(org.id);
       refreshData();
@@ -386,6 +401,10 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   };
 
   const handleLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isSuspended) {
+      setShowSuspendedModal(true);
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
@@ -402,6 +421,10 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   };
 
   const handleBannerFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isSuspended) {
+      setShowSuspendedModal(true);
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
@@ -418,12 +441,39 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   };
 
   const handleMarkAttendance = (oppId: string, volId: string, status: 'here' | 'not_here') => {
+    if (isSuspended) {
+      setShowSuspendedModal(true);
+      return;
+    }
     db.markAttendance(oppId, volId, status);
     refreshData();
   };
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
+      {/* SUSPENDED ACCOUNT LOCKOUT TOP BANNER */}
+      {isSuspended && (
+        <div
+          onClick={() => setShowSuspendedModal(true)}
+          className="p-5 rounded-3xl bg-rose-600 text-white shadow-xl cursor-pointer flex items-center justify-between gap-4 transition-all hover:bg-rose-700"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center font-bold">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="font-black text-sm uppercase tracking-wider">⚠️ Organization Account Suspended</h2>
+              <p className="text-xs text-rose-100 font-medium">
+                Your account is currently suspended by Krow Admin. All actions, opportunity posting, and roster edits are locked. Click for error details.
+              </p>
+            </div>
+          </div>
+          <span className="px-4 py-2 bg-white text-rose-700 font-extrabold text-xs rounded-xl shadow-xs shrink-0">
+            View Error Details
+          </span>
+        </div>
+      )}
+
       {/* Header & Verification Status */}
       <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -1747,6 +1797,51 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
         userId={currentUser.id}
         userName={org.org_name}
       />
+
+      {/* SUSPENDED ACCOUNT LOCKOUT MODAL */}
+      {showSuspendedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-rose-200 text-center space-y-4 relative">
+            <button
+              onClick={() => setShowSuspendedModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold cursor-pointer"
+            >
+              ✕
+            </button>
+
+            <div className="w-14 h-14 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto font-black text-2xl">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+
+            <div>
+              <h3 className="text-xl font-black text-gray-900">Account Suspended</h3>
+              <p className="text-xs text-rose-600 font-extrabold mt-1 uppercase tracking-wider">
+                Action Blocked — Account Suspended
+              </p>
+            </div>
+
+            <p className="text-xs text-gray-600 font-medium leading-relaxed bg-rose-50/70 p-4 rounded-2xl border border-rose-100">
+              Your organization account is currently suspended. You cannot post opportunities, edit event details, manage rosters, or update profile settings while suspended.
+            </p>
+
+            {org.status_reason && (
+              <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs text-gray-700 text-left space-y-1">
+                <span className="font-bold text-gray-900 block">Suspension Reason:</span>
+                <p className="text-gray-600 font-medium">{org.status_reason}</p>
+              </div>
+            )}
+
+            <div className="pt-2">
+              <button
+                onClick={() => setShowSuspendedModal(false)}
+                className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-2xl text-xs shadow-md transition-all cursor-pointer"
+              >
+                Acknowledge Suspension
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
