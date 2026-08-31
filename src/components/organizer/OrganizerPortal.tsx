@@ -310,6 +310,11 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   };
 
   const handlePostOpportunity = () => {
+    if (org.verification_status === 'SUSPENDED' || org.verification_status === 'REVOKED' || org.verification_status === 'REJECTED') {
+      alert(`Your organization account is currently ${org.verification_status}. You are not permitted to post opportunities while suspended.`);
+      return;
+    }
+
     if (!title.trim()) {
       alert('Please enter an opportunity title.');
       return;
@@ -487,7 +492,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                   : org.verification_status === 'MORE_INFORMATION_REQUIRED'
                   ? `Additional information requested: ${org.status_reason || 'Please update your application details.'}`
                   : org.verification_status === 'SUSPENDED' || org.verification_status === 'REVOKED'
-                  ? `Verification suspended: ${org.status_reason || 'Under administrative review.'}`
+                  ? `⚠️ Account Suspended: Your organization account is currently ${org.verification_status.toLowerCase()}. You cannot post any opportunities or award volunteer hours. ${org.status_reason || 'Contact Krow support for details.'}`
                   : 'Verified organizations can build greater trust with volunteers and access Krow’s full organization functionality.'}
               </p>
             </div>
@@ -496,6 +501,10 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
               {org.verification_status === 'PENDING_REVIEW' ? (
                 <div className="px-4 py-2.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl text-xs font-extrabold flex items-center gap-1.5 shrink-0">
                   <Clock className="w-4 h-4" /> Pending Review
+                </div>
+              ) : org.verification_status === 'SUSPENDED' || org.verification_status === 'REVOKED' ? (
+                <div className="px-4 py-2.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-extrabold flex items-center gap-1.5 shrink-0">
+                  <AlertCircle className="w-4 h-4" /> Account Suspended
                 </div>
               ) : (
                 <button

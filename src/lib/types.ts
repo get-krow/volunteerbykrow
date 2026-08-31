@@ -44,10 +44,11 @@ export interface OrgRepresentative {
 
 export interface OrgVerificationDocument {
   id: string;
-  organization_id: string;
-  document_type: 'registration' | 'affiliation' | 'other';
+  organization_id?: string;
+  document_type: string;
   file_name: string;
   storage_path: string;
+  file_url?: string;
   uploaded_at: string;
   reviewed_at?: string;
   reviewed_by?: string;
