@@ -27,15 +27,13 @@ import {
   HelpCircle,
   Sun,
   Moon,
-  Bell,
 } from 'lucide-react';
-import { Opportunity, OrganizerProfile, UserProfile, AttendanceRecord, RecurrenceFrequency, NotificationItem } from '@/lib/types';
+import { Opportunity, OrganizerProfile, UserProfile, AttendanceRecord, RecurrenceFrequency } from '@/lib/types';
 import { db, ensureUUID } from '@/lib/db';
 import { useTheme } from '@/lib/theme';
 import { getBadgeForHours } from '@/lib/badges';
 import { DeleteAccountModal } from '../auth/DeleteAccountModal';
 import { AppleWheelPicker, AppleWheelOption } from '../ui/AppleWheelPicker';
-import { VerificationModal } from './VerificationModal';
 
 const MONTH_OPTIONS: AppleWheelOption[] = [
   { label: 'Jan', value: '01' },
@@ -163,9 +161,7 @@ interface OrganizerPortalProps {
 export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, onLogout, initialTab = 'opportunities' }) => {
   const { theme, toggleTheme } = useTheme();
   const [tab, setTab] = useState<'opportunities' | 'add' | 'attendance' | 'profile'>(initialTab);
-  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [showSuspendedModal, setShowSuspendedModal] = useState(false);
 
   useEffect(() => {
     if (initialTab) setTab(initialTab);
@@ -215,18 +211,12 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   // Volunteer Credential View Modal
   const [credentialUser, setCredentialUser] = useState<UserProfile | null>(null);
 
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [isNotifOpen, setIsNotifOpen] = useState(false);
-
   useEffect(() => {
     refreshData();
   }, [currentUser]);
 
   const refreshData = () => {
     setOpportunities(db.getOpportunities());
-    if (org?.id) {
-      setNotifications(db.getNotifications(org.id));
-    }
   };
 
   const calculatedDuration = useMemo(() => {
@@ -317,14 +307,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
     return true;
   };
 
-  const isSuspended = org.verification_status === 'SUSPENDED' || org.verification_status === 'REVOKED' || org.verification_status === 'REJECTED';
-
   const handlePostOpportunity = () => {
-    if (isSuspended) {
-      setShowSuspendedModal(true);
-      return;
-    }
-
     if (!title.trim()) {
       alert('Please enter an opportunity title.');
       return;
@@ -372,10 +355,6 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   };
 
   const handleEndEvent = async (oppId: string) => {
-    if (isSuspended) {
-      setShowSuspendedModal(true);
-      return;
-    }
     if (confirm('End this event? Unmarked volunteers will automatically be marked Not Here, and attendance will be finalized.')) {
       await db.endEvent(oppId);
       refreshData();
@@ -386,10 +365,6 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   };
 
   const handlePermanentDeleteOpportunity = async (oppId: string) => {
-    if (isSuspended) {
-      setShowSuspendedModal(true);
-      return;
-    }
     if (confirm('Are you sure you want to permanently delete this opportunity from the database?')) {
       await db.deleteOpportunity(oppId);
       refreshData();
@@ -397,10 +372,6 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   };
 
   const handleClearPastOpportunities = async () => {
-    if (isSuspended) {
-      setShowSuspendedModal(true);
-      return;
-    }
     if (confirm('Are you sure you want to permanently delete ALL past/ended opportunities from the database? This cannot be undone.')) {
       await db.clearPastOpportunities(org.id);
       refreshData();
@@ -408,10 +379,6 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   };
 
   const handleLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isSuspended) {
-      setShowSuspendedModal(true);
-      return;
-    }
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
@@ -428,10 +395,6 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   };
 
   const handleBannerFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isSuspended) {
-      setShowSuspendedModal(true);
-      return;
-    }
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
@@ -448,39 +411,12 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
   };
 
   const handleMarkAttendance = (oppId: string, volId: string, status: 'here' | 'not_here') => {
-    if (isSuspended) {
-      setShowSuspendedModal(true);
-      return;
-    }
     db.markAttendance(oppId, volId, status);
     refreshData();
   };
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      {/* SUSPENDED ACCOUNT LOCKOUT TOP BANNER */}
-      {isSuspended && (
-        <div
-          onClick={() => setShowSuspendedModal(true)}
-          className="p-5 rounded-3xl bg-rose-600 text-white shadow-xl cursor-pointer flex items-center justify-between gap-4 transition-all hover:bg-rose-700"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center font-bold">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="font-black text-sm uppercase tracking-wider">⚠️ Organization Account Suspended</h2>
-              <p className="text-xs text-rose-100 font-medium">
-                Your account is currently suspended by Krow Admin. All actions, opportunity posting, and roster edits are locked. Click for error details.
-              </p>
-            </div>
-          </div>
-          <span className="px-4 py-2 bg-white text-rose-700 font-extrabold text-xs rounded-xl shadow-xs shrink-0">
-            View Error Details
-          </span>
-        </div>
-      )}
-
       {/* Header & Verification Status */}
       <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -492,12 +428,12 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
               <h1 className="text-xl font-black text-gray-900">{org.org_name}</h1>
               <span
                 className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-                  org.verification_status === 'VERIFIED' || org.verification_status === 'verified'
+                  org.verification_status === 'verified'
                     ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                     : 'bg-amber-50 text-amber-700 border border-amber-200'
                 }`}
               >
-                {org.verification_status === 'VERIFIED' || org.verification_status === 'verified' ? '✓ Verified' : org.verification_status.replace(/_/g, ' ')}
+                {org.verification_status === 'verified' ? '✓ Verified' : 'Pending'}
               </span>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium mt-0.5">
@@ -519,141 +455,7 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
             </div>
           </div>
         </div>
-
-        {/* Notifications Bell Button & Dropdown Drawer */}
-        <div className="relative shrink-0">
-          <button
-            onClick={() => setIsNotifOpen(!isNotifOpen)}
-            className="p-3 bg-purple-50 hover:bg-purple-100 text-[#635BFF] border border-purple-100 rounded-2xl transition-all relative cursor-pointer flex items-center justify-center shadow-2xs"
-            title="Organization Notifications"
-          >
-            <Bell className="w-5 h-5" />
-            {notifications.filter((n) => !n.is_read).length > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#635BFF] text-white font-black text-[10px] rounded-full flex items-center justify-center shadow-xs">
-                {notifications.filter((n) => !n.is_read).length}
-              </span>
-            )}
-          </button>
-
-          {/* Dropdown Menu */}
-          {isNotifOpen && (
-            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-3xl p-4 shadow-2xl border border-gray-100 z-50 space-y-3">
-              <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                <h3 className="font-black text-sm text-gray-900 flex items-center gap-1.5">
-                  <Bell className="w-4 h-4 text-[#635BFF]" /> Organization Notifications
-                </h3>
-                {notifications.some((n) => !n.is_read) && (
-                  <button
-                    onClick={() => {
-                      db.markAllNotificationsRead(org.id);
-                      refreshData();
-                    }}
-                    className="text-[11px] font-bold text-[#635BFF] hover:underline"
-                  >
-                    Mark all read
-                  </button>
-                )}
-              </div>
-
-              <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
-                {notifications.length === 0 ? (
-                  <div className="py-6 text-center text-xs text-gray-400 font-medium">
-                    No status notifications yet.
-                  </div>
-                ) : (
-                  notifications.map((n) => (
-                    <div
-                      key={n.id}
-                      onClick={() => {
-                        db.markNotificationRead(n.id);
-                        refreshData();
-                      }}
-                      className={`p-3 rounded-2xl border text-xs space-y-1 transition-all cursor-pointer ${
-                        n.is_read
-                          ? 'bg-gray-50/60 border-gray-100 text-gray-600'
-                          : 'bg-purple-50/80 border-purple-200 text-gray-900 font-semibold shadow-2xs'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between font-extrabold">
-                        <span className="text-gray-900">{n.title}</span>
-                        <span className="text-[10px] font-normal text-gray-400">
-                          {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-gray-600 leading-relaxed font-medium">{n.message}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-        </div>
       </div>
-
-      {/* Verification Card (Spec #2) */}
-      {org.verification_status !== 'VERIFIED' && org.verification_status !== 'verified' && (
-        <div className="bg-white rounded-3xl p-6 border border-purple-100 shadow-2xs space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-[#635BFF]" />
-                <h3 className="font-extrabold text-base text-gray-900">Verify your organization</h3>
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
-                    org.verification_status === 'PENDING_REVIEW'
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                      : org.verification_status === 'MORE_INFORMATION_REQUIRED'
-                      ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                      : org.verification_status === 'SUSPENDED' || org.verification_status === 'REVOKED'
-                      ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                      : 'bg-purple-50 text-[#635BFF] border border-purple-200'
-                  }`}
-                >
-                  Status: {org.verification_status.replace(/_/g, ' ')}
-                </span>
-              </div>
-              <p className="text-xs text-gray-500 max-w-2xl font-medium">
-                {org.verification_status === 'PENDING_REVIEW'
-                  ? 'Your organization information has been submitted to Krow for review. Our team will verify your signals shortly.'
-                  : org.verification_status === 'MORE_INFORMATION_REQUIRED'
-                  ? `Additional information requested: ${org.status_reason || 'Please update your application details.'}`
-                  : org.verification_status === 'SUSPENDED' || org.verification_status === 'REVOKED'
-                  ? `⚠️ Account Suspended: Your organization account is currently ${org.verification_status.toLowerCase()}. You cannot post any opportunities or award volunteer hours. ${org.status_reason || 'Contact Krow support for details.'}`
-                  : 'Verified organizations can build greater trust with volunteers and access Krow’s full organization functionality.'}
-              </p>
-            </div>
-
-            <div>
-              {org.verification_status === 'PENDING_REVIEW' ? (
-                <div className="px-4 py-2.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl text-xs font-extrabold flex items-center gap-1.5 shrink-0">
-                  <Clock className="w-4 h-4" /> Pending Review
-                </div>
-              ) : org.verification_status === 'SUSPENDED' || org.verification_status === 'REVOKED' ? (
-                <div className="px-4 py-2.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-extrabold flex items-center gap-1.5 shrink-0">
-                  <AlertCircle className="w-4 h-4" /> Account Suspended
-                </div>
-              ) : (
-                <button
-                  onClick={() => setIsVerificationModalOpen(true)}
-                  className="px-5 py-2.5 bg-[#635BFF] hover:bg-[#5046E5] text-white rounded-xl text-xs font-extrabold shadow-2xs transition-all shrink-0 flex items-center gap-1.5 cursor-pointer"
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  {org.verification_status === 'MORE_INFORMATION_REQUIRED'
-                    ? 'Update Information'
-                    : 'Start Verification'}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <VerificationModal
-        currentOrg={org}
-        isOpen={isVerificationModalOpen}
-        onClose={() => setIsVerificationModalOpen(false)}
-        onSubmitted={() => refreshData()}
-      />
 
       {/* TAB 1: OUR OPPORTUNITIES (Section 30 & 31 Spec) */}
       {tab === 'opportunities' && (
@@ -1873,51 +1675,6 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
         userId={currentUser.id}
         userName={org.org_name}
       />
-
-      {/* SUSPENDED ACCOUNT LOCKOUT MODAL */}
-      {showSuspendedModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/70 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-rose-200 text-center space-y-4 relative">
-            <button
-              onClick={() => setShowSuspendedModal(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold cursor-pointer"
-            >
-              ✕
-            </button>
-
-            <div className="w-14 h-14 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto font-black text-2xl">
-              <AlertCircle className="w-8 h-8" />
-            </div>
-
-            <div>
-              <h3 className="text-xl font-black text-gray-900">Account Suspended</h3>
-              <p className="text-xs text-rose-600 font-extrabold mt-1 uppercase tracking-wider">
-                Action Blocked — Account Suspended
-              </p>
-            </div>
-
-            <p className="text-xs text-gray-600 font-medium leading-relaxed bg-rose-50/70 p-4 rounded-2xl border border-rose-100">
-              Your organization account is currently suspended. You cannot post opportunities, edit event details, manage rosters, or update profile settings while suspended.
-            </p>
-
-            {org.status_reason && (
-              <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs text-gray-700 text-left space-y-1">
-                <span className="font-bold text-gray-900 block">Suspension Reason:</span>
-                <p className="text-gray-600 font-medium">{org.status_reason}</p>
-              </div>
-            )}
-
-            <div className="pt-2">
-              <button
-                onClick={() => setShowSuspendedModal(false)}
-                className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-2xl text-xs shadow-md transition-all cursor-pointer"
-              >
-                Acknowledge Suspension
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -15,14 +15,6 @@ import {
   RecurrenceFrequency,
   CertificateRecord,
   CertificateStatus,
-  OrgRepresentative,
-  OrgVerificationDocument,
-  OrgSafetyInfo,
-  OrgVerificationCheck,
-  OrgVerificationHistoryItem,
-  OrgAdminNote,
-  OrganizationReport,
-  ReportType,
 } from './types';
 import { getBadgeForHours } from './badges';
 import { supabase, isSupabaseConfigured } from './supabase';
@@ -113,10 +105,6 @@ class LocalDatabase {
   private hourAuditLogs: HourAuditLog[] = [];
   private contactMessages: ContactMessage[] = [];
   private certificates: CertificateRecord[] = [];
-  private orgVerificationChecks: OrgVerificationCheck[] = [];
-  private orgVerificationHistory: OrgVerificationHistoryItem[] = [];
-  private orgAdminNotes: OrgAdminNote[] = [];
-  private orgReports: OrganizationReport[] = [];
 
   public ensureKrowId(profile: UserProfile): UserProfile {
     if (!profile.krow_id) {
@@ -547,10 +535,6 @@ class LocalDatabase {
       localStorage.setItem('krow_contact_messages', JSON.stringify(this.contactMessages));
       localStorage.setItem('krow_certificates', JSON.stringify(this.certificates));
       localStorage.setItem('krow_profiles', JSON.stringify(this.profiles));
-      localStorage.setItem('krow_org_checks', JSON.stringify(this.orgVerificationChecks));
-      localStorage.setItem('krow_org_history', JSON.stringify(this.orgVerificationHistory));
-      localStorage.setItem('krow_org_notes', JSON.stringify(this.orgAdminNotes));
-      localStorage.setItem('krow_org_reports', JSON.stringify(this.orgReports));
     } catch (e) {
       console.error('Storage save error', e);
     }
@@ -624,18 +608,6 @@ class LocalDatabase {
 
       const storedCerts = localStorage.getItem('krow_certificates');
       if (storedCerts) this.certificates = JSON.parse(storedCerts);
-
-      const storedChecks = localStorage.getItem('krow_org_checks');
-      if (storedChecks) this.orgVerificationChecks = JSON.parse(storedChecks);
-
-      const storedHistory = localStorage.getItem('krow_org_history');
-      if (storedHistory) this.orgVerificationHistory = JSON.parse(storedHistory);
-
-      const storedNotes = localStorage.getItem('krow_org_notes');
-      if (storedNotes) this.orgAdminNotes = JSON.parse(storedNotes);
-
-      const storedReports = localStorage.getItem('krow_org_reports');
-      if (storedReports) this.orgReports = JSON.parse(storedReports);
 
       // Auto-backfill krow_id for all profiles & currentUser
       this.profiles.forEach((p) => this.ensureKrowId(p));
@@ -1172,24 +1144,23 @@ class LocalDatabase {
     this.attendance.forEach((att) => {
       if (orgOppIds.has(att.opportunity_id) && att.status === 'here') {
         const opp = this.opportunities.find((o) => o.id === att.opportunity_id);
-        const isVerified = status === 'VERIFIED' || status === 'verified';
-        att.is_verified_org_at_completion = isVerified;
-        att.hours_awarded = isVerified ? opp?.duration_hours || 0 : 0;
+        att.is_verified_org_at_completion = status === 'verified';
+        att.hours_awarded = status === 'verified' ? opp?.duration_hours || 0 : 0;
       }
     });
 
     // In-app notification for Organizer
-    const isVerifiedStatus = status === 'VERIFIED' || status === 'verified';
-    const title = isVerifiedStatus ? 'Organization Verified!' : 'Organization Verification Status Updated';
-    const message = isVerifiedStatus
-      ? `Congratulations! ${org.org_name} has been verified by Krow Admin. You can now award verified volunteer hours.`
-      : `${org.org_name} status changed to ${status}. New volunteer shifts will receive 0 awarded hours until verified.`;
+    const title = status === 'verified' ? 'Organization Verified!' : 'Organization Status Revoked';
+    const message =
+      status === 'verified'
+        ? `Congratulations! ${org.org_name} has been verified by Krow Admin. You can now award verified volunteer hours.`
+        : `${org.org_name} status has been changed to Pending. New volunteer shifts will receive 0 awarded hours until re-verified.`;
 
     this.addNotification({
       user_id: org.id,
       title,
       message,
-      type: isVerifiedStatus ? 'org_verified' : 'org_revoked',
+      type: status === 'verified' ? 'org_verified' : 'org_revoked',
     });
 
     this.saveToStorage();
@@ -1221,303 +1192,6 @@ class LocalDatabase {
         console.error('Supabase update verification status error:', err);
       }
     }
-  }
-
-  public async submitVerificationApplication(
-    orgId: string,
-    applicationData: {
-      legal_name: string;
-      public_name?: string;
-      organization_type: string;
-      description: string;
-      website?: string;
-      phone: string;
-      address: string;
-      city: string;
-      province_state: string;
-      country: string;
-      postal_code?: string;
-      registration_type: string;
-      registration_number?: string;
-      registration_authority?: string;
-      country_of_registration: string;
-      representative: OrgRepresentative;
-      documents: OrgVerificationDocument[];
-      safety_info: OrgSafetyInfo;
-    }
-  ): Promise<void> {
-    const orgUUID = ensureUUID(orgId);
-    let org = this.organizers.find((o) => o.id === orgId || o.id === orgUUID || ensureUUID(o.id) === orgUUID);
-    if (!org) {
-      const prof = this.profiles.find((p) => p.id === orgId || p.id === orgUUID || ensureUUID(p.id) === orgUUID);
-      org = {
-        id: orgId,
-        org_name: applicationData.public_name || applicationData.legal_name || prof?.name || 'Organization',
-        verification_status: 'UNVERIFIED',
-        no_hq: false,
-        created_at: prof?.created_at || new Date().toISOString(),
-      };
-      this.organizers.push(org);
-    }
-
-    let emailDomain: string | null = null;
-    if (applicationData.website) {
-      try {
-        const urlStr = applicationData.website.startsWith('http') ? applicationData.website : `https://${applicationData.website}`;
-        const hostname = new URL(urlStr).hostname.replace(/^www\./i, '');
-        if (hostname) emailDomain = hostname;
-      } catch (e) {}
-    }
-
-    const prevStatus = org.verification_status;
-    const now = new Date().toISOString();
-
-    org.legal_name = applicationData.legal_name;
-    org.public_name = applicationData.public_name;
-    org.org_name = applicationData.public_name || applicationData.legal_name;
-    org.organization_type = applicationData.organization_type;
-    org.bio = applicationData.description;
-    org.website = applicationData.website;
-    org.phone = applicationData.phone;
-    org.hq_address = applicationData.address;
-    org.hq_city = applicationData.city;
-    org.hq_province_state = applicationData.province_state;
-    org.hq_country = applicationData.country;
-    org.postal_code = applicationData.postal_code;
-    org.registration_type = applicationData.registration_type;
-    org.registration_number = applicationData.registration_number;
-    org.registration_authority = applicationData.registration_authority;
-    org.country_of_registration = applicationData.country_of_registration;
-    org.email_domain = emailDomain;
-    org.representative = applicationData.representative;
-    org.documents = applicationData.documents;
-    org.safety_info = applicationData.safety_info;
-    org.verification_status = 'PENDING_REVIEW';
-    org.submitted_at = now;
-    org.status_reason = null;
-
-    this.orgVerificationHistory.unshift({
-      id: ensureUUID('hist-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4)),
-      organization_id: org.id,
-      action: 'Application Submitted',
-      previous_status: prevStatus,
-      new_status: 'PENDING_REVIEW',
-      admin_id: 'system',
-      created_at: now,
-    });
-
-    this.addNotification({
-      user_id: org.id,
-      title: 'Verification Application Submitted',
-      message: 'Your organization verification application has been submitted to Krow for review.',
-      type: 'verification_submitted',
-    });
-
-    this.saveToStorage();
-  }
-
-  public verifyOrganizationEmail(orgId: string, code: string): { success: boolean; message: string } {
-    const org = this.getOrganizer(orgId);
-    if (!org || !org.representative) {
-      return { success: false, message: 'Organization representative information not found.' };
-    }
-    if (org.representative.verification_code && org.representative.verification_code.trim() !== code.trim()) {
-      return { success: false, message: 'Invalid verification code. Please check and try again.' };
-    }
-
-    org.representative.email_verified = true;
-    this.addNotification({
-      user_id: org.id,
-      title: 'Email Verified',
-      message: 'Your representative organization email has been verified.',
-      type: 'email_verified',
-    });
-
-    this.saveToStorage();
-    return { success: true, message: 'Email successfully verified!' };
-  }
-
-  public async updateVerificationStatusAdvanced(
-    orgId: string,
-    newStatus: VerificationStatus,
-    adminId: string = 'krow-admin',
-    reason?: string
-  ): Promise<void> {
-    const org = this.getOrganizer(orgId);
-    if (!org) return;
-
-    const prevStatus = org.verification_status;
-    const now = new Date().toISOString();
-    org.verification_status = newStatus;
-    org.status_reason = reason || null;
-
-    if (newStatus === 'VERIFIED' || newStatus === 'verified') {
-      org.verified_at = now;
-      org.verified_by = adminId;
-    } else if (newStatus === 'REJECTED') {
-      org.rejected_at = now;
-      org.rejected_by = adminId;
-    } else if (newStatus === 'SUSPENDED') {
-      org.suspended_at = now;
-      org.suspended_by = adminId;
-    }
-
-    this.orgVerificationHistory.unshift({
-      id: ensureUUID('hist-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4)),
-      organization_id: org.id,
-      action: `Status changed to ${newStatus}`,
-      previous_status: prevStatus,
-      new_status: newStatus,
-      admin_id: adminId,
-      reason,
-      created_at: now,
-    });
-
-    let title = 'Organization Verification Status Updated';
-    let msg = `Your organization verification status has been updated to ${newStatus}.`;
-
-    if (newStatus === 'VERIFIED' || newStatus === 'verified') {
-      title = 'Organization Verification Approved! 🟣';
-      msg = 'Congratulations! Your organization verification application has been approved by Krow. You can now post public volunteer opportunities and award verified volunteer hours.';
-    } else if (newStatus === 'MORE_INFORMATION_REQUIRED') {
-      title = 'More Information Requested for Verification ⚠️';
-      msg = `Additional information is required to complete your organization verification: ${reason || 'Please review and update your application details.'}`;
-    } else if (newStatus === 'REJECTED') {
-      title = 'Verification Application Rejected ❌';
-      msg = `Your organization verification application was not approved: ${reason || 'Does not meet current verification criteria.'}`;
-    } else if (newStatus === 'SUSPENDED') {
-      title = 'Organization Account Suspended 🛑';
-      msg = `Your organization account has been temporarily suspended from Krow: ${reason || 'Under administrative safety review.'}`;
-    } else if (newStatus === 'REVOKED') {
-      title = 'Organization Verification Revoked ⚠️';
-      msg = `Your organization verification status has been revoked: ${reason || 'Policy compliance review.'}`;
-    }
-
-    this.addNotification({
-      user_id: org.id,
-      title,
-      message: msg,
-      type: `org_status_${newStatus.toLowerCase()}`,
-    });
-
-    await this.updateOrganizerVerification(orgId, newStatus);
-  }
-
-  public getVerificationChecks(orgId: string): OrgVerificationCheck[] {
-    const orgUUID = ensureUUID(orgId);
-    return this.orgVerificationChecks.filter((c) => c.organization_id === orgId || c.organization_id === orgUUID);
-  }
-
-  public toggleVerificationCheck(orgId: string, checkType: string, status: boolean, adminId: string = 'krow-admin', notes?: string) {
-    const orgUUID = ensureUUID(orgId);
-    let check = this.orgVerificationChecks.find(
-      (c) => (c.organization_id === orgId || c.organization_id === orgUUID) && c.check_type === checkType
-    );
-    const now = new Date().toISOString();
-
-    if (check) {
-      check.status = status;
-      check.admin_id = adminId;
-      check.notes = notes || check.notes;
-      check.updated_at = now;
-    } else {
-      check = {
-        id: ensureUUID('chk-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4)),
-        organization_id: orgId,
-        check_type: checkType,
-        status,
-        admin_id: adminId,
-        notes,
-        created_at: now,
-        updated_at: now,
-      };
-      this.orgVerificationChecks.push(check);
-    }
-    this.saveToStorage();
-    return check;
-  }
-
-  public getVerificationHistory(orgId: string): OrgVerificationHistoryItem[] {
-    const orgUUID = ensureUUID(orgId);
-    return this.orgVerificationHistory
-      .filter((h) => h.organization_id === orgId || h.organization_id === orgUUID)
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }
-
-  public addAdminNote(orgId: string, adminId: string, note: string, adminName: string = 'Krow Admin'): OrgAdminNote {
-    const newNote: OrgAdminNote = {
-      id: ensureUUID('note-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4)),
-      organization_id: orgId,
-      admin_id: adminId,
-      admin_name: adminName,
-      note,
-      created_at: new Date().toISOString(),
-    };
-    this.orgAdminNotes.unshift(newNote);
-    this.saveToStorage();
-    return newNote;
-  }
-
-  public getAdminNotes(orgId: string): OrgAdminNote[] {
-    const orgUUID = ensureUUID(orgId);
-    return this.orgAdminNotes
-      .filter((n) => n.organization_id === orgId || n.organization_id === orgUUID)
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }
-
-  public submitReport(reportData: Omit<OrganizationReport, 'id' | 'created_at' | 'status'>): OrganizationReport {
-    const report: OrganizationReport = {
-      ...reportData,
-      id: ensureUUID('rep-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4)),
-      status: 'pending',
-      created_at: new Date().toISOString(),
-    };
-    this.orgReports.unshift(report);
-    this.saveToStorage();
-    return report;
-  }
-
-  public getReports(orgId?: string): OrganizationReport[] {
-    if (!orgId) return [...this.orgReports];
-    const orgUUID = ensureUUID(orgId);
-    return this.orgReports.filter((r) => r.organization_id === orgId || r.organization_id === orgUUID);
-  }
-
-  public resolveReport(reportId: string, action: 'dismiss' | 'suspend' | 'revoke' | 'actioned', adminId: string = 'krow-admin', notes?: string) {
-    const report = this.orgReports.find((r) => r.id === reportId);
-    if (!report) return;
-
-    report.status = action === 'dismiss' ? 'dismissed' : 'actioned';
-    report.resolved_at = new Date().toISOString();
-    report.resolved_by = adminId;
-
-    if (action === 'suspend') {
-      this.updateVerificationStatusAdvanced(report.organization_id, 'SUSPENDED', adminId, `Suspended due to report: ${report.report_type}`);
-    } else if (action === 'revoke') {
-      this.updateVerificationStatusAdvanced(report.organization_id, 'REVOKED', adminId, `Revoked due to report: ${report.report_type}`);
-    }
-
-    this.saveToStorage();
-  }
-
-  public checkDuplicateOrganizations(
-    legalName: string,
-    website?: string,
-    regNum?: string,
-    phone?: string
-  ): OrganizerProfile[] {
-    const cleanLegal = legalName.toLowerCase().trim();
-    const cleanWeb = website ? website.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').trim() : '';
-    const cleanReg = regNum ? regNum.toLowerCase().trim() : '';
-    const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
-
-    return this.organizers.filter((org) => {
-      if (cleanLegal && (org.legal_name || org.org_name).toLowerCase().trim() === cleanLegal) return true;
-      if (cleanWeb && org.website && org.website.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').trim() === cleanWeb) return true;
-      if (cleanReg && org.registration_number && org.registration_number.toLowerCase().trim() === cleanReg) return true;
-      if (cleanPhone && org.phone && org.phone.replace(/\D/g, '') === cleanPhone) return true;
-      return false;
-    });
   }
 
   public async deleteOrganizer(orgId: string): Promise<void> {

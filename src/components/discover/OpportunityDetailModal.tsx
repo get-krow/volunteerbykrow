@@ -1,12 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, Calendar, Clock, MapPin, Building2, CheckCircle2, ShieldCheck, Users, UserMinus, Flag, Info } from 'lucide-react';
+import React from 'react';
+import { X, Calendar, Clock, MapPin, Building2, CheckCircle2, ShieldCheck, Users, UserMinus } from 'lucide-react';
 import { Opportunity, UserProfile } from '@/lib/types';
-import { db } from '@/lib/db';
 import { createGoogleCalendarUrl } from '@/lib/google-calendar';
 import { formatAgeRange } from '@/lib/badges';
-import { ReportModal } from '../common/ReportModal';
 
 interface OpportunityDetailModalProps {
   opportunity: Opportunity | null;
@@ -29,13 +27,7 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
   isRegistered,
   onOpenAuth,
 }) => {
-  const [showSafetyExplain, setShowSafetyExplain] = useState(false);
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-
   if (!isOpen || !opp) return null;
-
-  const org = db.getOrganizer(opp.org_id);
-  const isVerified = (opp.org_verification_status === 'VERIFIED' || opp.org_verification_status === 'verified') || (org?.verification_status === 'VERIFIED' || org?.verification_status === 'verified');
 
   const max = opp.max_volunteers;
   const currentCount = opp.registered_count || 0;
@@ -99,7 +91,7 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-20 p-2 bg-white/90 backdrop-blur-sm text-gray-500 hover:text-gray-900 rounded-full shadow-md transition-colors cursor-pointer"
+          className="absolute top-4 right-4 z-20 p-2 bg-white/90 backdrop-blur-sm text-gray-500 hover:text-gray-900 rounded-full shadow-md transition-colors"
           title="Close details"
         >
           <X className="w-5 h-5" />
@@ -136,15 +128,6 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                   <span className="text-xs font-black uppercase tracking-wider text-[#635BFF] bg-purple-50 px-3 py-1 rounded-full border border-purple-100">
                     {opp.category_id?.replace('_', ' ') || 'General'}
                   </span>
-                  {isVerified && (
-                    <button
-                      onClick={() => setShowSafetyExplain(true)}
-                      className="text-xs font-extrabold text-purple-900 bg-purple-100 hover:bg-purple-200 px-3 py-1 rounded-full flex items-center gap-1 transition-colors cursor-pointer"
-                    >
-                      <span>🟣 Krow Verified</span>
-                      <Info className="w-3 h-3 text-[#635BFF]" />
-                    </button>
-                  )}
                   {opp.is_recurring && (
                     <span className="text-xs font-black uppercase tracking-wider text-purple-900 bg-purple-100 px-3 py-1 rounded-full">
                       {opp.recurrence_type === 'same_volunteers'
@@ -215,14 +198,7 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
               <div className="bg-gray-50/80 md:bg-white rounded-2xl p-5 border border-gray-200/80 space-y-5 sticky top-4">
                 {/* Title & Org Header (Desktop) */}
                 <div className="border-b border-gray-200/80 pb-4 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">{opp.org_name}</div>
-                    {isVerified && (
-                      <span className="text-[10px] font-extrabold text-[#635BFF] bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
-                        🟣 Krow Verified
-                      </span>
-                    )}
-                  </div>
+                  <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">{opp.org_name}</div>
                   <h2 className="text-lg font-black text-gray-900">{opp.title}</h2>
                 </div>
 
@@ -273,7 +249,7 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                 </div>
 
                 {/* Primary Action Button */}
-                <div className="pt-2 space-y-2">
+                <div className="pt-2">
                   {isEnded ? (
                     <button
                       disabled
@@ -305,7 +281,7 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                               onClose();
                             }
                           }}
-                          className="w-full py-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-extrabold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-red-200 transition-colors shadow-2xs cursor-pointer"
+                          className="w-full py-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-extrabold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-red-200 transition-colors shadow-2xs"
                         >
                           <UserMinus className="w-3.5 h-3.5" />
                           <span>{opp.recurrence_type === 'same_volunteers' ? 'Leave Recurring Series' : 'Leave Event'}</span>
@@ -316,7 +292,7 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                     <button
                       onClick={handleActionClick}
                       disabled={isFull}
-                      className={`w-full py-3.5 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 uppercase tracking-wider cursor-pointer ${
+                      className={`w-full py-3.5 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 uppercase tracking-wider ${
                         isFull
                           ? 'bg-gray-300 cursor-not-allowed shadow-none'
                           : 'bg-[#635BFF] hover:bg-[#5046E5] active:scale-[0.99] shadow-purple-500/20'
@@ -329,65 +305,12 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                         : 'Register Now'}
                     </button>
                   )}
-
-                  {/* Report Button */}
-                  <button
-                    onClick={() => setIsReportModalOpen(true)}
-                    className="w-full py-2 text-gray-400 hover:text-rose-600 font-bold text-[11px] flex items-center justify-center gap-1 transition-colors"
-                  >
-                    <Flag className="w-3.5 h-3.5" /> Report Opportunity
-                  </button>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Safety Explanation Modal */}
-      {showSafetyExplain && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-gray-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100 space-y-4 text-xs">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-              <div className="flex items-center gap-2 font-extrabold text-gray-900 text-sm">
-                <ShieldCheck className="w-5 h-5 text-[#635BFF]" />
-                <span>Krow Verified Organization</span>
-              </div>
-              <button
-                onClick={() => setShowSafetyExplain(false)}
-                className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-gray-700 leading-relaxed font-medium">
-              This organization has completed Krow's organization verification process. Verification confirms that Krow reviewed information provided by the organization and available verification signals. It does not guarantee that every opportunity or interaction is safe.
-            </p>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                onClick={() => setShowSafetyExplain(false)}
-                className="px-4 py-2 bg-[#635BFF] text-white rounded-xl font-bold text-xs shadow-xs"
-              >
-                Understood
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Report Modal Integration */}
-      <ReportModal
-        isOpen={isReportModalOpen}
-        onClose={() => setIsReportModalOpen(false)}
-        orgId={opp.org_id}
-        orgName={opp.org_name}
-        opportunityId={opp.id}
-        opportunityTitle={opp.title}
-        reporterUserId={currentUser?.id}
-      />
     </div>
   );
 };
-
