@@ -32,21 +32,13 @@ export default function CertificateVerificationPage() {
     }
 
     if (rawCertId) {
-      db.syncWithSupabase()
-        .then(() => db.getCertificateByIdAsync(rawCertId))
-        .then((found) => {
-          if (isMounted) {
-            if (found) {
-              setCertRecord(found);
-            } else if (!tokenRecord) {
-              setCertRecord(null);
-            }
+      db.getCertificateByIdAsync(rawCertId).then((found) => {
+        if (isMounted) {
+          if (found) {
+            setCertRecord(found);
+          } else if (!tokenRecord) {
+            setCertRecord(null);
           }
-        });
-
-      db.getCertificateByIdAsync(rawCertId).then((foundImmediately) => {
-        if (isMounted && foundImmediately) {
-          setCertRecord(foundImmediately);
         }
       });
     } else if (!tokenRecord) {

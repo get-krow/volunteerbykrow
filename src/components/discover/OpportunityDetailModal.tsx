@@ -113,9 +113,15 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-[#635BFF] via-[#5046E5] to-[#3730A3] flex items-center justify-center p-6 relative overflow-hidden">
                     <div className="text-center text-white space-y-2 z-10">
-                      <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md mx-auto flex items-center justify-center font-black text-lg">
-                        {opp.org_name ? opp.org_name.charAt(0) : 'V'}
-                      </div>
+                      {opp.org_logo_url ? (
+                        <div className="w-14 h-14 rounded-2xl bg-white shadow-md mx-auto overflow-hidden p-0.5 flex items-center justify-center">
+                          <img src={opp.org_logo_url} alt={opp.org_name} className="w-full h-full object-cover rounded-xl" />
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md mx-auto flex items-center justify-center font-black text-lg">
+                          {opp.org_name ? opp.org_name.charAt(0) : 'V'}
+                        </div>
+                      )}
                       <p className="font-extrabold text-sm">{opp.org_name || 'Volunteer Opportunity'}</p>
                     </div>
                   </div>
@@ -198,7 +204,19 @@ export const OpportunityDetailModal: React.FC<OpportunityDetailModalProps> = ({
               <div className="bg-gray-50/80 md:bg-white rounded-2xl p-5 border border-gray-200/80 space-y-5 sticky top-4">
                 {/* Title & Org Header (Desktop) */}
                 <div className="border-b border-gray-200/80 pb-4 space-y-1">
-                  <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">{opp.org_name}</div>
+                  <div className="flex items-center gap-2">
+                    {opp.org_logo_url && (
+                      <div className="w-5 h-5 rounded-md overflow-hidden bg-purple-100 shrink-0 border border-purple-200">
+                        <img src={opp.org_logo_url} alt="" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{opp.org_name}</span>
+                    {opp.org_verification_status === 'verified' && (
+                      <span className="bg-emerald-50 text-emerald-700 text-[9px] font-extrabold px-1.5 py-0.2 rounded-full border border-emerald-200">
+                        ✓ Verified
+                      </span>
+                    )}
+                  </div>
                   <h2 className="text-lg font-black text-gray-900">{opp.title}</h2>
                 </div>
 

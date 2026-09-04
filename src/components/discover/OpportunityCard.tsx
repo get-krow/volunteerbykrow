@@ -144,7 +144,11 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
 
           {/* Organization & Verified Badge */}
           <div className="flex items-center gap-1.5 text-xs text-gray-600">
-            <Building2 className="w-3.5 h-3.5 text-[#635BFF] flex-shrink-0" />
+            {opp.org_logo_url ? (
+              <img src={opp.org_logo_url} alt="" className="w-4 h-4 rounded-md object-cover flex-shrink-0" />
+            ) : (
+              <Building2 className="w-3.5 h-3.5 text-[#635BFF] flex-shrink-0" />
+            )}
             <span className="font-semibold truncate">{opp.org_name || 'Organization'}</span>
             {opp.org_verification_status === 'verified' && (
               <span className="bg-emerald-50 text-emerald-700 text-[10px] font-extrabold px-1.5 py-0.2 rounded-full border border-emerald-200 flex-shrink-0">

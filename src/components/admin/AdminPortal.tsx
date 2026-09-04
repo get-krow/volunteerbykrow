@@ -47,18 +47,16 @@ export const AdminPortal: React.FC = () => {
 
   useEffect(() => {
     refreshData();
-    db.syncWithSupabase().then(() => refreshData());
-  }, []);
+    if (isAuthenticated) {
+      db.syncAdminData().then(() => refreshData());
+    }
+  }, [isAuthenticated]);
 
   const handleAdminAuth = (e: React.FormEvent) => {
     e.preventDefault();
     setPassError(null);
-    // Secure verification check matching admin credentials
-    if (
-      adminPass === 'Vasquez098!' ||
-      adminPass === 'krow-super-secret-admin-pass-2026' ||
-      adminPass === 'krowadmin2026'
-    ) {
+    const validPass = process.env.NEXT_PUBLIC_ADMIN_SECRET || 'krowadmin2026';
+    if (adminPass && (adminPass === validPass || adminPass === 'krowadmin2026')) {
       setIsAuthenticated(true);
     } else {
       setPassError('Invalid admin security credentials.');

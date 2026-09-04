@@ -26,15 +26,33 @@ export const OrganizationFeed: React.FC<OrganizationFeedProps> = ({ currentUser,
   const [selectedOppForDetail, setSelectedOppForDetail] = useState<Opportunity | null>(null);
 
   useEffect(() => {
+    setOrganizers(db.getOrganizers());
+    setOpportunities(db.getOpportunities());
+    if (currentUser) {
+      setRegistrations(db.getVolunteerRegistrations(currentUser.id));
+    }
+
     refreshData();
-    const interval = setInterval(() => {
-      refreshData();
-    }, 5000);
-    return () => clearInterval(interval);
+
+    const handleDataChange = () => {
+      setOrganizers(db.getOrganizers());
+      setOpportunities(db.getOpportunities());
+      if (currentUser) {
+        setRegistrations(db.getVolunteerRegistrations(currentUser.id));
+      }
+    };
+
+    window.addEventListener('krow_data_change', handleDataChange);
+    return () => {
+      window.removeEventListener('krow_data_change', handleDataChange);
+    };
   }, [currentUser]);
 
   const refreshData = async () => {
-    await db.syncWithSupabase();
+    await Promise.all([
+      db.syncOrganizers(),
+      db.syncOpportunities(),
+    ]);
     setOrganizers(db.getOrganizers());
     setOpportunities(db.getOpportunities());
     if (currentUser) {

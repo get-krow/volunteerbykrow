@@ -8,6 +8,7 @@ import { UserProfile, SystemRole, NotificationItem } from '@/lib/types';
 import { db } from '@/lib/db';
 import { useTheme } from '@/lib/theme';
 import { DobReminderModal } from '../auth/DobReminderModal';
+import { getAvatarDataUrl } from '@/lib/avatar';
 
 interface NavbarProps {
   currentUser: UserProfile | null;
@@ -194,13 +195,38 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, onOpenAuth, onLogou
 
           {/* User Auth Buttons / Profile Indicator */}
           {currentUser ? (
-            <div className="flex items-center gap-2">
-              <div className="hidden sm:flex flex-col text-right">
-                <span className="text-xs font-bold text-gray-900 dark:text-white leading-tight">{currentUser.name}</span>
-                <span className="text-[10px] text-brand-600 font-semibold uppercase tracking-wider">
-                  {currentUser.role}
-                </span>
-              </div>
+            <div className="flex items-center gap-2.5">
+              <Link
+                href={currentUser.role === 'organizer' ? '/organizer/profile' : '/profile'}
+                className="flex items-center gap-2 group p-1 rounded-full hover:bg-purple-50/60 dark:hover:bg-slate-800 transition-colors"
+                title="View Profile Settings"
+              >
+                <div className="w-8 h-8 rounded-full overflow-hidden bg-purple-100 border border-purple-200 shadow-2xs shrink-0 flex items-center justify-center text-xs font-black text-[#635BFF]">
+                  {currentUser.role === 'volunteer' ? (
+                    <img
+                      src={currentUser.avatar_url || getAvatarDataUrl()}
+                      alt={currentUser.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : currentUser.avatar_url ? (
+                    <img
+                      src={currentUser.avatar_url}
+                      alt={currentUser.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    currentUser.name?.charAt(0) || 'O'
+                  )}
+                </div>
+                <div className="hidden sm:flex flex-col text-left">
+                  <span className="text-xs font-bold text-gray-900 dark:text-white leading-tight group-hover:text-[#635BFF] transition-colors">
+                    {currentUser.name}
+                  </span>
+                  <span className="text-[10px] text-brand-600 font-semibold uppercase tracking-wider">
+                    {currentUser.role}
+                  </span>
+                </div>
+              </Link>
               <button
                 onClick={async () => {
                   await db.logout();

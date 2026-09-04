@@ -34,6 +34,7 @@ import { useTheme } from '@/lib/theme';
 import { getBadgeForHours } from '@/lib/badges';
 import { DeleteAccountModal } from '../auth/DeleteAccountModal';
 import { AppleWheelPicker, AppleWheelOption } from '../ui/AppleWheelPicker';
+import { compressImage } from '@/lib/image';
 
 const MONTH_OPTIONS: AppleWheelOption[] = [
   { label: 'Jan', value: '01' },
@@ -213,10 +214,26 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
 
   useEffect(() => {
     refreshData();
-  }, [currentUser]);
+    if (org?.id) {
+      db.syncOrganizerData(org.id).then(() => refreshData());
+    }
+
+    const handleDataChange = () => {
+      refreshData();
+    };
+
+    window.addEventListener('krow_data_change', handleDataChange);
+    return () => {
+      window.removeEventListener('krow_data_change', handleDataChange);
+    };
+  }, [currentUser, org?.id]);
 
   const refreshData = () => {
     setOpportunities(db.getOpportunities());
+    const curOrg = db.getOrganizer(currentUser.id);
+    if (curOrg) {
+      setOrg((prev) => ({ ...prev, ...curOrg }));
+    }
   };
 
   const calculatedDuration = useMemo(() => {
@@ -378,36 +395,29 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
     }
   };
 
-  const handleLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Logo image size must be less than 5MB');
-      return;
+    try {
+      const compressed = await compressImage(file, 256, 256, 0.85);
+      const updatedOrg = { ...org, logo_url: compressed };
+      setOrg(updatedOrg);
+      await db.saveOrganizer(updatedOrg);
+      db.updateProfile({ avatar_url: compressed, name: updatedOrg.org_name });
+    } catch (err) {
+      alert('Error processing logo image. Please select a valid image file.');
     }
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result === 'string') {
-        setOrg((prev) => ({ ...prev, logo_url: reader.result as string }));
-      }
-    };
-    reader.readAsDataURL(file);
   };
 
-  const handleBannerFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBannerFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Image file size must be less than 5MB');
-      return;
+    try {
+      const compressed = await compressImage(file, 800, 450, 0.8);
+      setBannerUrl(compressed);
+    } catch (err) {
+      alert('Error processing banner image. Please select a valid image file.');
     }
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result === 'string') {
-        setBannerUrl(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
   };
 
   const handleMarkAttendance = (oppId: string, volId: string, status: 'here' | 'not_here') => {
@@ -1470,10 +1480,10 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
           </div>
 
           <form
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              db.saveOrganizer(org);
-              db.updateProfile({ name: org.org_name });
+              await db.saveOrganizer(org);
+              db.updateProfile({ name: org.org_name, avatar_url: org.logo_url || '' });
               alert('Organization profile settings saved successfully!');
             }}
             className="space-y-4 text-xs"
@@ -1504,7 +1514,12 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
                   {org.logo_url && (
                     <button
                       type="button"
-                      onClick={() => setOrg((prev) => ({ ...prev, logo_url: null }))}
+                      onClick={async () => {
+                        const updatedOrg = { ...org, logo_url: null };
+                        setOrg(updatedOrg);
+                        await db.saveOrganizer(updatedOrg);
+                        db.updateProfile({ avatar_url: '', name: updatedOrg.org_name });
+                      }}
                       className="px-3 py-2 bg-white text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-xl text-xs font-bold transition-colors border border-gray-200"
                     >
                       Remove Logo

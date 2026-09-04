@@ -105,6 +105,8 @@ class LocalDatabase {
   private hourAuditLogs: HourAuditLog[] = [];
   private contactMessages: ContactMessage[] = [];
   private certificates: CertificateRecord[] = [];
+  private inflightRequests: Map<string, Promise<any>> = new Map();
+  private lastSyncTimes: Map<string, number> = new Map();
 
   public ensureKrowId(profile: UserProfile): UserProfile {
     if (!profile.krow_id) {
@@ -118,7 +120,6 @@ class LocalDatabase {
     if (typeof window !== 'undefined') {
       this.loadFromStorage();
       this.initSupabaseAuthListener();
-      this.syncWithSupabase();
     }
   }
 
@@ -142,7 +143,11 @@ class LocalDatabase {
 
         let existingRemoteProfile: UserProfile | null = null;
         try {
-          const { data } = await supabase.from('profiles').select('*').or(`id.eq.${session.user.id},id.eq.${uUUID}`).single();
+          const { data } = await supabase
+            .from('profiles')
+            .select('id, krow_id, role, email, name, dob, country, province_state, city, location_set, bio, avatar_url, created_at')
+            .or(`id.eq.${session.user.id},id.eq.${uUUID}`)
+            .single();
           if (data) {
             existingRemoteProfile = {
               id: data.id,
@@ -181,7 +186,9 @@ class LocalDatabase {
         this.ensureKrowId(user);
         this.currentUser = user;
         this.saveToStorage();
-        await this.saveProfileToSupabase(user);
+        if (!existingRemoteProfile) {
+          await this.saveProfileToSupabase(user);
+        }
 
         // Clean ugly OAuth token hash or code query params from browser URL bar after successful login
         if (typeof window !== 'undefined') {
@@ -214,96 +221,329 @@ class LocalDatabase {
     }
   }
 
-  public async syncWithSupabase(): Promise<void> {
-    if (!isSupabaseConfigured()) return;
-    try {
-      // 1. Sync Profiles from Supabase (Source of Truth)
-      const { data: dbProfiles } = await supabase.from('profiles').select('*');
-      if (dbProfiles) {
-        const dbProfileUUIDs = new Set(dbProfiles.map((p: any) => ensureUUID(p.id)));
+  private dedupe<T>(key: string, fn: () => Promise<T>, ttlMs: number = 30000, force?: boolean): Promise<T> {
+    const now = Date.now();
+    const last = this.lastSyncTimes.get(key) || 0;
+    if (!force && now - last < ttlMs) {
+      return Promise.resolve(null as unknown as T);
+    }
+    if (this.inflightRequests.has(key)) {
+      return this.inflightRequests.get(key) as Promise<T>;
+    }
+    const promise = fn()
+      .then((res) => {
+        this.lastSyncTimes.set(key, Date.now());
+        this.inflightRequests.delete(key);
+        return res;
+      })
+      .catch((err) => {
+        this.inflightRequests.delete(key);
+        throw err;
+      });
+    this.inflightRequests.set(key, promise);
+    return promise;
+  }
 
-        const remoteProfiles: UserProfile[] = dbProfiles.map((p: any) => {
-          const idx = this.profiles.findIndex((existing) => existing.id === p.id || ensureUUID(existing.id) === ensureUUID(p.id));
-          const existingLocalDob = (idx >= 0 ? this.profiles[idx].dob : undefined) || (this.currentUser && (this.currentUser.id === p.id || ensureUUID(this.currentUser.id) === ensureUUID(p.id)) ? this.currentUser.dob : undefined);
-          const existingLocalKrowId = (idx >= 0 ? this.profiles[idx].krow_id : undefined) || (this.currentUser && (this.currentUser.id === p.id || ensureUUID(this.currentUser.id) === ensureUUID(p.id)) ? this.currentUser.krow_id : undefined);
+  private mapOpportunitiesFromDb(dbOpps: any[]): Opportunity[] {
+    const seriesChildCountMap = new Map<string, number>();
+    const seriesChildDatesMap = new Map<string, string[]>();
 
-          const existingLocalLocationSet = (idx >= 0 ? this.profiles[idx].location_set : undefined) ?? (this.currentUser && (this.currentUser.id === p.id || ensureUUID(this.currentUser.id) === ensureUUID(p.id)) ? this.currentUser.location_set : undefined);
-
-          const mappedProfile: UserProfile = {
-            id: p.id,
-            krow_id: p.krow_id || existingLocalKrowId || undefined,
-            role: p.role || 'volunteer',
-            email: p.email || '',
-            name: p.name || 'Volunteer',
-            dob: p.dob || existingLocalDob || undefined,
-            country: p.country || (idx >= 0 ? this.profiles[idx].country : undefined) || 'Canada',
-            province_state: p.province_state || (idx >= 0 ? this.profiles[idx].province_state : undefined) || 'BC',
-            city: p.city || (idx >= 0 ? this.profiles[idx].city : undefined) || 'Vancouver',
-            location_set: p.location_set ?? existingLocalLocationSet ?? true,
-            bio: p.bio || undefined,
-            avatar_url: p.avatar_url || undefined,
-            created_at: p.created_at || new Date().toISOString(),
-          };
-
-          this.ensureKrowId(mappedProfile);
-          return mappedProfile;
-        });
-
-        // Keep remote profiles plus active currentUser if newly registered
-        this.profiles = [...remoteProfiles];
-
-        if (this.currentUser) {
-          const curUUID = ensureUUID(this.currentUser.id);
-          const hasInRemote = dbProfileUUIDs.has(curUUID) || remoteProfiles.some((p) => p.id === this.currentUser?.id || ensureUUID(p.id) === curUUID);
-
-          if (!hasInRemote) {
-            // Push missing currentUser profile to Supabase automatically!
-            this.ensureKrowId(this.currentUser);
-            this.profiles.push(this.currentUser);
-            this.saveProfileToSupabase(this.currentUser);
-          } else {
-            const match = remoteProfiles.find((p) => p.id === this.currentUser?.id || ensureUUID(p.id) === curUUID);
-            if (match) {
-              this.currentUser = {
-                ...this.currentUser,
-                ...match,
-                dob: match.dob || this.currentUser.dob,
-                krow_id: match.krow_id || this.currentUser.krow_id,
-              };
-            }
+    dbOpps.forEach((sOpp: any) => {
+      if (sOpp.recurrence_series_id) {
+        if (sOpp.occurrence_number !== undefined && sOpp.occurrence_number !== null) {
+          const c = seriesChildCountMap.get(sOpp.recurrence_series_id) || 0;
+          seriesChildCountMap.set(sOpp.recurrence_series_id, c + 1);
+        }
+        if (sOpp.date) {
+          const dates = seriesChildDatesMap.get(sOpp.recurrence_series_id) || [];
+          if (!dates.includes(sOpp.date)) {
+            dates.push(sOpp.date);
+            dates.sort();
+            seriesChildDatesMap.set(sOpp.recurrence_series_id, dates);
           }
+        }
+      }
+    });
+
+    return dbOpps.map((sOpp: any) => {
+      const joinedOrg = sOpp.organizer;
+      if (joinedOrg && joinedOrg.id) {
+        const existingIdx = this.organizers.findIndex((o) => o.id === joinedOrg.id || ensureUUID(o.id) === ensureUUID(joinedOrg.id));
+        const mappedJoinedOrg: OrganizerProfile = {
+          id: joinedOrg.id,
+          org_name: joinedOrg.org_name,
+          hq_country: 'Canada',
+          hq_province_state: 'BC',
+          hq_city: 'Vancouver',
+          no_hq: false,
+          verification_status: joinedOrg.verification_status || 'verified',
+          logo_url: joinedOrg.logo_url,
+          created_at: new Date().toISOString(),
+        };
+        if (existingIdx >= 0) {
+          this.organizers[existingIdx] = { ...this.organizers[existingIdx], ...mappedJoinedOrg };
+        } else {
+          this.organizers.push(mappedJoinedOrg);
+        }
+      }
+
+      const matchOrg = this.organizers.find((o) => o.id === sOpp.org_id || o.id === ensureUUID(sOpp.org_id));
+      const resolvedOrgName =
+        joinedOrg?.org_name ||
+        (sOpp.org_name && sOpp.org_name !== 'Organization'
+          ? sOpp.org_name
+          : matchOrg?.org_name || this.currentUser?.name || 'Organization');
+
+      const localMatch = this.opportunities.find((l) => l.id === sOpp.id);
+      const computedCount = sOpp.recurrence_series_id ? (seriesChildCountMap.get(sOpp.recurrence_series_id) || seriesChildDatesMap.get(sOpp.recurrence_series_id)?.length || 0) : 0;
+      const computedDates = sOpp.recurrence_series_id ? seriesChildDatesMap.get(sOpp.recurrence_series_id) : undefined;
+
+      const computedStart = sOpp.series_start_date || (computedDates && computedDates.length > 0 ? computedDates[0] : sOpp.date);
+      let computedEnd = sOpp.series_end_date || (computedDates && computedDates.length > 0 ? computedDates[computedDates.length - 1] : undefined);
+      
+      if (!computedEnd || (computedEnd === computedStart && (sOpp.recurrence_count || computedCount) > 1)) {
+        const count = sOpp.recurrence_count || computedCount || 1;
+        if (count > 1 && computedStart) {
+          const parts = computedStart.split('-');
+          if (parts.length === 3) {
+            const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            const freq = sOpp.recurrence_frequency || 'every_week';
+            if (freq === 'every_day') {
+              d.setDate(d.getDate() + (count - 1));
+            } else if (freq === 'every_other_week') {
+              d.setDate(d.getDate() + (count - 1) * 14);
+            } else if (freq === 'every_month') {
+              d.setMonth(d.getMonth() + (count - 1));
+            } else {
+              d.setDate(d.getDate() + (count - 1) * 7);
+            }
+            const y = d.getFullYear();
+            const m = (d.getMonth() + 1).toString().padStart(2, '0');
+            const day = d.getDate().toString().padStart(2, '0');
+            computedEnd = `${y}-${m}-${day}`;
+          }
+        }
+      }
+
+      return {
+        id: sOpp.id,
+        org_id: sOpp.org_id,
+        org_name: resolvedOrgName,
+        org_verification_status: joinedOrg?.verification_status || sOpp.org_verification_status || matchOrg?.verification_status || 'verified',
+        org_logo_url: joinedOrg?.logo_url || sOpp.org_logo_url || matchOrg?.logo_url || undefined,
+        title: sOpp.title,
+        description: sOpp.description,
+        instructions: sOpp.instructions,
+        category_id: sOpp.category_id || 'community',
+        banner_url: sOpp.banner_url,
+        date: sOpp.date,
+        start_time: sOpp.start_time,
+        end_time: sOpp.end_time,
+        duration_hours: sOpp.duration_hours || 2,
+        location_type: sOpp.location_type || 'physical',
+        location_address: sOpp.location_address,
+        min_age: sOpp.min_age,
+        max_age: sOpp.max_age,
+        max_volunteers: sOpp.max_volunteers,
+        is_recurring: sOpp.is_recurring ?? localMatch?.is_recurring ?? false,
+        recurrence_type: sOpp.recurrence_type || localMatch?.recurrence_type,
+        recurrence_frequency: sOpp.recurrence_frequency || localMatch?.recurrence_frequency,
+        recurrence_series_id: sOpp.recurrence_series_id || localMatch?.recurrence_series_id,
+        recurrence_count: sOpp.recurrence_count || localMatch?.recurrence_count || (computedCount > 0 ? computedCount : undefined),
+        occurrence_number: sOpp.occurrence_number ?? localMatch?.occurrence_number,
+        occurrence_dates: sOpp.occurrence_dates || localMatch?.occurrence_dates || (computedDates && computedDates.length > 0 ? computedDates : undefined),
+        series_start_date: computedStart,
+        series_end_date: computedEnd || sOpp.date,
+        total_series_hours: sOpp.total_series_hours || localMatch?.total_series_hours || (computedCount > 0 ? (sOpp.duration_hours || 2) * computedCount : undefined),
+        status: sOpp.status || 'published',
+        ended_at: sOpp.ended_at || undefined,
+        created_at: sOpp.created_at || new Date().toISOString(),
+      };
+    });
+  }
+
+  // 1. Scoped Opportunities Sync (Feed & Directory)
+  public async syncOpportunities(force?: boolean): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    return this.dedupe('sync_opportunities', async () => {
+      try {
+        const { data: dbOpps, error } = await supabase
+          .from('opportunities')
+          .select('id, org_id, title, description, instructions, category_id, banner_url, date, start_time, end_time, duration_hours, location_type, location_address, min_age, max_age, max_volunteers, is_recurring, recurrence_type, recurrence_frequency, recurrence_series_id, recurrence_count, occurrence_number, occurrence_dates, series_start_date, series_end_date, total_series_hours, status, ended_at, created_at, organizer:organizer_profiles(id, org_name, logo_url, verification_status)')
+          .order('date', { ascending: true })
+          .limit(100);
+
+        if (error) {
+          const { data: fallbackOpps } = await supabase
+            .from('opportunities')
+            .select('id, org_id, title, description, instructions, category_id, banner_url, date, start_time, end_time, duration_hours, location_type, location_address, min_age, max_age, max_volunteers, is_recurring, recurrence_type, recurrence_frequency, recurrence_series_id, recurrence_count, occurrence_number, occurrence_dates, series_start_date, series_end_date, total_series_hours, status, ended_at, created_at')
+            .order('date', { ascending: true })
+            .limit(100);
+
+          if (fallbackOpps) {
+            this.opportunities = this.mapOpportunitiesFromDb(fallbackOpps);
+            this.opportunities.forEach((opp) => {
+              opp.registered_count = this.getRegisteredCount(opp.id);
+            });
+            this.saveToStorage();
+          }
+          return;
+        }
+
+        if (dbOpps) {
+          this.opportunities = this.mapOpportunitiesFromDb(dbOpps);
+          this.opportunities.forEach((opp) => {
+            opp.registered_count = this.getRegisteredCount(opp.id);
+          });
+          this.saveToStorage();
+        }
+      } catch (e) {
+        console.error('Opportunities sync error:', e);
+      }
+    }, 30000, force);
+  }
+
+  // 2. Scoped Organizers Directory Sync
+  public async syncOrganizers(force?: boolean): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    return this.dedupe('sync_organizers', async () => {
+      try {
+        const { data: dbOrgs } = await supabase
+          .from('organizer_profiles')
+          .select('id, org_name, hq_country, hq_province_state, hq_city, hq_address, no_hq, bio, logo_url, verification_status, created_at');
+
+        if (dbOrgs) {
+          // Reconcile this.organizers with Supabase (purges deleted orgs)
+          const mappedOrgs: OrganizerProfile[] = dbOrgs.map((sOrg: any) => ({
+            id: sOrg.id,
+            org_name: sOrg.org_name,
+            hq_country: sOrg.hq_country || 'Canada',
+            hq_province_state: sOrg.hq_province_state || 'BC',
+            hq_city: sOrg.hq_city || 'Vancouver',
+            hq_address: sOrg.hq_address,
+            no_hq: sOrg.no_hq || false,
+            bio: sOrg.bio,
+            logo_url: sOrg.logo_url,
+            verification_status: sOrg.verification_status || 'verified',
+            created_at: sOrg.created_at || new Date().toISOString(),
+          }));
+
+          this.organizers = mappedOrgs;
+
+          // Remove any local opportunities belonging to deleted organizations
+          const activeOrgIds = new Set(this.organizers.map((o) => o.id));
+          const activeOrgUUIDs = new Set(this.organizers.map((o) => ensureUUID(o.id)));
+          this.opportunities = this.opportunities.filter(
+            (opp) => activeOrgIds.has(opp.org_id) || activeOrgUUIDs.has(ensureUUID(opp.org_id))
+          );
+
+          this.saveToStorage();
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('krow_data_change', { detail: { table: 'organizer_profiles' } }));
+          }
+        }
+      } catch (e) {
+        console.error('Organizers sync error:', e);
+      }
+    }, 45000, force);
+  }
+
+  // 3. Scoped Volunteer Data Sync (Only for current authenticated volunteer)
+  public async syncVolunteerData(volunteerId: string, force?: boolean): Promise<void> {
+    if (!isSupabaseConfigured() || !volunteerId) return;
+    const vUUID = ensureUUID(volunteerId);
+    return this.dedupe(`sync_vol_${vUUID}`, async () => {
+      try {
+        const [regsRes, attRes, certsRes] = await Promise.all([
+          supabase
+            .from('registrations')
+            .select('id, opportunity_id, volunteer_id, registered_at, status')
+            .or(`volunteer_id.eq.${volunteerId},volunteer_id.eq.${vUUID}`),
+          supabase
+            .from('attendance')
+            .select('id, opportunity_id, opportunity_title, volunteer_id, status, hours_awarded, is_verified_org_at_completion, marked_at')
+            .or(`volunteer_id.eq.${volunteerId},volunteer_id.eq.${vUUID}`),
+          supabase
+            .from('certificates')
+            .select('id, certificate_id, user_id, krow_id, student_name, hours, activity_count, issued_at, status, created_at')
+            .or(`user_id.eq.${volunteerId},user_id.eq.${vUUID}`),
+        ]);
+
+        if (regsRes.data) {
+          const remoteRegs: Registration[] = regsRes.data.map((r: any) => ({
+            id: r.id,
+            opportunity_id: r.opportunity_id,
+            volunteer_id: r.volunteer_id,
+            registered_at: r.registered_at || new Date().toISOString(),
+            status: r.status || 'registered',
+          }));
+          const otherRegs = this.registrations.filter((r) => r.volunteer_id !== volunteerId && ensureUUID(r.volunteer_id) !== vUUID);
+          this.registrations = [...otherRegs, ...remoteRegs];
+        }
+
+        if (attRes.data) {
+          const remoteAtt: AttendanceRecord[] = attRes.data.map((a: any) => {
+            const opp = this.opportunities.find((o) => o.id === a.opportunity_id || o.id === ensureUUID(a.opportunity_id));
+            return {
+              id: a.id,
+              opportunity_id: a.opportunity_id,
+              opportunity_title: a.opportunity_title || opp?.title,
+              volunteer_id: a.volunteer_id,
+              status: a.status || 'unmarked',
+              hours_awarded: a.hours_awarded || 0,
+              is_verified_org_at_completion: a.is_verified_org_at_completion ?? true,
+              marked_at: a.marked_at || new Date().toISOString(),
+            };
+          });
+          const otherAtt = this.attendance.filter((a) => a.volunteer_id !== volunteerId && ensureUUID(a.volunteer_id) !== vUUID);
+          this.attendance = [...otherAtt, ...remoteAtt];
+        }
+
+        if (certsRes.data) {
+          const remoteCerts: CertificateRecord[] = certsRes.data.map((c: any) => ({
+            id: c.id,
+            certificate_id: c.certificate_id,
+            user_id: c.user_id,
+            krow_id: c.krow_id,
+            student_name: c.student_name || 'Volunteer',
+            hours: c.hours || 0,
+            activity_count: c.activity_count || 0,
+            issued_at: c.issued_at || new Date().toISOString(),
+            status: c.status || 'VALID',
+            created_at: c.created_at || new Date().toISOString(),
+          }));
+          const otherCerts = this.certificates.filter((c) => c.user_id !== volunteerId && ensureUUID(c.user_id) !== vUUID);
+          this.certificates = [...otherCerts, ...remoteCerts];
         }
 
         this.saveToStorage();
+      } catch (e) {
+        console.error('Volunteer data sync error:', e);
       }
+    }, 15000, force);
+  }
 
-      // 2. Sync Registrations from Supabase
-      const { data: dbRegs } = await supabase.from('registrations').select('*');
-      if (dbRegs) {
-        const dbRegList: Registration[] = dbRegs.map((r: any) => ({
-          id: r.id,
-          opportunity_id: r.opportunity_id,
-          volunteer_id: r.volunteer_id,
-          registered_at: r.registered_at || new Date().toISOString(),
-          status: r.status || 'registered',
-        }));
+  // 4. Scoped Organizer Data Sync (Only for organizer's own opportunities & applicants)
+  public async syncOrganizerData(orgId: string, force?: boolean): Promise<void> {
+    if (!isSupabaseConfigured() || !orgId) return;
+    const oUUID = ensureUUID(orgId);
+    return this.dedupe(`sync_org_${oUUID}`, async () => {
+      try {
+        const [orgRes, oppsRes] = await Promise.all([
+          supabase
+            .from('organizer_profiles')
+            .select('id, org_name, hq_country, hq_province_state, hq_city, hq_address, no_hq, bio, logo_url, verification_status, created_at')
+            .eq('id', oUUID)
+            .maybeSingle(),
+          supabase
+            .from('opportunities')
+            .select('id, org_id, title, description, instructions, category_id, banner_url, date, start_time, end_time, duration_hours, location_type, location_address, min_age, max_age, max_volunteers, is_recurring, recurrence_type, recurrence_frequency, recurrence_series_id, recurrence_count, occurrence_number, occurrence_dates, series_start_date, series_end_date, total_series_hours, status, ended_at, created_at')
+            .eq('org_id', oUUID),
+        ]);
 
-        const dbRegKeys = new Set(
-          dbRegList.map((r) => `${ensureUUID(r.opportunity_id)}_${ensureUUID(r.volunteer_id)}`)
-        );
-
-        const localOnly = this.registrations.filter(
-          (l) => !dbRegKeys.has(`${ensureUUID(l.opportunity_id)}_${ensureUUID(l.volunteer_id)}`)
-        );
-
-        this.registrations = [...dbRegList, ...localOnly];
-      }
-
-      // 3. Sync Organizers
-      const { data: dbOrgs } = await supabase.from('organizer_profiles').select('*');
-      if (dbOrgs && dbOrgs.length > 0) {
-        dbOrgs.forEach((sOrg: any) => {
-          const idx = this.organizers.findIndex((o) => o.id === sOrg.id);
+        if (orgRes.data) {
+          const sOrg = orgRes.data;
+          const idx = this.organizers.findIndex((o) => o.id === sOrg.id || ensureUUID(o.id) === oUUID);
           const mappedOrg: OrganizerProfile = {
             id: sOrg.id,
             org_name: sOrg.org_name,
@@ -317,160 +557,94 @@ class LocalDatabase {
             verification_status: sOrg.verification_status || 'verified',
             created_at: sOrg.created_at || new Date().toISOString(),
           };
-          if (idx >= 0) {
-            this.organizers[idx] = { ...this.organizers[idx], ...mappedOrg };
-          } else {
-            this.organizers.push(mappedOrg);
-          }
-        });
-      }
+          if (idx >= 0) this.organizers[idx] = { ...this.organizers[idx], ...mappedOrg };
+          else this.organizers.push(mappedOrg);
 
-      // 4. Sync Opportunities
-      const { data: dbOpps } = await supabase.from('opportunities').select('*');
-      if (dbOpps) {
-        const seriesChildCountMap = new Map<string, number>();
-        const seriesChildDatesMap = new Map<string, string[]>();
-
-        dbOpps.forEach((sOpp: any) => {
-          if (sOpp.recurrence_series_id) {
-            if (sOpp.occurrence_number !== undefined && sOpp.occurrence_number !== null) {
-              const c = seriesChildCountMap.get(sOpp.recurrence_series_id) || 0;
-              seriesChildCountMap.set(sOpp.recurrence_series_id, c + 1);
-            }
-            if (sOpp.date) {
-              const dates = seriesChildDatesMap.get(sOpp.recurrence_series_id) || [];
-              if (!dates.includes(sOpp.date)) {
-                dates.push(sOpp.date);
-                dates.sort();
-                seriesChildDatesMap.set(sOpp.recurrence_series_id, dates);
-              }
-            }
-          }
-        });
-
-        const mappedOpps: Opportunity[] = dbOpps.map((sOpp: any) => {
-          const matchOrg = this.organizers.find((o) => o.id === sOpp.org_id || o.id === ensureUUID(sOpp.org_id));
-          const resolvedOrgName =
-            sOpp.org_name && sOpp.org_name !== 'Organization'
-              ? sOpp.org_name
-              : matchOrg?.org_name || this.currentUser?.name || 'Organization';
-
-          const localMatch = this.opportunities.find((l) => l.id === sOpp.id);
-          const computedCount = sOpp.recurrence_series_id ? (seriesChildCountMap.get(sOpp.recurrence_series_id) || seriesChildDatesMap.get(sOpp.recurrence_series_id)?.length || 0) : 0;
-          const computedDates = sOpp.recurrence_series_id ? seriesChildDatesMap.get(sOpp.recurrence_series_id) : undefined;
-
-          const computedStart = sOpp.series_start_date || (computedDates && computedDates.length > 0 ? computedDates[0] : sOpp.date);
-          let computedEnd = sOpp.series_end_date || (computedDates && computedDates.length > 0 ? computedDates[computedDates.length - 1] : undefined);
-          
-          if (!computedEnd || (computedEnd === computedStart && (sOpp.recurrence_count || computedCount) > 1)) {
-            const count = sOpp.recurrence_count || computedCount || 1;
-            if (count > 1 && computedStart) {
-              const parts = computedStart.split('-');
-              if (parts.length === 3) {
-                const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-                const freq = sOpp.recurrence_frequency || 'every_week';
-                if (freq === 'every_day') {
-                  d.setDate(d.getDate() + (count - 1));
-                } else if (freq === 'every_other_week') {
-                  d.setDate(d.getDate() + (count - 1) * 14);
-                } else if (freq === 'every_month') {
-                  d.setMonth(d.getMonth() + (count - 1));
-                } else {
-                  d.setDate(d.getDate() + (count - 1) * 7);
-                }
-                const y = d.getFullYear();
-                const m = (d.getMonth() + 1).toString().padStart(2, '0');
-                const day = d.getDate().toString().padStart(2, '0');
-                computedEnd = `${y}-${m}-${day}`;
-              }
-            }
-          }
-
-          return {
-            id: sOpp.id,
-            org_id: sOpp.org_id,
-            org_name: resolvedOrgName,
-            org_verification_status: sOpp.org_verification_status || matchOrg?.verification_status || 'verified',
-            org_logo_url: sOpp.org_logo_url || matchOrg?.logo_url || undefined,
-            title: sOpp.title,
-            description: sOpp.description,
-            instructions: sOpp.instructions,
-            category_id: sOpp.category_id || 'community',
-            banner_url: sOpp.banner_url,
-            date: sOpp.date,
-            start_time: sOpp.start_time,
-            end_time: sOpp.end_time,
-            duration_hours: sOpp.duration_hours || 2,
-            location_type: sOpp.location_type || 'physical',
-            location_address: sOpp.location_address,
-            min_age: sOpp.min_age,
-            max_age: sOpp.max_age,
-            max_volunteers: sOpp.max_volunteers,
-            is_recurring: sOpp.is_recurring ?? localMatch?.is_recurring ?? false,
-            recurrence_type: sOpp.recurrence_type || localMatch?.recurrence_type,
-            recurrence_frequency: sOpp.recurrence_frequency || localMatch?.recurrence_frequency,
-            recurrence_series_id: sOpp.recurrence_series_id || localMatch?.recurrence_series_id,
-            recurrence_count: sOpp.recurrence_count || localMatch?.recurrence_count || (computedCount > 0 ? computedCount : undefined),
-            occurrence_number: sOpp.occurrence_number ?? localMatch?.occurrence_number,
-            occurrence_dates: sOpp.occurrence_dates || localMatch?.occurrence_dates || (computedDates && computedDates.length > 0 ? computedDates : undefined),
-            series_start_date: computedStart,
-            series_end_date: computedEnd || sOpp.date,
-            total_series_hours: sOpp.total_series_hours || localMatch?.total_series_hours || (computedCount > 0 ? (sOpp.duration_hours || 2) * computedCount : undefined),
-            status: sOpp.status || 'published',
-            ended_at: sOpp.ended_at || undefined,
-            created_at: sOpp.created_at || new Date().toISOString(),
-          };
-        });
-
-        this.opportunities = mappedOpps;
-        this.saveToStorage();
-      }
-
-      // 5. Update dynamic registered_count and resolve org_name fallback
-      this.opportunities.forEach((opp) => {
-        opp.registered_count = this.getRegisteredCount(opp.id);
-        if (!opp.org_name || opp.org_name === 'Organization') {
-          const matchOrg = this.organizers.find((o) => o.id === opp.org_id || o.id === ensureUUID(opp.org_id));
-          if (matchOrg && matchOrg.org_name && matchOrg.org_name !== 'Organization') {
-            opp.org_name = matchOrg.org_name;
+          if (this.currentUser && (this.currentUser.id === sOrg.id || ensureUUID(this.currentUser.id) === oUUID)) {
+            this.currentUser.avatar_url = sOrg.logo_url || this.currentUser.avatar_url;
+            this.currentUser.name = sOrg.org_name || this.currentUser.name;
           }
         }
-      });
 
-      // 6. Sync Attendance Records from Supabase PostgreSQL
-      const { data: dbAtt } = await supabase.from('attendance').select('*');
-      if (dbAtt && dbAtt.length > 0) {
-        dbAtt.forEach((a: any) => {
-          const idx = this.attendance.findIndex(
-            (existing) =>
-              existing.id === a.id ||
-              (existing.opportunity_id === a.opportunity_id && existing.volunteer_id === a.volunteer_id)
-          );
-          const opp = this.opportunities.find((o) => o.id === a.opportunity_id || o.id === ensureUUID(a.opportunity_id));
-          const mappedAtt: AttendanceRecord = {
-            id: a.id,
-            opportunity_id: a.opportunity_id,
-            opportunity_title: a.opportunity_title || opp?.title || (idx >= 0 ? this.attendance[idx].opportunity_title : undefined),
-            volunteer_id: a.volunteer_id,
-            status: a.status || 'unmarked',
-            hours_awarded: a.hours_awarded || 0,
-            is_verified_org_at_completion: a.is_verified_org_at_completion ?? true,
-            marked_at: a.marked_at || new Date().toISOString(),
-          };
-          if (idx >= 0) {
-            this.attendance[idx] = mappedAtt;
-          } else {
-            this.attendance.push(mappedAtt);
+        if (oppsRes.data && oppsRes.data.length > 0) {
+          const myOpps = this.mapOpportunitiesFromDb(oppsRes.data);
+          const myOppIds = myOpps.map((o) => o.id);
+
+          const otherOpps = this.opportunities.filter((o) => o.org_id !== orgId && ensureUUID(o.org_id) !== oUUID);
+          this.opportunities = [...otherOpps, ...myOpps];
+
+          const [regsRes, attRes] = await Promise.all([
+            supabase
+              .from('registrations')
+              .select('id, opportunity_id, volunteer_id, registered_at, status')
+              .in('opportunity_id', myOppIds),
+            supabase
+              .from('attendance')
+              .select('id, opportunity_id, opportunity_title, volunteer_id, status, hours_awarded, is_verified_org_at_completion, marked_at')
+              .in('opportunity_id', myOppIds),
+          ]);
+
+          if (regsRes.data) {
+            const orgRegs: Registration[] = regsRes.data.map((r: any) => ({
+              id: r.id,
+              opportunity_id: r.opportunity_id,
+              volunteer_id: r.volunteer_id,
+              registered_at: r.registered_at || new Date().toISOString(),
+              status: r.status || 'registered',
+            }));
+            const otherRegs = this.registrations.filter((r) => !myOppIds.includes(r.opportunity_id));
+            this.registrations = [...otherRegs, ...orgRegs];
           }
-        });
-      }
 
-      // 7. Sync Contact Messages from Supabase PostgreSQL
-      const { data: dbMsgs } = await supabase.from('contact_messages').select('*').order('created_at', { ascending: false });
-      if (dbMsgs && dbMsgs.length > 0) {
-        dbMsgs.forEach((m: any) => {
-          const idx = this.contactMessages.findIndex((existing) => existing.id === m.id);
-          const mappedMsg: ContactMessage = {
+          if (attRes.data) {
+            const orgAtt: AttendanceRecord[] = attRes.data.map((a: any) => {
+              const opp = this.opportunities.find((o) => o.id === a.opportunity_id || o.id === ensureUUID(a.opportunity_id));
+              return {
+                id: a.id,
+                opportunity_id: a.opportunity_id,
+                opportunity_title: a.opportunity_title || opp?.title,
+                volunteer_id: a.volunteer_id,
+                status: a.status || 'unmarked',
+                hours_awarded: a.hours_awarded || 0,
+                is_verified_org_at_completion: a.is_verified_org_at_completion ?? true,
+                marked_at: a.marked_at || new Date().toISOString(),
+              };
+            });
+            const otherAtt = this.attendance.filter((a) => !myOppIds.includes(a.opportunity_id));
+            this.attendance = [...otherAtt, ...orgAtt];
+          }
+        }
+
+        this.saveToStorage();
+      } catch (e) {
+        console.error('Organizer data sync error:', e);
+      }
+    }, 15000, force);
+  }
+
+  // 5. Scoped Admin Data Sync (Only when admin is authenticated in Admin Portal)
+  public async syncAdminData(force?: boolean): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    return this.dedupe('sync_admin_data', async () => {
+      try {
+        const [msgsRes, profsRes, orgsRes] = await Promise.all([
+          supabase
+            .from('contact_messages')
+            .select('id, user_id, user_name, user_email, category, subject, message, is_read, created_at')
+            .order('created_at', { ascending: false })
+            .limit(100),
+          supabase
+            .from('profiles')
+            .select('id, krow_id, role, email, name, dob, country, province_state, city, location_set, bio, avatar_url, created_at')
+            .limit(100),
+          supabase
+            .from('organizer_profiles')
+            .select('id, org_name, hq_country, hq_province_state, hq_city, hq_address, no_hq, bio, logo_url, verification_status, created_at')
+            .limit(100),
+        ]);
+
+        if (msgsRes.data) {
+          this.contactMessages = msgsRes.data.map((m: any) => ({
             id: m.id,
             user_id: m.user_id || undefined,
             user_name: m.user_name || 'User',
@@ -480,43 +654,69 @@ class LocalDatabase {
             message: m.message || '',
             is_read: m.is_read ?? false,
             created_at: m.created_at || new Date().toISOString(),
-          };
-          if (idx >= 0) {
-            this.contactMessages[idx] = mappedMsg;
-          } else {
-            this.contactMessages.push(mappedMsg);
-          }
-        });
-      }
+          }));
+        }
 
-      // 7. Sync Certificates
-      const { data: dbCerts } = await supabase.from('certificates').select('*');
-      if (dbCerts && dbCerts.length > 0) {
-        dbCerts.forEach((c: any) => {
-          const idx = this.certificates.findIndex((existing) => existing.id === c.id || existing.certificate_id === c.certificate_id);
-          const mappedCert: CertificateRecord = {
-            id: c.id,
-            certificate_id: c.certificate_id,
-            user_id: c.user_id,
-            krow_id: c.krow_id,
-            student_name: c.student_name || 'Volunteer',
-            hours: c.hours || 0,
-            activity_count: c.activity_count || 0,
-            issued_at: c.issued_at || new Date().toISOString(),
-            status: c.status || 'VALID',
-            created_at: c.created_at || new Date().toISOString(),
-          };
-          if (idx >= 0) {
-            this.certificates[idx] = mappedCert;
-          } else {
-            this.certificates.push(mappedCert);
-          }
-        });
-      }
+        if (profsRes.data) {
+          this.profiles = profsRes.data.map((p: any) => {
+            const mapped: UserProfile = {
+              id: p.id,
+              krow_id: p.krow_id || undefined,
+              role: p.role || 'volunteer',
+              email: p.email || '',
+              name: p.name || 'Volunteer',
+              dob: p.dob || undefined,
+              country: p.country || 'Canada',
+              province_state: p.province_state || 'BC',
+              city: p.city || 'Vancouver',
+              location_set: p.location_set ?? true,
+              bio: p.bio || undefined,
+              avatar_url: p.avatar_url || undefined,
+              created_at: p.created_at || new Date().toISOString(),
+            };
+            this.ensureKrowId(mapped);
+            return mapped;
+          });
+        }
 
-      this.saveToStorage();
+        if (orgsRes.data) {
+          this.organizers = orgsRes.data.map((sOrg: any) => ({
+            id: sOrg.id,
+            org_name: sOrg.org_name,
+            hq_country: sOrg.hq_country || 'Canada',
+            hq_province_state: sOrg.hq_province_state || 'BC',
+            hq_city: sOrg.hq_city || 'Vancouver',
+            hq_address: sOrg.hq_address,
+            no_hq: sOrg.no_hq || false,
+            bio: sOrg.bio,
+            logo_url: sOrg.logo_url,
+            verification_status: sOrg.verification_status || 'verified',
+            created_at: sOrg.created_at || new Date().toISOString(),
+          }));
+        }
+
+        this.saveToStorage();
+      } catch (e) {
+        console.error('Admin data sync error:', e);
+      }
+    }, 30000, force);
+  }
+
+  // 6. Scoped Backward Compatibility Sync (Never downloads all tables unconditionally)
+  public async syncWithSupabase(): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    try {
+      if (this.currentUser) {
+        if (this.currentUser.role === 'organizer') {
+          await Promise.all([this.syncOrganizerData(this.currentUser.id), this.syncOpportunities()]);
+        } else {
+          await Promise.all([this.syncVolunteerData(this.currentUser.id), this.syncOpportunities()]);
+        }
+      } else {
+        await this.syncOpportunities();
+      }
     } catch (e) {
-      console.error('Supabase sync error:', e);
+      console.error('Scoped sync error:', e);
     }
   }
 
@@ -625,7 +825,11 @@ class LocalDatabase {
     if (!isSupabaseConfigured() || !id) return null;
     try {
       const uUUID = ensureUUID(id);
-      const { data } = await supabase.from('profiles').select('*').or(`id.eq.${id},id.eq.${uUUID}`).single();
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, krow_id, role, email, name, dob, country, province_state, city, location_set, bio, avatar_url, created_at')
+        .or(`id.eq.${id},id.eq.${uUUID}`)
+        .single();
       if (data) {
         const mapped: UserProfile = {
           id: data.id,
@@ -975,7 +1179,11 @@ class LocalDatabase {
     // 2. Query Supabase 'certificates' table directly
     if (isSupabaseConfigured()) {
       try {
-        const { data } = await supabase.from('certificates').select('*').eq('certificate_id', cleanId).single();
+        const { data } = await supabase
+          .from('certificates')
+          .select('id, certificate_id, user_id, krow_id, student_name, hours, activity_count, issued_at, status, created_at')
+          .eq('certificate_id', cleanId)
+          .single();
         if (data) {
           const mapped: CertificateRecord = {
             id: data.id,
@@ -1005,7 +1213,11 @@ class LocalDatabase {
 
       if (!matchedProfile && isSupabaseConfigured()) {
         try {
-          const { data: pData } = await supabase.from('profiles').select('*').eq('krow_id', extractedKrowId).single();
+          const { data: pData } = await supabase
+            .from('profiles')
+            .select('id, krow_id, role, email, name, country, province_state, city, created_at')
+            .eq('krow_id', extractedKrowId)
+            .single();
           if (pData) {
             matchedProfile = {
               id: pData.id,
@@ -1212,7 +1424,7 @@ class LocalDatabase {
   }
 
 
-  public saveOrganizer(org: OrganizerProfile) {
+  public async saveOrganizer(org: OrganizerProfile): Promise<boolean> {
     const orgId = ensureUUID(org.id);
     org.id = orgId;
 
@@ -1223,55 +1435,71 @@ class LocalDatabase {
       this.organizers.push(org);
     }
 
-    // Update opportunities matching this org_id so org_name stays in sync!
+    if (this.currentUser && (this.currentUser.id === orgId || ensureUUID(this.currentUser.id) === orgId)) {
+      this.currentUser.avatar_url = org.logo_url || this.currentUser.avatar_url;
+      this.currentUser.name = org.org_name;
+    }
+
+    // Update opportunities matching this org_id so org_name and logo stay in sync!
     this.opportunities.forEach((opp) => {
-      if (opp.org_id === org.id) {
+      if (opp.org_id === org.id || ensureUUID(opp.org_id) === orgId) {
         opp.org_name = org.org_name;
         opp.org_logo_url = org.logo_url;
       }
     });
 
     this.saveToStorage();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('krow_data_change', { detail: { table: 'organizer_profiles' } }));
+    }
 
     if (isSupabaseConfigured()) {
-      // 1. Ensure parent profile row exists in Supabase
-      supabase
-        .from('profiles')
-        .upsert([
-          {
-            id: orgId,
-            role: 'organizer',
-            email: this.currentUser?.email || `${org.org_name.toLowerCase().replace(/\s+/g, '')}@org.com`,
-            name: org.org_name,
-            country: org.hq_country || 'Canada',
-            province_state: org.hq_province_state || 'BC',
-            city: org.hq_city || 'Vancouver',
-          },
-        ])
-        .then(({ error: pErr }) => {
-          if (pErr) console.error('Supabase profile upsert for org error:', pErr);
-          // 2. Upsert organizer profile row
-          supabase
-            .from('organizer_profiles')
-            .upsert([
-              {
-                id: orgId,
-                org_name: org.org_name,
-                hq_country: org.hq_country || 'Canada',
-                hq_province_state: org.hq_province_state || 'BC',
-                hq_city: org.hq_city || 'Vancouver',
-                hq_address: org.hq_address || null,
-                no_hq: org.no_hq || false,
-                bio: org.bio || null,
-                logo_url: org.logo_url || null,
-                verification_status: org.verification_status || 'verified',
-              },
-            ])
-            .then(({ error: oErr }) => {
-              if (oErr) console.error('Supabase organizer upsert error:', oErr);
-            });
-        });
+      try {
+        // 1. Ensure parent profile row exists in Supabase with avatar_url
+        const { error: pErr } = await supabase
+          .from('profiles')
+          .upsert([
+            {
+              id: orgId,
+              role: 'organizer',
+              email: this.currentUser?.email || `${org.org_name.toLowerCase().replace(/\s+/g, '')}@org.com`,
+              name: org.org_name,
+              country: org.hq_country || 'Canada',
+              province_state: org.hq_province_state || 'BC',
+              city: org.hq_city || 'Vancouver',
+              avatar_url: org.logo_url || null,
+            },
+          ]);
+        if (pErr) console.error('Supabase profile upsert for org error:', pErr);
+
+        // 2. Upsert organizer profile row
+        const { error: oErr } = await supabase
+          .from('organizer_profiles')
+          .upsert([
+            {
+              id: orgId,
+              org_name: org.org_name,
+              hq_country: org.hq_country || 'Canada',
+              hq_province_state: org.hq_province_state || 'BC',
+              hq_city: org.hq_city || 'Vancouver',
+              hq_address: org.hq_address || null,
+              no_hq: org.no_hq || false,
+              bio: org.bio || null,
+              logo_url: org.logo_url || null,
+              verification_status: org.verification_status || 'verified',
+            },
+          ]);
+        if (oErr) {
+          console.error('Supabase organizer upsert error:', oErr);
+          return false;
+        }
+        return true;
+      } catch (err) {
+        console.error('Save organizer error:', err);
+        return false;
+      }
     }
+    return true;
   }
 
   // --- Opportunities ---
@@ -1823,13 +2051,22 @@ class LocalDatabase {
     opportunityId: string,
     volunteerId: string
   ): Promise<{ success: boolean; message: string }> {
-    // 1. Sync latest registrations from Supabase FIRST so capacity check is 100% authoritative in real time!
-    if (isSupabaseConfigured()) {
-      await this.syncWithSupabase();
-    }
-
     const opp = this.opportunities.find((o) => o.id === opportunityId || ensureUUID(o.id) === ensureUUID(opportunityId));
     if (!opp) return { success: false, message: 'Opportunity not found' };
+
+    // Targeted real-time capacity check on Supabase directly (zero whole-database download)
+    if (isSupabaseConfigured()) {
+      try {
+        const { count } = await supabase
+          .from('registrations')
+          .select('id', { count: 'exact', head: true })
+          .eq('opportunity_id', ensureUUID(opportunityId))
+          .eq('status', 'registered');
+        if (count !== null && opp.max_volunteers !== undefined && opp.max_volunteers !== null && count >= opp.max_volunteers) {
+          return { success: false, message: 'This opportunity is full.' };
+        }
+      } catch (e) {}
+    }
 
     if (opp.status !== 'published') {
       return { success: false, message: 'Opportunity is no longer active' };
@@ -2023,9 +2260,6 @@ class LocalDatabase {
     opportunityId: string,
     volunteerId: string
   ): Promise<{ success: boolean; message: string }> {
-    if (isSupabaseConfigured()) {
-      await this.syncWithSupabase();
-    }
     const opp = this.opportunities.find((o) => o.id === opportunityId || ensureUUID(o.id) === ensureUUID(opportunityId));
     if (!opp) return { success: false, message: 'Opportunity not found' };
 
@@ -2648,6 +2882,151 @@ class LocalDatabase {
       return { success: false, message: error?.message || 'An error occurred during system reset.' };
     }
   }
+
+  // Realtime Granular Event Handlers (Zero full-database re-downloads)
+  public handleRealtimeRegistrationChange(payload: any) {
+    const { eventType, new: newRec, old: oldRec } = payload;
+    if (eventType === 'INSERT' && newRec) {
+      const mapped: Registration = {
+        id: newRec.id,
+        opportunity_id: newRec.opportunity_id,
+        volunteer_id: newRec.volunteer_id,
+        registered_at: newRec.registered_at || new Date().toISOString(),
+        status: newRec.status || 'registered',
+      };
+      const idx = this.registrations.findIndex(
+        (r) => r.id === mapped.id || (r.opportunity_id === mapped.opportunity_id && r.volunteer_id === mapped.volunteer_id)
+      );
+      if (idx >= 0) this.registrations[idx] = mapped;
+      else this.registrations.push(mapped);
+    } else if (eventType === 'UPDATE' && newRec) {
+      const idx = this.registrations.findIndex((r) => r.id === newRec.id);
+      if (idx >= 0) {
+        this.registrations[idx] = { ...this.registrations[idx], ...newRec };
+      }
+    } else if (eventType === 'DELETE' && oldRec?.id) {
+      this.registrations = this.registrations.filter((r) => r.id !== oldRec.id);
+    }
+    this.saveToStorage();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('krow_data_change', { detail: { table: 'registrations' } }));
+    }
+  }
+
+  public handleRealtimeOpportunityChange(payload: any) {
+    const { eventType, new: newRec, old: oldRec } = payload;
+    if ((eventType === 'INSERT' || eventType === 'UPDATE') && newRec) {
+      const mapped = this.mapOpportunitiesFromDb([newRec])[0];
+      if (mapped) {
+        const idx = this.opportunities.findIndex((o) => o.id === mapped.id);
+        if (idx >= 0) this.opportunities[idx] = mapped;
+        else this.opportunities.push(mapped);
+      }
+    } else if (eventType === 'DELETE' && oldRec?.id) {
+      this.opportunities = this.opportunities.filter((o) => o.id !== oldRec.id);
+    }
+    this.saveToStorage();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('krow_data_change', { detail: { table: 'opportunities' } }));
+    }
+  }
+
+  public handleRealtimeAttendanceChange(payload: any) {
+    const { eventType, new: newRec, old: oldRec } = payload;
+    if ((eventType === 'INSERT' || eventType === 'UPDATE') && newRec) {
+      const opp = this.opportunities.find((o) => o.id === newRec.opportunity_id || o.id === ensureUUID(newRec.opportunity_id));
+      const mapped: AttendanceRecord = {
+        id: newRec.id,
+        opportunity_id: newRec.opportunity_id,
+        opportunity_title: newRec.opportunity_title || opp?.title,
+        volunteer_id: newRec.volunteer_id,
+        status: newRec.status || 'unmarked',
+        hours_awarded: newRec.hours_awarded || 0,
+        is_verified_org_at_completion: newRec.is_verified_org_at_completion ?? true,
+        marked_at: newRec.marked_at || new Date().toISOString(),
+      };
+      const idx = this.attendance.findIndex(
+        (a) => a.id === mapped.id || (a.opportunity_id === mapped.opportunity_id && a.volunteer_id === mapped.volunteer_id)
+      );
+      if (idx >= 0) this.attendance[idx] = mapped;
+      else this.attendance.push(mapped);
+    } else if (eventType === 'DELETE' && oldRec?.id) {
+      this.attendance = this.attendance.filter((a) => a.id !== oldRec.id);
+    }
+    this.saveToStorage();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('krow_data_change', { detail: { table: 'attendance' } }));
+    }
+  }
+
+  public handleRealtimeProfileChange(payload: any) {
+    const { eventType, new: newRec } = payload;
+    if ((eventType === 'INSERT' || eventType === 'UPDATE') && newRec) {
+      if (this.currentUser && (this.currentUser.id === newRec.id || ensureUUID(this.currentUser.id) === ensureUUID(newRec.id))) {
+        this.currentUser = {
+          ...this.currentUser,
+          ...newRec,
+          dob: newRec.dob || this.currentUser.dob,
+          krow_id: newRec.krow_id || this.currentUser.krow_id,
+        };
+        this.saveToStorage();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('krow_data_change', { detail: { table: 'profiles' } }));
+        }
+      }
+    }
+  }
+
+  public handleRealtimeOrganizerChange(payload: any): void {
+    if (!payload) return;
+    const { eventType, new: newRec, old: oldRec } = payload;
+    if (eventType === 'DELETE' && oldRec?.id) {
+      const delId = oldRec.id;
+      const delUUID = ensureUUID(delId);
+      this.organizers = this.organizers.filter((o) => o.id !== delId && ensureUUID(o.id) !== delUUID);
+      this.opportunities = this.opportunities.filter(
+        (opp) => opp.org_id !== delId && ensureUUID(opp.org_id) !== delUUID
+      );
+      this.saveToStorage();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('krow_data_change', { detail: { table: 'organizer_profiles', event: 'DELETE' } }));
+      }
+    } else if (eventType === 'INSERT' || eventType === 'UPDATE') {
+      if (newRec?.id) {
+        const mapped: OrganizerProfile = {
+          id: newRec.id,
+          org_name: newRec.org_name,
+          hq_country: newRec.hq_country || 'Canada',
+          hq_province_state: newRec.hq_province_state || 'BC',
+          hq_city: newRec.hq_city || 'Vancouver',
+          hq_address: newRec.hq_address,
+          no_hq: newRec.no_hq || false,
+          bio: newRec.bio,
+          logo_url: newRec.logo_url,
+          verification_status: newRec.verification_status || 'verified',
+          created_at: newRec.created_at || new Date().toISOString(),
+        };
+        const idx = this.organizers.findIndex((o) => o.id === mapped.id || ensureUUID(o.id) === ensureUUID(mapped.id));
+        if (idx >= 0) {
+          this.organizers[idx] = { ...this.organizers[idx], ...mapped };
+        } else {
+          this.organizers.push(mapped);
+        }
+        // Update associated opportunities with new org logo & name
+        this.opportunities.forEach((opp) => {
+          if (opp.org_id === mapped.id || ensureUUID(opp.org_id) === ensureUUID(mapped.id)) {
+            opp.org_name = mapped.org_name;
+            opp.org_logo_url = mapped.logo_url;
+            opp.org_verification_status = mapped.verification_status;
+          }
+        });
+        this.saveToStorage();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('krow_data_change', { detail: { table: 'organizer_profiles', event: eventType } }));
+        }
+      }
+    }
+  }
 }
 
 export const db = new LocalDatabase();
@@ -2655,21 +3034,21 @@ export const db = new LocalDatabase();
 if (typeof window !== 'undefined' && isSupabaseConfigured()) {
   try {
     supabase
-      .channel('public-db-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations' }, () => {
-        db.syncWithSupabase().then(() => {
-          window.dispatchEvent(new Event('storage'));
-        });
+      .channel('krow-realtime-granular')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations' }, (payload: any) => {
+        db.handleRealtimeRegistrationChange(payload);
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'opportunities' }, () => {
-        db.syncWithSupabase().then(() => {
-          window.dispatchEvent(new Event('storage'));
-        });
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'opportunities' }, (payload: any) => {
+        db.handleRealtimeOpportunityChange(payload);
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-        db.syncWithSupabase().then(() => {
-          window.dispatchEvent(new Event('storage'));
-        });
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, (payload: any) => {
+        db.handleRealtimeAttendanceChange(payload);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload: any) => {
+        db.handleRealtimeProfileChange(payload);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'organizer_profiles' }, (payload: any) => {
+        db.handleRealtimeOrganizerChange(payload);
       })
       .subscribe();
   } catch (e) {

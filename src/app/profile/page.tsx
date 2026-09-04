@@ -12,10 +12,13 @@ export default function ProfilePage() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
 
   useEffect(() => {
-    setCurrentUser(db.getCurrentUser());
-    db.syncWithSupabase().then(() => {
-      setCurrentUser(db.getCurrentUser());
-    });
+    const u = db.getCurrentUser();
+    setCurrentUser(u);
+    if (u) {
+      db.syncVolunteerData(u.id).then(() => {
+        setCurrentUser(db.getCurrentUser());
+      });
+    }
   }, []);
 
   const handleLogout = async () => {

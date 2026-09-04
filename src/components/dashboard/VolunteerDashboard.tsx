@@ -17,8 +17,10 @@ import {
   XCircle,
   UserMinus,
 } from 'lucide-react';
+import Link from 'next/link';
 import { UserProfile, Opportunity, Registration, AttendanceRecord } from '@/lib/types';
 import { db } from '@/lib/db';
+import { getAvatarDataUrl } from '@/lib/avatar';
 import { getNextBadgeInfo, getBadgeForHours } from '@/lib/badges';
 import { generateVolunteerHoursReport } from '@/lib/pdf-report';
 import { createGoogleCalendarUrl, openAllUpcomingInCalendar } from '@/lib/google-calendar';
@@ -35,19 +37,18 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
 
   useEffect(() => {
     refreshData();
-    db.syncWithSupabase().then(() => refreshData());
+    Promise.all([
+      db.syncVolunteerData(currentUser.id),
+      db.syncOpportunities(),
+    ]).then(() => refreshData());
 
-    const handleSync = () => {
-      db.syncWithSupabase().then(() => refreshData());
+    const handleDataChange = () => {
+      refreshData();
     };
 
-    const interval = setInterval(handleSync, 2000);
-    window.addEventListener('focus', handleSync);
-    window.addEventListener('storage', handleSync);
+    window.addEventListener('krow_data_change', handleDataChange);
     return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', handleSync);
-      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('krow_data_change', handleDataChange);
     };
   }, [currentUser]);
 
@@ -104,11 +105,24 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Greeting Header (Section 17 Spec) */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
-          Good day, {currentUser.name || 'Volunteer'}
-        </h1>
-        <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">Keep making an impact in your community.</p>
+      <div className="flex items-center gap-3.5">
+        <Link
+          href="/profile"
+          className="w-12 h-12 rounded-2xl overflow-hidden bg-purple-100 border-2 border-purple-200 shadow-xs shrink-0 group transition-transform active:scale-95"
+          title="Customize Profile Avatar"
+        >
+          <img
+            src={currentUser.avatar_url || getAvatarDataUrl()}
+            alt={currentUser.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+          />
+        </Link>
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
+            Good day, {currentUser.name || 'Volunteer'}
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-500 font-medium mt-0.5">Keep making an impact in your community.</p>
+        </div>
       </div>
 
       {/* Hours Hero Card & Badge Progression Card (Section 17 & 18 Spec) */}

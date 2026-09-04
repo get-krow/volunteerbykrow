@@ -45,27 +45,35 @@ export const OpportunityFeed: React.FC<OpportunityFeedProps> = ({ currentUser, o
 
   useEffect(() => {
     setIsMounted(true);
+    setOpportunities(db.getOpportunities());
+    if (currentUser) {
+      setRegistrations(db.getVolunteerRegistrations(currentUser.id));
+    }
+
     refreshData();
 
-    const handleSync = () => {
-      refreshData();
+    const handleDataChange = () => {
+      setOpportunities(db.getOpportunities());
+      if (currentUser) {
+        setRegistrations(db.getVolunteerRegistrations(currentUser.id));
+      }
     };
 
-    const interval = setInterval(() => {
-      refreshData();
-    }, 2000);
-
-    window.addEventListener('focus', handleSync);
-    window.addEventListener('storage', handleSync);
+    window.addEventListener('krow_data_change', handleDataChange);
     return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', handleSync);
-      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('krow_data_change', handleDataChange);
     };
   }, [currentUser]);
 
   const refreshData = async () => {
-    await db.syncWithSupabase();
+    if (currentUser) {
+      await Promise.all([
+        db.syncOpportunities(),
+        db.syncVolunteerData(currentUser.id),
+      ]);
+    } else {
+      await db.syncOpportunities();
+    }
     setOpportunities(db.getOpportunities());
     if (currentUser) {
       setRegistrations(db.getVolunteerRegistrations(currentUser.id));
