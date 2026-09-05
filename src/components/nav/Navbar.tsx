@@ -8,7 +8,6 @@ import { UserProfile, SystemRole, NotificationItem } from '@/lib/types';
 import { db } from '@/lib/db';
 import { useTheme } from '@/lib/theme';
 import { DobReminderModal } from '../auth/DobReminderModal';
-import { getAvatarDataUrl } from '@/lib/avatar';
 
 interface NavbarProps {
   currentUser: UserProfile | null;
@@ -202,20 +201,14 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, onOpenAuth, onLogou
                 title="View Profile Settings"
               >
                 <div className="w-8 h-8 rounded-full overflow-hidden bg-purple-100 border border-purple-200 shadow-2xs shrink-0 flex items-center justify-center text-xs font-black text-[#635BFF]">
-                  {currentUser.role === 'volunteer' ? (
-                    <img
-                      src={currentUser.avatar_url || getAvatarDataUrl()}
-                      alt={currentUser.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : currentUser.avatar_url ? (
+                  {currentUser.avatar_url ? (
                     <img
                       src={currentUser.avatar_url}
                       alt={currentUser.name}
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    currentUser.name?.charAt(0) || 'O'
+                    (currentUser.name?.charAt(0) || (currentUser.role === 'organizer' ? 'O' : 'V')).toUpperCase()
                   )}
                 </div>
                 <div className="hidden sm:flex flex-col text-left">

@@ -20,7 +20,6 @@ import {
 import Link from 'next/link';
 import { UserProfile, Opportunity, Registration, AttendanceRecord } from '@/lib/types';
 import { db } from '@/lib/db';
-import { getAvatarDataUrl } from '@/lib/avatar';
 import { getNextBadgeInfo, getBadgeForHours } from '@/lib/badges';
 import { generateVolunteerHoursReport } from '@/lib/pdf-report';
 import { createGoogleCalendarUrl, openAllUpcomingInCalendar } from '@/lib/google-calendar';
@@ -108,14 +107,18 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({ currentU
       <div className="flex items-center gap-3.5">
         <Link
           href="/profile"
-          className="w-12 h-12 rounded-2xl overflow-hidden bg-purple-100 border-2 border-purple-200 shadow-xs shrink-0 group transition-transform active:scale-95"
-          title="Customize Profile Avatar"
+          className="w-12 h-12 rounded-2xl overflow-hidden bg-purple-100 border-2 border-purple-200 shadow-xs shrink-0 group transition-transform active:scale-95 flex items-center justify-center font-black text-lg text-[#635BFF]"
+          title="View Profile Settings"
         >
-          <img
-            src={currentUser.avatar_url || getAvatarDataUrl()}
-            alt={currentUser.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-          />
+          {currentUser.avatar_url ? (
+            <img
+              src={currentUser.avatar_url}
+              alt={currentUser.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+            />
+          ) : (
+            <span>{(currentUser.name || 'V').charAt(0).toUpperCase()}</span>
+          )}
         </Link>
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">

@@ -1,13 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { User, MapPin, Calendar, Mail, Save, LogOut, Trash2, Camera, ShieldAlert, HelpCircle, Sun, Moon, ShieldCheck, Copy, Check, Sparkles } from 'lucide-react';
+import { User, MapPin, Calendar, Mail, Save, LogOut, Trash2, Camera, ShieldAlert, HelpCircle, Sun, Moon, ShieldCheck, Copy, Check } from 'lucide-react';
 import { UserProfile } from '@/lib/types';
 import { db } from '@/lib/db';
 import { useTheme } from '@/lib/theme';
 import { DeleteAccountModal } from '../auth/DeleteAccountModal';
-import { AvatarBuilder } from './AvatarBuilder';
-import { getAvatarDataUrl } from '@/lib/avatar';
+import { compressImage } from '@/lib/image';
 
 interface VolunteerProfileProps {
   currentUser: UserProfile;
@@ -40,7 +39,6 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
   const [isSaved, setIsSaved] = useState(false);
   const [copiedKrowId, setCopiedKrowId] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isAvatarBuilderOpen, setIsAvatarBuilderOpen] = useState(false);
 
   useEffect(() => {
     if (currentUser.dob) setDob(currentUser.dob);
@@ -53,6 +51,35 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
   }, [currentUser]);
 
   const calculatedAge = useMemo(() => calculateCurrentAge(dob), [dob]);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Please select an image file under 5MB.');
+      return;
+    }
+    try {
+      const compressed = await compressImage(file, 400, 400, 0.85);
+      setAvatarUrl(compressed);
+      db.updateProfile({ avatar_url: compressed });
+    } catch (err) {
+      console.error('Failed to compress image:', err);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          setAvatarUrl(reader.result);
+          db.updateProfile({ avatar_url: reader.result });
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setAvatarUrl('');
+    db.updateProfile({ avatar_url: '' });
+  };
 
 
   const handleSave = (e: React.FormEvent) => {
@@ -141,56 +168,56 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
         </div>
 
         <form onSubmit={handleSave} className="space-y-4">
-          {/* Volunteer Avatar Customizer */}
+          {/* Profile Photo */}
           <div className="p-4 rounded-2xl bg-purple-50/40 border border-purple-100 flex items-center gap-4">
             <div className="relative group w-16 h-16 rounded-full bg-purple-100 text-[#635BFF] flex items-center justify-center font-bold text-xl overflow-hidden border-2 border-purple-200 shrink-0 shadow-2xs">
-              <img
-                src={avatarUrl || getAvatarDataUrl()}
-                alt={name}
-                className="w-full h-full object-cover"
-              />
-              <button
-                type="button"
-                onClick={() => setIsAvatarBuilderOpen(true)}
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span>{(name || 'V').charAt(0).toUpperCase()}</span>
+              )}
+              <label
+                htmlFor="profile-photo-input"
                 className="absolute inset-0 bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                title="Customize Avatar"
+                title="Upload Photo"
               >
-                <Sparkles className="w-5 h-5" />
-              </button>
+                <Camera className="w-5 h-5" />
+              </label>
             </div>
 
             <div className="flex-1 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <label className="block text-xs font-extrabold text-gray-900">Volunteer Avatar</label>
-                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-100 text-[#635BFF]">
-                  Top-Half Custom
-                </span>
-              </div>
+              <label className="block text-xs font-extrabold text-gray-900">Profile Photo</label>
               <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => setIsAvatarBuilderOpen(true)}
+                <label
+                  htmlFor="profile-photo-input"
                   className="px-3.5 py-2 bg-[#635BFF] hover:bg-[#5046E5] text-white rounded-xl text-xs font-extrabold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
                 >
-                  <Sparkles className="w-3.5 h-3.5" /> Customize Avatar
-                </button>
+                  <Camera className="w-3.5 h-3.5" /> Upload Photo
+                  <input
+                    id="profile-photo-input"
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
+                </label>
 
                 {avatarUrl && (
                   <button
                     type="button"
-                    onClick={() => {
-                      const defaultUrl = getAvatarDataUrl();
-                      setAvatarUrl(defaultUrl);
-                      db.updateProfile({ avatar_url: defaultUrl });
-                    }}
-                    className="px-3 py-2 bg-white text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl text-xs font-bold transition-colors border border-gray-200"
+                    onClick={handleRemovePhoto}
+                    className="px-3 py-2 bg-white text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-xl text-xs font-bold transition-colors border border-gray-200"
                   >
-                    Reset to Default
+                    Remove Photo
                   </button>
                 )}
               </div>
               <p className="text-[11px] text-gray-500 font-medium">
-                Choose your hair, accessories, skin tone, and clothing style.
+                Upload a JPG, PNG, or WebP photo to personalize your profile.
               </p>
             </div>
           </div>
@@ -330,15 +357,6 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
         userName={currentUser.name}
       />
 
-      <AvatarBuilder
-        isOpen={isAvatarBuilderOpen}
-        initialAvatarUrl={avatarUrl}
-        onSave={(newAvatarDataUrl) => {
-          setAvatarUrl(newAvatarDataUrl);
-          db.updateProfile({ avatar_url: newAvatarDataUrl });
-        }}
-        onClose={() => setIsAvatarBuilderOpen(false)}
-      />
     </div>
   );
 };
