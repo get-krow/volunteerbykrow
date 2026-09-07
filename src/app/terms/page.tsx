@@ -14,12 +14,25 @@ import {
   Mail,
   Scale,
   Sparkles,
+  ArrowLeft,
 } from 'lucide-react';
 
 export default function TermsPage() {
   return (
     <MainLayout>
-      <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12 space-y-8">
+      <div className="max-w-4xl mx-auto px-4 py-4 sm:py-10 space-y-6 sm:space-y-8">
+        {/* Navigation Breadcrumb / Back Link */}
+        <div className="flex items-center justify-between">
+          <Link
+            href="/profile"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-gray-200/80 text-xs font-bold text-gray-600 hover:text-[#635BFF] hover:border-purple-200 transition-all shadow-2xs group"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+            <span>Back to Profile</span>
+          </Link>
+          <span className="text-[11px] font-semibold text-gray-400">Trust & Safety</span>
+        </div>
+
         {/* Header */}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-700 to-[#4338ca] p-8 sm:p-12 text-white shadow-xl">
           <div className="relative z-10 space-y-4 max-w-2xl">
