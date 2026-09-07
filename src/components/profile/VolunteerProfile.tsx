@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { useTheme } from '@/lib/theme';
 import { DeleteAccountModal } from '../auth/DeleteAccountModal';
 import { compressImage } from '@/lib/image';
+import { LegalSafetyNav } from './LegalSafetyNav';
 
 interface VolunteerProfileProps {
   currentUser: UserProfile;
@@ -348,6 +349,11 @@ export const VolunteerProfile: React.FC<VolunteerProfileProps> = ({ currentUser,
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Safety, Policies & Guidelines Section */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-card">
+        <LegalSafetyNav />
       </div>
 
       <DeleteAccountModal

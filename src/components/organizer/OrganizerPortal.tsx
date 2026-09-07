@@ -35,6 +35,7 @@ import { getBadgeForHours } from '@/lib/badges';
 import { DeleteAccountModal } from '../auth/DeleteAccountModal';
 import { AppleWheelPicker, AppleWheelOption } from '../ui/AppleWheelPicker';
 import { compressImage } from '@/lib/image';
+import { LegalSafetyNav } from '../profile/LegalSafetyNav';
 
 const MONTH_OPTIONS: AppleWheelOption[] = [
   { label: 'Jan', value: '01' },
@@ -1680,6 +1681,10 @@ export const OrganizerPortal: React.FC<OrganizerPortalProps> = ({ currentUser, o
             >
               Delete Organization Account
             </button>
+          </div>
+
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-2xs max-w-xl mx-auto">
+            <LegalSafetyNav />
           </div>
         </div>
       )}

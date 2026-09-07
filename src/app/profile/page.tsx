@@ -7,6 +7,8 @@ import { AuthModal } from '@/components/auth/AuthModal';
 import { UserProfile } from '@/lib/types';
 import { db } from '@/lib/db';
 
+import { LegalSafetyNav } from '@/components/profile/LegalSafetyNav';
+
 export default function ProfilePage() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -32,15 +34,28 @@ export default function ProfilePage() {
       {currentUser ? (
         <VolunteerProfile currentUser={currentUser} onLogout={handleLogout} />
       ) : (
-        <div className="max-w-md mx-auto my-20 p-8 bg-white rounded-3xl border border-gray-200 shadow-sm text-center space-y-4">
-          <h2 className="text-xl font-extrabold text-gray-900">Volunteer Profile</h2>
-          <p className="text-xs text-gray-500 font-medium">Sign in to manage your profile settings, date of birth, and location.</p>
-          <button
-            onClick={() => setIsAuthOpen(true)}
-            className="px-6 py-3 bg-[#635BFF] hover:bg-[#5046E5] text-white font-bold text-xs rounded-xl shadow-sm transition-all"
-          >
-            Sign In to Volunteer Account
-          </button>
+        <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
+          <div className="p-8 bg-white rounded-3xl border border-gray-100 shadow-card text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-purple-100 text-[#635BFF] flex items-center justify-center font-bold text-xl mx-auto">
+              V
+            </div>
+            <h2 className="text-xl font-extrabold text-gray-900">Volunteer Profile</h2>
+            <p className="text-xs text-gray-500 font-medium max-w-md mx-auto">
+              Sign in to manage your volunteer settings, date of birth, age-verified credentials, and official Krow ID.
+            </p>
+            <div>
+              <button
+                onClick={() => setIsAuthOpen(true)}
+                className="px-6 py-3 bg-[#635BFF] hover:bg-[#5046E5] text-white font-bold text-xs rounded-xl shadow-sm transition-all"
+              >
+                Sign In to Volunteer Account
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-card">
+            <LegalSafetyNav />
+          </div>
         </div>
       )}
 

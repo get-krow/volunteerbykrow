@@ -62,6 +62,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
     { name: 'How It Works & FAQ', href: '/faq' },
     { name: 'Terms of Service', href: '/terms' },
     { name: 'Privacy Policy', href: '/privacy' },
+    { name: 'Community Guidelines', href: '/community-guidelines' },
   ];
 
   const handleLogout = async () => {
